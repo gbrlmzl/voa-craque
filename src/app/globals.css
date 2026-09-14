@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+@theme {
+  --color-pitch-50: #edfdf3;
+  --color-pitch-100: #d4f7e1;
+  --color-pitch-300: #6ee7a8;
+  --color-pitch-400: #34d98a;
+  --color-pitch-500: #16b873;
+  --color-pitch-600: #0f9560;
+  --color-night-700: #17212b;
+  --color-night-800: #111a22;
+  --color-night-900: #0b1219;
+  --color-night-950: #060b10;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background-color: var(--color-night-950);
+  color: #e8eef4;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  min-height: 100dvh;
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overscroll-behavior-y: none;
+}
+
+/* Alvos de toque: a quadra tem pouca luz e a mao esta suja. */
+@utility touch-target {
+  min-height: 3rem;
+  min-width: 3rem;
+}
+
+@utility safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+@keyframes ball-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 217, 138, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 18px 4px rgba(52, 217, 138, 0.35);
+  }
+}
+
+@utility ball-glow {
+  animation: ball-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes snack-in {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility snack-in {
+  animation: snack-in 160ms ease-out;
+}
+
+@keyframes pulse-live {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@utility pulse-live {
+  animation: pulse-live 1.4s ease-in-out infinite;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #24313d;
+  border-radius: 9999px;
+}

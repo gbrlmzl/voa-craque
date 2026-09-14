@@ -1,0 +1,340 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- enums
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+  USER
+}
+
+enum Foot {
+  LEFT
+  RIGHT
+  BOTH
+}
+
+enum Position {
+  GOALKEEPER
+  FIXO
+  ALA
+  PIVO
+}
+
+enum Course {
+  LCC
+  SI
+  OTHER
+}
+
+enum SkillPolarity {
+  POSITIVE
+  NEGATIVE
+}
+
+enum GameDayStatus {
+  OPEN
+  TEAMS_SET
+  LIVE
+  FINISHED
+}
+
+enum PaymentMethod {
+  PIX
+  ON_SITE
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+enum MatchStatus {
+  SCHEDULED
+  RUNNING
+  PAUSED
+  FINISHED
+}
+
+enum MatchResult {
+  HOME
+  AWAY
+  DRAW
+}
+
+enum MatchEndReason {
+  GOALS
+  TIME
+  MANUAL
+}
+
+enum MatchEventType {
+  GOAL
+  ASSIST
+}
+
+// ---------------------------------------------------------------- identity
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(USER)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profile            PlayerProfile?
+  registrations      Registration[]
+  teamMemberships    TeamPlayer[]
+  reserves           GameDayReserve[]
+  matchEvents        MatchEvent[]     @relation("EventPlayer")
+  recordedEvents     MatchEvent[]     @relation("EventRecorder")
+  createdGameDays    GameDay[]        @relation("GameDayCreator")
+  confirmedPayments  Registration[]   @relation("PaymentConfirmer")
+  auditLogs          AuditLog[]
+  skillAssignments   PlayerSkill[]    @relation("SkillAssigner")
+  systemSettingEdits SystemSetting[]  @relation("SettingsEditor")
+
+  @@index([role])
+}
+
+model PlayerProfile {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  photoUrl   String?
+  foot       Foot
+  position   Position
+  age        Int
+  heightCm   Int
+  weightKg   Int
+  course     Course
+  courseName String?
+  nickname   String?
+  stars      Float?
+  completed  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skills PlayerSkill[]
+}
+
+model Skill {
+  id       String        @id @default(cuid())
+  code     String        @unique
+  label    String
+  polarity SkillPolarity
+
+  players PlayerSkill[]
+}
+
+model PlayerSkill {
+  profileId    String
+  skillId      String
+  assignedById String?
+  createdAt    DateTime @default(now())
+
+  profile    PlayerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  skill      Skill         @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  assignedBy User?         @relation("SkillAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@id([profileId, skillId])
+}
+
+// ---------------------------------------------------------------- pelada
+
+model GameDay {
+  id                  String        @id @default(cuid())
+  title               String
+  scheduledAt         DateTime
+  location            String
+  pricePerPlayerCents Int           @default(450)
+  matchDurationSec    Int           @default(600)
+  goalsToWin          Int           @default(2)
+  maxPlayers          Int           @default(20)
+  teamSize            Int           @default(5)
+  status              GameDayStatus @default(OPEN)
+  pixKey              String?
+  notes               String?
+  createdById         String
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  finishedAt          DateTime?
+
+  createdBy     User             @relation("GameDayCreator", fields: [createdById], references: [id])
+  registrations Registration[]
+  teams         Team[]
+  matches       Match[]
+  reserves      GameDayReserve[]
+
+  @@index([status, scheduledAt])
+}
+
+model Registration {
+  id             String        @id @default(cuid())
+  gameDayId      String
+  userId         String
+  paymentMethod  PaymentMethod
+  paymentStatus  PaymentStatus @default(PENDING)
+  receiptUrl     String?
+  amountCents    Int
+  confirmedById  String?
+  confirmedAt    DateTime?
+  rejectedReason String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  gameDay     GameDay @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  confirmedBy User?   @relation("PaymentConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
+
+  @@unique([gameDayId, userId])
+  @@index([gameDayId, paymentStatus])
+}
+
+model Team {
+  id              String   @id @default(cuid())
+  gameDayId       String
+  name            String
+  colorToken      String   @default("slate")
+  averageStrength Float    @default(0)
+  queuePosition   Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  gameDay     GameDay      @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
+  players     TeamPlayer[]
+  homeMatches Match[]      @relation("HomeTeam")
+  awayMatches Match[]      @relation("AwayTeam")
+  wonMatches  Match[]      @relation("WinnerTeam")
+  events      MatchEvent[]
+
+  @@unique([gameDayId, name])
+  @@index([gameDayId, queuePosition])
+}
+
+model TeamPlayer {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  isKeeper  Boolean  @default(false)
+  strength  Float    @default(0)
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+}
+
+model GameDayReserve {
+  id        String   @id @default(cuid())
+  gameDayId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  gameDay GameDay @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([gameDayId, userId])
+}
+
+// ---------------------------------------------------------------- partida
+
+model Match {
+  id            String          @id @default(cuid())
+  gameDayId     String
+  orderIndex    Int
+  homeTeamId    String
+  awayTeamId    String
+  homeScore     Int             @default(0)
+  awayScore     Int             @default(0)
+  status        MatchStatus     @default(SCHEDULED)
+  durationMs    Int
+  remainingMs   Int
+  lastResumedAt DateTime?
+  startedAt     DateTime?
+  endedAt       DateTime?
+  result        MatchResult?
+  endReason     MatchEndReason?
+  winnerTeamId  String?
+  // Posicoes da fila no instante do encerramento, para desfazer o gol decisivo.
+  queueSnapshot Json?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  gameDay    GameDay      @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
+  homeTeam   Team         @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Cascade)
+  awayTeam   Team         @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Cascade)
+  winnerTeam Team?        @relation("WinnerTeam", fields: [winnerTeamId], references: [id], onDelete: SetNull)
+  events     MatchEvent[]
+
+  @@unique([gameDayId, orderIndex])
+  @@index([gameDayId, status])
+}
+
+model MatchEvent {
+  id          String         @id @default(cuid())
+  matchId     String
+  teamId      String
+  userId      String
+  type        MatchEventType
+  elapsedMs   Int
+  createdById String
+  createdAt   DateTime       @default(now())
+
+  match     Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team      Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User  @relation("EventPlayer", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy User  @relation("EventRecorder", fields: [createdById], references: [id])
+
+  @@index([matchId, createdAt])
+  @@index([userId, type])
+}
+
+// ---------------------------------------------------------------- sistema
+
+model SystemSetting {
+  id                  String   @id @default("global")
+  publicAccessEnabled Boolean  @default(true)
+  maintenanceMessage  String   @default("Estamos em manutenção. Volte em alguns minutos.")
+  registrationOpen    Boolean  @default(true)
+  updatedById         String?
+  updatedAt           DateTime @updatedAt
+
+  updatedBy User? @relation("SettingsEditor", fields: [updatedById], references: [id], onDelete: SetNull)
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorEmail String?
+  actorRole  Role?
+  action     String
+  entity     String
+  entityId   String?
+  summary    String?
+  before     Json?
+  after      Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([entity, entityId])
+  @@index([actorId])
+  @@index([action])
+}
