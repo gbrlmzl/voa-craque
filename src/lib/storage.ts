@@ -16,7 +16,10 @@ export type UploadFolder = "fotos" | "comprovantes";
 
 function uploadDir(): string {
   const configured = process.env.UPLOAD_DIR ?? "./uploads";
-  return path.isAbsolute(configured) ? configured : path.join(process.cwd(), configured);
+  // Volume de uploads resolvido em runtime: o Turbopack nao deve rastrear o projeto inteiro.
+  return path.isAbsolute(configured)
+    ? configured
+    : path.join(/*turbopackIgnore: true*/ process.cwd(), configured);
 }
 
 function assertValid(file: File): string {
