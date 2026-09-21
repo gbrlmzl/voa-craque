@@ -5,3 +5,4 @@ uploads
 .env
 npm-debug.log
 coverage
+src/generated

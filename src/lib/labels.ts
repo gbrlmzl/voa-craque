@@ -9,7 +9,7 @@ import type {
   PaymentStatus,
   Position,
   Role,
-} from "@prisma/client";
+} from "@/generated/prisma/client";
 
 export const ROLE_LABEL: Record<Role, string> = {
   SUPERADMIN: "Superadmin",

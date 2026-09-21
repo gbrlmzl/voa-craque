@@ -1,4 +1,4 @@
-import type { PaymentMethod, PaymentStatus, Position } from "@prisma/client";
+import type { PaymentMethod, PaymentStatus, Position } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { badRequest, conflict, notFound } from "@/lib/http";
 import { AUDIT_ACTIONS, recordAudit } from "@/lib/audit";

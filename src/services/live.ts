@@ -1,4 +1,4 @@
-import type { GameDayStatus, MatchEndReason, MatchEventType, MatchStatus } from "@prisma/client";
+import type { GameDayStatus, MatchEndReason, MatchEventType, MatchStatus } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "@/lib/http";
 import { remainingAt } from "@/lib/match-engine";

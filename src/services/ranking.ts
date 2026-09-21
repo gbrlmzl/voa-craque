@@ -1,4 +1,4 @@
-import type { Position } from "@prisma/client";
+import type { Position } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export type RankingRow = {

@@ -10,9 +10,9 @@ const PUBLIC_PREFIXES = ["/api/auth"];
 /**
  * Primeira barreira: quem nao tem sessao nao chega nas paginas nem na API.
  * A autorizacao por papel e refeita dentro de cada route handler e pagina,
- * porque o middleware sozinho nao protege chamadas diretas.
+ * porque o proxy sozinho nao protege chamadas diretas.
  */
-export default auth((req) => {
+export const proxy = auth((req) => {
   const { pathname } = req.nextUrl;
   const signedIn = Boolean(req.auth?.user);
 

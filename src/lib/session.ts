@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import type { Role } from "@prisma/client";
+import type { Role } from "@/generated/prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { forbidden, unauthorized } from "@/lib/http";

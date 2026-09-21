@@ -1,5 +1,5 @@
-import { Prisma } from "@prisma/client";
-import type { Match, MatchEndReason } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
+import type { Match, MatchEndReason } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { badRequest, conflict, notFound } from "@/lib/http";
 import { AUDIT_ACTIONS, recordAudit } from "@/lib/audit";

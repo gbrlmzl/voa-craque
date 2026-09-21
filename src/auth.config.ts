@@ -1,5 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
-import type { Role } from "@prisma/client";
+import type { Role } from "@/generated/prisma/client";
 
 /**
  * Configuracao compartilhada entre o proxy (src/proxy.ts) e o servidor.

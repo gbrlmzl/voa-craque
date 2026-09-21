@@ -16,7 +16,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import type { Role } from "@prisma/client";
+import type { Role } from "@/generated/prisma/client";
 import { logoutAction } from "@/actions/auth";
 import { Avatar } from "@/components/player";
 import { Button, cn } from "@/components/ui";

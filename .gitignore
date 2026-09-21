@@ -8,3 +8,6 @@ next-env.d.ts
 uploads/*
 !uploads/.gitkeep
 coverage
+
+# Prisma Client gerado (prisma generate)
+src/generated

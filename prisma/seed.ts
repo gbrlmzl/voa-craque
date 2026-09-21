@@ -1,8 +1,12 @@
-import { PrismaClient, type Course, type Foot, type Position } from "@prisma/client";
+import "dotenv/config";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { hash } from "bcryptjs";
+import { PrismaClient, type Course, type Foot, type Position } from "../src/generated/prisma/client";
 import { SKILL_CATALOG } from "../src/lib/skills";
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+});
 
 type SamplePlayer = {
   name: string;

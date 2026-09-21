@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { AuditAction, AuditEntity } from "@/lib/audit-actions";
 import type { CurrentUser } from "@/lib/session";

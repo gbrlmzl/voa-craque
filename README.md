@@ -30,10 +30,15 @@ Eles já estão inscritos na pelada "Pelada de quinta", pronta para sortear os t
 cp .env.example .env
 docker compose up -d db
 npm install
-npx prisma migrate deploy
+npm run db:generate
+npm run db:deploy
 npm run db:seed
 npm run dev
 ```
+
+O projeto usa o Prisma 7: o client é gerado em `src/generated/prisma` (fora do git), então
+rode `npm run db:generate` depois do `npm install` e sempre que o `prisma/schema.prisma` mudar.
+A URL do banco e o comando de seed ficam em `prisma.config.ts`.
 
 ## Variáveis de ambiente
 

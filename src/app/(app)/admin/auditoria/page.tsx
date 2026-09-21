@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { pageSuperadmin } from "@/lib/session";
 import { AUDIT_ACTION_LABEL, AUDIT_ENTITIES, type AuditAction } from "@/lib/audit-actions";
