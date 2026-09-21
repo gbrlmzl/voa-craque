@@ -2,8 +2,8 @@ import type { NextAuthConfig } from "next-auth";
 import type { Role } from "@prisma/client";
 
 /**
- * Configuracao compartilhada entre o middleware (runtime edge) e o servidor.
- * Nao pode importar Prisma nem bcrypt: o middleware nao roda Node completo.
+ * Configuracao compartilhada entre o proxy (src/proxy.ts) e o servidor.
+ * Fica livre de Prisma e bcrypt para o proxy ler so a sessao JWT, sem tocar no banco.
  */
 export const authConfig = {
   trustHost: true,

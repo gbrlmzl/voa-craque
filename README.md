@@ -69,8 +69,8 @@ estrelas e skills, sorteia e monta times, opera o painel ao vivo e encerra a pel
 **Jogador (user)** — edita o próprio perfil, se inscreve, acompanha a partida ao vivo e
 vê o ranking. Não define as próprias estrelas.
 
-A autorização é aplicada duas vezes: o middleware barra quem não tem sessão, e cada
-route handler e página confere o papel de novo, porque o middleware sozinho não protege
+A autorização é aplicada duas vezes: o proxy (`src/proxy.ts`) barra quem não tem sessão, e cada
+route handler e página confere o papel de novo, porque o proxy sozinho não protege
 chamada direta à API.
 
 ## Auditoria
