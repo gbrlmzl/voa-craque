@@ -58,6 +58,23 @@ export default async function ProfilePage() {
         <SectionTitle>Seus dados</SectionTitle>
         <ProfileForm name={user.name} initial={initial} mode="edit" />
       </section>
+
+      <section>
+        <SectionTitle>Formas de entrar</SectionTitle>
+        <Card className="grid gap-2 text-sm">
+          <SignInMethod label="E-mail e senha" enabled={user.hasPassword} />
+          <SignInMethod label="Google" enabled={user.googleLinked} />
+        </Card>
+      </section>
+    </div>
+  );
+}
+
+function SignInMethod({ label, enabled }: { label: string; enabled: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-slate-300">{label}</span>
+      <Badge tone={enabled ? "good" : "neutral"}>{enabled ? "Ativo" : "Não usado"}</Badge>
     </div>
   );
 }

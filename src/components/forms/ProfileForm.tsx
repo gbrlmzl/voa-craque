@@ -6,6 +6,7 @@ import { Camera, Loader2 } from "lucide-react";
 import { Avatar } from "@/components/player";
 import { useToast } from "@/components/toast";
 import { Button, Card, Field, Input, Select } from "@/components/ui";
+import { useUpdateCurrentUser } from "@/components/UserProvider";
 
 export type ProfileValues = {
   nickname: string;
@@ -42,6 +43,7 @@ export function ProfileForm({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const updateCurrentUser = useUpdateCurrentUser();
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [values, setValues] = useState<ProfileValues>(initial);
@@ -91,11 +93,15 @@ export function ProfileForm({
       }
 
       if (mode === "onboarding") {
+        // O servidor precisa reavaliar profileCompleted: aqui o refresh e necessario.
         router.replace("/");
+        router.refresh();
       } else {
+        // Nada nesta tela depende do servidor alem da foto no cabecalho, que o
+        // contexto atualiza sem ida e volta.
+        if (values.photoUrl) updateCurrentUser({ photoUrl: values.photoUrl });
         toast.show({ message: "Perfil atualizado.", tone: "success" });
       }
-      router.refresh();
     } catch (error) {
       setMessage((error as Error).message);
     } finally {

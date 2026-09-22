@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { isGoogleAuthEnabled } from "@/lib/auth/config";
 import { RegisterForm } from "@/components/forms/RegisterForm";
+import { GoogleSignInButton, OrDivider } from "@/components/forms/GoogleSignInButton";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +14,14 @@ export default function RegisterPage() {
           Depois você preenche o perfil de jogador e já pode se inscrever na próxima pelada.
         </p>
       </div>
+
+      {isGoogleAuthEnabled() ? (
+        <>
+          {/* O mesmo fluxo do login: conta nova pelo Google nasce no primeiro acesso. */}
+          <GoogleSignInButton next="/primeiro-acesso" />
+          <OrDivider label="ou cadastre com e-mail" />
+        </>
+      ) : null}
 
       <RegisterForm />
 
