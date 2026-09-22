@@ -17,7 +17,6 @@ export default async function LoginPage({
           V
         </span>
         <h1 className="text-2xl font-bold tracking-tight">Voa Craque</h1>
-        <p className="mt-1 text-sm text-slate-400">A pelada da faculdade, organizada.</p>
       </div>
 
       <LoginForm next={proximo} />

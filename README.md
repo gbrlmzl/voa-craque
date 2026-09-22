@@ -40,6 +40,35 @@ O projeto usa o Prisma 7: o client é gerado em `src/generated/prisma` (fora do 
 rode `npm run db:generate` depois do `npm install` e sempre que o `prisma/schema.prisma` mudar.
 A URL do banco e o comando de seed ficam em `prisma.config.ts`.
 
+### Desenvolvimento com Docker (hot-reload)
+
+Para rodar tudo (app + banco) em container, mas com o código do host montado e o
+`next dev` reagindo em tempo real:
+
+```bash
+cp .env.example .env
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Isso usa o `Dockerfile.dev`, roda `npm ci` e `prisma generate` dentro da imagem (Linux),
+aplica as migrations e sobe o `next dev` na porta 3000. `node_modules`, `.next` e
+`src/generated` ficam em volumes anônimos, então o que foi instalado/gerado dentro do
+container não é sobrescrito pelo que existe no host — importante porque os binários do
+Prisma e de dependências nativas são específicos da plataforma. O resto do código é
+montado do host, então qualquer alteração salva aparece imediatamente no navegador.
+
+Para rodar o seed (não é automático, porque não é idempotente para o jogo de exemplo):
+
+```bash
+docker compose -f docker-compose.dev.yml exec app npm run db:seed
+```
+
+Se instalar ou remover uma dependência, refaça o build da imagem:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
 ## Variáveis de ambiente
 
 Estão todas em `.env.example`, com valores que funcionam sem edição.
