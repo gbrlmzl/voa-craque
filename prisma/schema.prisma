@@ -85,15 +85,23 @@ enum MatchEventType {
 // ---------------------------------------------------------------- identity
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  role         Role     @default(USER)
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String    @id @default(cuid())
+  email           String    @unique
+  // Nulo em conta criada pelo Google: sem senha local, so entra pelo Google.
+  passwordHash    String?
+  name            String
+  role            Role      @default(USER)
+  active          Boolean   @default(true)
+  // Preenchido quando um provedor externo prova a posse do e-mail. O cadastro
+  // por senha nao verifica e-mail, entao nasce nulo.
+  emailVerifiedAt DateTime?
+  // Foto vinda do provedor externo; a foto do perfil de jogador tem prioridade.
+  image           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
+  authProviders      UserAuthProvider[]
+  sessionTokens      SessionToken[]
   profile            PlayerProfile?
   registrations      Registration[]
   teamMemberships    TeamPlayer[]
@@ -107,6 +115,43 @@ model User {
   systemSettingEdits SystemSetting[]  @relation("SettingsEditor")
 
   @@index([role])
+}
+
+// Vinculo com provedor externo (hoje so 'google'). Login por senha nao tem
+// linha aqui: ele existe quando User.passwordHash nao e nulo.
+model UserAuthProvider {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@unique([userId, provider])
+}
+
+// Token de sessao rotativo. Cada login abre uma familia (familyId). A rotacao
+// cria um sucessor pendente (usedAt nulo) sem revogar o atual; so quando o
+// sucessor aparece numa requisicao, prova de que chegou ao navegador, o resto da
+// familia e revogado. So o hash SHA-256 fica no banco. Linhas revogadas ficam
+// aqui de proposito: sao elas que permitem reconhecer o reuso de um token roubado.
+model SessionToken {
+  id        String    @id @default(cuid())
+  userId    String
+  familyId  String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model PlayerProfile {
