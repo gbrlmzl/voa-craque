@@ -13,7 +13,7 @@ export default async function RankingPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Ranking</h1>
         <p className="mt-1 text-sm text-slate-400">
-          Toque no cabeçalho para ordenar. Toque no jogador para ver a ficha dele.
+          Escolha uma área para ver o ranking. Toque no jogador para ver a ficha dele.
         </p>
       </div>
 
