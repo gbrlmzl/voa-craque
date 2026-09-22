@@ -84,6 +84,17 @@ body {
   animation: pulse-live 1.4s ease-in-out infinite;
 }
 
+/* So no desktop: no touch, hover:hover nunca bate e isso nao interfere no mobile. */
+@media (hover: hover) and (pointer: fine) {
+  a[href],
+  button:not(:disabled),
+  [role="button"],
+  select,
+  summary {
+    cursor: pointer;
+  }
+}
+
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
