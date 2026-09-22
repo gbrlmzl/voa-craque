@@ -24,7 +24,8 @@ export default async function OnboardingPage() {
         courseName: profile.courseName ?? "",
         photoUrl: profile.photoUrl ?? "",
       }
-    : EMPTY_PROFILE;
+    : // Quem entrou pelo Google ja chega com a foto de la; da para trocar.
+      { ...EMPTY_PROFILE, photoUrl: user.photoUrl ?? "" };
 
   return (
     <div className="mx-auto max-w-md px-5 py-10">

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import {
   CalendarDays,
   ClipboardList,
@@ -18,8 +18,11 @@ import {
 } from "lucide-react";
 import type { Role } from "@/generated/prisma/client";
 import { logoutAction } from "@/actions/auth";
+import { ROLE_LABEL } from "@/lib/labels";
 import { Avatar } from "@/components/player";
+import { SkeletonBlock, SkeletonText } from "@/components/Skeleton";
 import { Button, cn } from "@/components/ui";
+import { useCurrentUser } from "@/components/UserProvider";
 
 type NavItem = { href: string; label: string; icon: typeof Home; roles?: Role[] };
 
@@ -37,22 +40,45 @@ const EXTRA_NAV: NavItem[] = [
   { href: "/admin/auditoria", label: "Auditoria", icon: ScrollText, roles: ["SUPERADMIN"] },
 ];
 
-function allowed(item: NavItem, role: Role): boolean {
-  return !item.roles || item.roles.includes(role);
-}
-
-export function AppShell({
-  user,
-  children,
-}: {
-  user: { name: string; role: Role; photoUrl: string | null };
-  children: React.ReactNode;
-}) {
+/**
+ * A casca nao espera a sessao. Navegacao, tab bar, botao de sair e a pagina
+ * renderizam na hora; so os pedacos que leem o usuario suspendem, cada um no
+ * seu <Suspense> com fallback do mesmo tamanho. Os links extras aparecem quando
+ * o papel chega, mas o acesso a essas paginas e decidido no servidor.
+ */
+export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
-  const extras = EXTRA_NAV.filter((item) => allowed(item, user.role));
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+
+  const desktopLink = (item: NavItem) => (
+    <Link
+      key={item.href}
+      href={item.href}
+      className={cn(
+        "rounded-lg px-3 py-2 text-sm",
+        isActive(item.href) ? "bg-white/10 text-slate-100" : "text-slate-400 hover:text-slate-200",
+      )}
+    >
+      {item.label}
+    </Link>
+  );
+
+  const drawerLink = (item: NavItem) => {
+    const Icon = item.icon;
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={() => setMenuOpen(false)}
+        className="touch-target flex items-center gap-3 rounded-xl px-3 text-sm text-slate-200 hover:bg-white/5"
+      >
+        <Icon size={20} className="text-slate-400" />
+        {item.label}
+      </Link>
+    );
+  };
 
   return (
     <div className="min-h-dvh">
@@ -66,18 +92,10 @@ export function AppShell({
           </Link>
 
           <nav className="ml-auto hidden items-center gap-1 sm:flex">
-            {[...MAIN_NAV, ...extras].map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "rounded-lg px-3 py-2 text-sm",
-                  isActive(item.href) ? "bg-white/10 text-slate-100" : "text-slate-400 hover:text-slate-200",
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {MAIN_NAV.map(desktopLink)}
+            <Suspense fallback={null}>
+              <ExtraNav render={desktopLink} />
+            </Suspense>
           </nav>
 
           <button
@@ -86,7 +104,9 @@ export function AppShell({
             className="ml-auto flex items-center gap-2 rounded-xl px-1 py-1 sm:ml-0 sm:hidden"
             aria-label="Abrir menu"
           >
-            <Avatar name={user.name} photoUrl={user.photoUrl} size="sm" />
+            <Suspense fallback={<SkeletonBlock className="h-9 w-9 rounded-full" />}>
+              <UserAvatar size="sm" />
+            </Suspense>
             <Menu size={20} className="text-slate-400" />
           </button>
 
@@ -129,33 +149,19 @@ export function AppShell({
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-center gap-3">
-              <Avatar name={user.name} photoUrl={user.photoUrl} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold">{user.name}</p>
-                <p className="text-xs text-slate-500">
-                  {user.role === "SUPERADMIN" ? "Superadmin" : user.role === "ADMIN" ? "Organizador" : "Jogador"}
-                </p>
-              </div>
+              <Suspense fallback={<DrawerIdentitySkeleton />}>
+                <DrawerIdentity />
+              </Suspense>
               <Button variant="ghost" size="sm" onClick={() => setMenuOpen(false)} aria-label="Fechar">
                 <X size={18} />
               </Button>
             </div>
 
             <div className="grid gap-1">
-              {[...MAIN_NAV, ...extras].map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMenuOpen(false)}
-                    className="touch-target flex items-center gap-3 rounded-xl px-3 text-sm text-slate-200 hover:bg-white/5"
-                  >
-                    <Icon size={20} className="text-slate-400" />
-                    {item.label}
-                  </Link>
-                );
-              })}
+              {MAIN_NAV.map(drawerLink)}
+              <Suspense fallback={null}>
+                <ExtraNav render={drawerLink} />
+              </Suspense>
             </div>
 
             <form action={logoutAction} className="mt-3">
@@ -167,5 +173,42 @@ export function AppShell({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function UserAvatar({ size }: { size: "sm" | "md" }) {
+  const user = useCurrentUser();
+  return <Avatar name={user?.name ?? ""} photoUrl={user?.photoUrl} size={size} />;
+}
+
+function ExtraNav({ render }: { render: (item: NavItem) => React.ReactNode }) {
+  const user = useCurrentUser();
+  if (!user) return null;
+  return <>{EXTRA_NAV.filter((item) => !item.roles || item.roles.includes(user.role)).map(render)}</>;
+}
+
+function DrawerIdentity() {
+  const user = useCurrentUser();
+  return (
+    <>
+      <UserAvatar size="md" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-semibold">{user?.name}</p>
+        <p className="text-xs text-slate-500">{user ? ROLE_LABEL[user.role] : null}</p>
+      </div>
+    </>
+  );
+}
+
+/** Mesmas medidas do avatar md (h-12) e das duas linhas de texto ao lado. */
+function DrawerIdentitySkeleton() {
+  return (
+    <>
+      <SkeletonBlock className="h-12 w-12 rounded-full" />
+      <div className="grid min-w-0 flex-1 gap-1.5">
+        <SkeletonText className="h-5 w-36" />
+        <SkeletonText className="h-3 w-20" />
+      </div>
+    </>
   );
 }

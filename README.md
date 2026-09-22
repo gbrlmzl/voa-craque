@@ -79,8 +79,10 @@ Estão todas em `.env.example`, com valores que funcionam sem edição.
 | `VOACRAQUE_DB_USER` / `_PASSWORD` / `_NAME` | Credenciais do container do banco |
 | `VOACRAQUE_DB_PORT` | Porta do banco publicada no host (padrão do arquivo: `55432`) |
 | `VOACRAQUE_APP_PORT` | Porta da aplicação no host |
-| `AUTH_SECRET` | Assinatura do cookie de sessão. Gere com `openssl rand -base64 32` |
-| `AUTH_TRUST_HOST`, `NEXTAUTH_URL` | Origem confiável do Auth.js |
+| `AUTH_SECRET` | Cifra o cookie de sessão. Gere com `openssl rand -base64 32`. Para trocar sem derrubar as sessões, mova o antigo para `AUTH_SECRET_1` |
+| `AUTH_TRUST_HOST`, `AUTH_URL` | Origem pública da aplicação. Com `https://`, o cookie de sessão sai com `Secure` (`NEXTAUTH_URL` ainda é aceito) |
+| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | Login com Google (opcional). Sem as duas, o botão não aparece |
+| `TRUST_PROXY_HOPS` | Quantos proxies confiáveis ficam na frente da aplicação; define o IP usado no rate limit e na auditoria (padrão `1`) |
 | `SUPERADMIN_EMAIL` / `_PASSWORD` / `_NAME` | Superadmin criado pelo seed |
 | `SEED_SAMPLE_DATA` | `false` cria só o superadmin e as skills |
 | `STORAGE_DRIVER` | `local` (volume do container) ou `s3` |
@@ -90,6 +92,41 @@ Estão todas em `.env.example`, com valores que funcionam sem edição.
 O compose usa nomes próprios (`VOACRAQUE_*`) de propósito: `POSTGRES_PASSWORD` e afins
 são comuns no ambiente da máquina e o Docker Compose dá precedência ao ambiente sobre
 o `.env`, o que trocaria a senha do banco sem aviso.
+
+### Login com Google
+
+1. Em [console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials),
+   crie um **ID do cliente OAuth** do tipo **Aplicativo da Web**.
+2. Origem JavaScript autorizada: `http://localhost:3000`. URI de redirecionamento:
+   `http://localhost:3000/api/auth/callback/google`. Em produção, as mesmas duas com o
+   domínio público em `https`.
+3. Na tela de consentimento, os escopos `openid`, `email` e `profile` bastam.
+4. Preencha `AUTH_GOOGLE_ID` e `AUTH_GOOGLE_SECRET` no `.env` e reinicie a aplicação.
+
+Quem entra pelo Google pela primeira vez ganha uma conta sem senha local e cai no
+primeiro acesso com a foto do Google já preenchida. Se já existir uma conta de senha com
+o mesmo e-mail, o Google é vinculado a ela, e a senha é **removida**: o cadastro por senha
+não verifica e-mail, então essa senha pode ter sido criada por outra pessoa antes da dona
+chegar. Daí em diante, essa conta entra só pelo Google. O perfil mostra as formas de
+entrar de cada conta.
+
+## Autenticação e sessão
+
+A arquitetura completa (e o modelo para outros projetos) está em
+[`docs/arquitetura-modulo-autenticacao.md`](docs/arquitetura-modulo-autenticacao.md). O
+essencial para operar:
+
+- O cookie de sessão carrega um token opaco que aponta para uma linha em `SessionToken`.
+  Logout, desativação do usuário e roubo detectado derrubam a sessão na hora.
+- O token é rotacionado a cada 15 minutos de uso pelo `src/proxy.ts`. Um token antigo que
+  volta depois de rotacionado é tratado como roubo: a sessão daquele dispositivo cai e o
+  evento `session_token_reuse` vai para o log.
+- Eventos de segurança saem no stderr como JSON de uma linha (`"type":"security"`), prontos
+  para filtro e alarme.
+- Tokens expirados são apagados no boot do container e por `npm run db:purge-sessions`
+  (vale agendar diariamente).
+- **Ao publicar esta versão, todo mundo precisa entrar de novo uma vez**: os cookies do
+  formato anterior deixam de valer.
 
 ## Papéis
 
@@ -103,9 +140,10 @@ estrelas e skills, sorteia e monta times, opera o painel ao vivo e encerra a pel
 **Jogador (user)** — edita o próprio perfil, se inscreve, acompanha a partida ao vivo e
 vê o ranking. Não define as próprias estrelas.
 
-A autorização é aplicada duas vezes: o proxy (`src/proxy.ts`) barra quem não tem sessão, e cada
-route handler e página confere o papel de novo, porque o proxy sozinho não protege
-chamada direta à API.
+A autorização é aplicada duas vezes: o proxy (`src/proxy.ts`) barra quem não tem cookie de
+sessão, e cada route handler e página confere sessão e papel de novo no banco
+(`requireUser`, `pageAdmin`...), porque o proxy sozinho não protege chamada direta à API.
+Os menus escondem o que o papel não alcança, mas isso é só aparência: quem decide é o servidor.
 
 ## Auditoria
 
@@ -146,7 +184,8 @@ automático pela virada do cronômetro aparece com ator "Sistema".
     bucket da AWS; o driver local mantém o `docker compose up` funcionando sem conta na
     nuvem.
 13. **Sem e-mail**: não há recuperação de senha nem redefinição pelo superadmin. Quem
-    esquecer a senha precisa de uma nova conta ou de alteração direta no banco.
+    esquecer a senha pode entrar pelo Google (se usar o mesmo e-mail), criar uma nova
+    conta ou pedir alteração direta no banco.
 14. **Porta do banco**: o `.env.example` publica o Postgres em `55432` porque a máquina
     de desenvolvimento já tinha um Postgres nativo ocupando 5432. Dentro do compose a
     aplicação sempre fala com `db:5432`.
@@ -157,13 +196,19 @@ automático pela virada do cronômetro aparece com ator "Sistema".
 npm test
 ```
 
-Vitest cobre os dois módulos que concentram a regra de negócio, ambos puros e sem banco:
+Vitest cobre os módulos que concentram regra de negócio e decisão de segurança, todos
+puros e sem banco:
 
 - `src/lib/team-balancer.ts` — força do jogador, mediana para quem não tem estrelas,
   distribuição de goleiros, sobra de jogadores, limite de times e variedade entre
   sorteios.
 - `src/lib/match-engine.ts` — cronômetro, transições válidas e inválidas, fim por gols,
   fim por tempo, empate e rotação da fila.
+- `tests/auth-session.test.ts` — classificação do token (ativo, graça, reuso, expirado),
+  idade de rotação e o cookie cifrado (adulteração, segredo trocado, rotação de segredo,
+  cookie do formato antigo).
+- `tests/auth-support.test.ts` — classificação de rotas do proxy, destino seguro após o
+  login, IP do cliente atrás de proxy, rate limit e a mescla do usuário no contexto.
 
 Verificação de tipos:
 

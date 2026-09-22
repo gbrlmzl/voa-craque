@@ -30,7 +30,10 @@ services:
       DATABASE_URL: postgresql://${VOACRAQUE_DB_USER:-voacraque}:${VOACRAQUE_DB_PASSWORD:-voacraque}@db:5432/${VOACRAQUE_DB_NAME:-voacraque}?schema=public
       AUTH_SECRET: ${AUTH_SECRET:-dev-secret-troque-em-producao-0000000000}
       AUTH_TRUST_HOST: "true"
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
       SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL:-super@voacraque.app}
       SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:-VoaCraque123!}
       SUPERADMIN_NAME: ${SUPERADMIN_NAME:-Superadmin}

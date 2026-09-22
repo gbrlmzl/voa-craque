@@ -1,23 +1,17 @@
-import type { Role } from "@/generated/prisma/client";
 import type { DefaultSession } from "next-auth";
 
 declare module "next-auth" {
   interface Session {
-    user: {
-      id: string;
-      role: Role;
-    } & DefaultSession["user"];
-  }
-
-  interface User {
-    role?: Role;
+    user: { id: string } & DefaultSession["user"];
   }
 }
 
+// Claims proprios do cookie de sessao (ver src/lib/auth/session-cookie.ts).
 declare module "next-auth/jwt" {
   interface JWT {
-    id?: string;
-    role?: Role;
+    sid?: string;
+    rot?: number;
+    pend?: true;
   }
 }
 
