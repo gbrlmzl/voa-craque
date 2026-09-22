@@ -1,12 +1,13 @@
 import { AppShell } from "@/components/AppShell";
-import { pageUserWithProfile } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const user = await pageUserWithProfile();
-
-  return (
-    <AppShell user={{ name: user.name, role: user.role, photoUrl: user.photoUrl }}>{children}</AppShell>
-  );
+/**
+ * Sem guarda aqui: um `await` na sessao neste layout bloquearia toda navegacao
+ * dentro de (app) e nenhum loading.tsx apareceria. Cada page.tsx chama a propria
+ * guarda (pageUserWithProfile, pageAdmin...), e o proxy ja barrou quem nem tem
+ * cookie de sessao.
+ */
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return <AppShell>{children}</AppShell>;
 }
