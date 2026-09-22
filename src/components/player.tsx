@@ -88,7 +88,6 @@ export type PlayerDetail = {
   age: number;
   heightCm: number;
   weightKg: number;
-  courseLabel: string;
   stars: number | null;
   skills: { code: string; label: string; polarity: "POSITIVE" | "NEGATIVE" }[];
   stats: { goals: number; assists: number; played: number; won: number; winRate: number };
@@ -187,7 +186,6 @@ export function PlayerModalProvider({ children }: { children: ReactNode }) {
                   <Detail label="Posição" value={player.positionLabel} />
                   <Detail label="Pé" value={player.footLabel} />
                   <Detail label="Idade" value={`${player.age} anos`} />
-                  <Detail label="Curso" value={player.courseLabel} />
                   <Detail label="Altura" value={`${(player.heightCm / 100).toFixed(2).replace(".", ",")} m`} />
                   <Detail label="Peso" value={`${player.weightKg} kg`} />
                 </dl>

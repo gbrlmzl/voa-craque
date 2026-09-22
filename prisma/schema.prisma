@@ -29,12 +29,6 @@ enum Position {
   PIVO
 }
 
-enum Course {
-  LCC
-  SI
-  OTHER
-}
-
 enum SkillPolarity {
   POSITIVE
   NEGATIVE
@@ -163,8 +157,6 @@ model PlayerProfile {
   age        Int
   heightCm   Int
   weightKg   Int
-  course     Course
-  courseName String?
   nickname   String?
   stars      Float?
   completed  Boolean  @default(false)

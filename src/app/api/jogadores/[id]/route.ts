@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { notFound, route } from "@/lib/http";
 import { requireUser } from "@/lib/session";
-import { COURSE_LABEL, FOOT_LABEL, POSITION_LABEL } from "@/lib/labels";
+import { FOOT_LABEL, POSITION_LABEL } from "@/lib/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +26,6 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
             age: true,
             heightCm: true,
             weightKg: true,
-            course: true,
-            courseName: true,
             stars: true,
             skills: { include: { skill: true } },
           },
@@ -82,7 +80,6 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       age: profile.age,
       heightCm: profile.heightCm,
       weightKg: profile.weightKg,
-      courseLabel: profile.course === "OTHER" ? profile.courseName || "Outro" : COURSE_LABEL[profile.course],
       stars: profile.stars,
       skills: profile.skills.map((entry) => ({
         code: entry.skill.code,

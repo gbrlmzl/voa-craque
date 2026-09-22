@@ -15,8 +15,6 @@ export type ProfileValues = {
   age: string;
   heightCm: string;
   weightKg: string;
-  course: string;
-  courseName: string;
   photoUrl: string;
 };
 
@@ -27,8 +25,6 @@ export const EMPTY_PROFILE: ProfileValues = {
   age: "",
   heightCm: "",
   weightKg: "",
-  course: "LCC",
-  courseName: "",
   photoUrl: "",
 };
 
@@ -196,28 +192,6 @@ export function ProfileForm({
             />
           </Field>
         </div>
-
-        <Field label="Curso" error={errors.course}>
-          <Select value={values.course} onChange={(event) => set("course", event.target.value)}>
-            <option value="LCC">LCC</option>
-            <option value="SI">SI</option>
-            <option value="OTHER">Outro</option>
-          </Select>
-        </Field>
-
-        {values.course === "OTHER" ? (
-          <Field label="Qual curso?" error={errors.courseName}>
-            <Input
-              value={values.courseName}
-              onChange={(event) => set("courseName", event.target.value)}
-              required
-            />
-          </Field>
-        ) : null}
-
-        <p className="rounded-xl bg-white/5 px-3 py-2 text-xs text-slate-400">
-          As estrelas de habilidade e as skills são definidas pelo organizador, não por você.
-        </p>
 
         {message ? (
           <p className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{message}</p>

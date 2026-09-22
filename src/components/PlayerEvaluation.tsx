@@ -14,7 +14,6 @@ export type EvaluationPlayer = {
   nickname: string | null;
   photoUrl: string | null;
   positionLabel: string;
-  courseLabel: string;
   stars: number | null;
   skillCodes: string[];
 };
@@ -124,9 +123,7 @@ function PlayerRow({
         <Avatar name={player.name} photoUrl={player.photoUrl} />
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium text-slate-100">{player.name}</p>
-          <p className="truncate text-xs text-slate-500">
-            {player.positionLabel} · {player.courseLabel}
-          </p>
+          <p className="truncate text-xs text-slate-500">{player.positionLabel}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <Stars value={player.stars} size={13} />
             {chosenSkills.slice(0, 2).map((skill) => (

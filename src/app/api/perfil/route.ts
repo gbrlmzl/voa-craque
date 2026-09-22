@@ -22,8 +22,6 @@ export async function PUT(req: NextRequest) {
       age: input.age,
       heightCm: input.heightCm,
       weightKg: input.weightKg,
-      course: input.course,
-      courseName: input.course === "OTHER" ? input.courseName || null : null,
       photoUrl: input.photoUrl || null,
       completed: true,
     };

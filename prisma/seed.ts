@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hash } from "bcryptjs";
-import { PrismaClient, type Course, type Foot, type Position } from "../src/generated/prisma/client";
+import { PrismaClient, type Foot, type Position } from "../src/generated/prisma/client";
 import { SKILL_CATALOG } from "../src/lib/skills";
 
 const prisma = new PrismaClient({
@@ -16,31 +16,30 @@ type SamplePlayer = {
   age: number;
   heightCm: number;
   weightKg: number;
-  course: Course;
   stars: number | null;
 };
 
 const SAMPLE_PLAYERS: SamplePlayer[] = [
-  { name: "Arthur Nogueira", nickname: "Tutu", position: "GOALKEEPER", foot: "RIGHT", age: 22, heightCm: 186, weightKg: 84, course: "SI", stars: 4 },
-  { name: "Bruno Sacramento", nickname: "Bruninho", position: "GOALKEEPER", foot: "LEFT", age: 21, heightCm: 181, weightKg: 79, course: "LCC", stars: 3 },
-  { name: "Caio Vasconcelos", nickname: "Caião", position: "GOALKEEPER", foot: "RIGHT", age: 24, heightCm: 178, weightKg: 88, course: "SI", stars: 3.5 },
-  { name: "Danilo Peixoto", nickname: "Dan", position: "GOALKEEPER", foot: "RIGHT", age: 20, heightCm: 183, weightKg: 81, course: "LCC", stars: null },
-  { name: "Eduardo Vilela", nickname: "Dudu", position: "FIXO", foot: "RIGHT", age: 23, heightCm: 179, weightKg: 78, course: "SI", stars: 4.5 },
-  { name: "Felipe Andrade", nickname: "Lipe", position: "FIXO", foot: "LEFT", age: 22, heightCm: 175, weightKg: 74, course: "LCC", stars: 3 },
-  { name: "Gabriel Marques", nickname: "Gabi", position: "FIXO", foot: "RIGHT", age: 25, heightCm: 188, weightKg: 90, course: "SI", stars: 5 },
-  { name: "Heitor Campelo", nickname: "Tote", position: "FIXO", foot: "BOTH", age: 19, heightCm: 172, weightKg: 68, course: "LCC", stars: null },
-  { name: "Igor Bastos", nickname: "Igão", position: "ALA", foot: "RIGHT", age: 21, heightCm: 176, weightKg: 71, course: "SI", stars: 4 },
-  { name: "João Pedro Lira", nickname: "JP", position: "ALA", foot: "LEFT", age: 20, heightCm: 170, weightKg: 66, course: "LCC", stars: 4.5 },
-  { name: "Kaique Serrano", nickname: "Kaká", position: "ALA", foot: "RIGHT", age: 22, heightCm: 174, weightKg: 70, course: "SI", stars: 2.5 },
-  { name: "Lucas Tavares", nickname: "Luquinha", position: "ALA", foot: "RIGHT", age: 23, heightCm: 181, weightKg: 77, course: "LCC", stars: null },
-  { name: "Matheus Rangel", nickname: "Teteu", position: "ALA", foot: "LEFT", age: 24, heightCm: 168, weightKg: 64, course: "SI", stars: 3.5 },
-  { name: "Nícolas Braga", nickname: "Nico", position: "ALA", foot: "RIGHT", age: 19, heightCm: 177, weightKg: 73, course: "LCC", stars: 3 },
-  { name: "Otávio Meireles", nickname: "Tavinho", position: "ALA", foot: "BOTH", age: 26, heightCm: 184, weightKg: 86, course: "OTHER", stars: null },
-  { name: "Pedro Henrique Sá", nickname: "PH", position: "PIVO", foot: "RIGHT", age: 22, heightCm: 190, weightKg: 92, course: "SI", stars: 5 },
-  { name: "Rafael Quirino", nickname: "Rafa", position: "PIVO", foot: "LEFT", age: 21, heightCm: 182, weightKg: 80, course: "LCC", stars: 4 },
-  { name: "Samuel Fontes", nickname: "Samuka", position: "PIVO", foot: "RIGHT", age: 20, heightCm: 173, weightKg: 69, course: "SI", stars: 2 },
-  { name: "Thiago Belmiro", nickname: "Tigrão", position: "PIVO", foot: "RIGHT", age: 27, heightCm: 179, weightKg: 83, course: "OTHER", stars: null },
-  { name: "Vinícius Aguiar", nickname: "Vini", position: "PIVO", foot: "LEFT", age: 18, heightCm: 166, weightKg: 62, course: "LCC", stars: null },
+  { name: "Arthur Nogueira", nickname: "Tutu", position: "GOALKEEPER", foot: "RIGHT", age: 22, heightCm: 186, weightKg: 84, stars: 4 },
+  { name: "Bruno Sacramento", nickname: "Bruninho", position: "GOALKEEPER", foot: "LEFT", age: 21, heightCm: 181, weightKg: 79, stars: 3 },
+  { name: "Caio Vasconcelos", nickname: "Caião", position: "GOALKEEPER", foot: "RIGHT", age: 24, heightCm: 178, weightKg: 88, stars: 3.5 },
+  { name: "Danilo Peixoto", nickname: "Dan", position: "GOALKEEPER", foot: "RIGHT", age: 20, heightCm: 183, weightKg: 81, stars: null },
+  { name: "Eduardo Vilela", nickname: "Dudu", position: "FIXO", foot: "RIGHT", age: 23, heightCm: 179, weightKg: 78, stars: 4.5 },
+  { name: "Felipe Andrade", nickname: "Lipe", position: "FIXO", foot: "LEFT", age: 22, heightCm: 175, weightKg: 74, stars: 3 },
+  { name: "Gabriel Marques", nickname: "Gabi", position: "FIXO", foot: "RIGHT", age: 25, heightCm: 188, weightKg: 90, stars: 5 },
+  { name: "Heitor Campelo", nickname: "Tote", position: "FIXO", foot: "BOTH", age: 19, heightCm: 172, weightKg: 68, stars: null },
+  { name: "Igor Bastos", nickname: "Igão", position: "ALA", foot: "RIGHT", age: 21, heightCm: 176, weightKg: 71, stars: 4 },
+  { name: "João Pedro Lira", nickname: "JP", position: "ALA", foot: "LEFT", age: 20, heightCm: 170, weightKg: 66, stars: 4.5 },
+  { name: "Kaique Serrano", nickname: "Kaká", position: "ALA", foot: "RIGHT", age: 22, heightCm: 174, weightKg: 70, stars: 2.5 },
+  { name: "Lucas Tavares", nickname: "Luquinha", position: "ALA", foot: "RIGHT", age: 23, heightCm: 181, weightKg: 77, stars: null },
+  { name: "Matheus Rangel", nickname: "Teteu", position: "ALA", foot: "LEFT", age: 24, heightCm: 168, weightKg: 64, stars: 3.5 },
+  { name: "Nícolas Braga", nickname: "Nico", position: "ALA", foot: "RIGHT", age: 19, heightCm: 177, weightKg: 73, stars: 3 },
+  { name: "Otávio Meireles", nickname: "Tavinho", position: "ALA", foot: "BOTH", age: 26, heightCm: 184, weightKg: 86, stars: null },
+  { name: "Pedro Henrique Sá", nickname: "PH", position: "PIVO", foot: "RIGHT", age: 22, heightCm: 190, weightKg: 92, stars: 5 },
+  { name: "Rafael Quirino", nickname: "Rafa", position: "PIVO", foot: "LEFT", age: 21, heightCm: 182, weightKg: 80, stars: 4 },
+  { name: "Samuel Fontes", nickname: "Samuka", position: "PIVO", foot: "RIGHT", age: 20, heightCm: 173, weightKg: 69, stars: 2 },
+  { name: "Thiago Belmiro", nickname: "Tigrão", position: "PIVO", foot: "RIGHT", age: 27, heightCm: 179, weightKg: 83, stars: null },
+  { name: "Vinícius Aguiar", nickname: "Vini", position: "PIVO", foot: "LEFT", age: 18, heightCm: 166, weightKg: 62, stars: null },
 ];
 
 /** Algumas skills já atribuídas, para a tela de ranking nascer com conteúdo. */
@@ -101,8 +100,6 @@ async function main() {
           age: 30,
           heightCm: 178,
           weightKg: 78,
-          course: "OTHER",
-          courseName: "Coordenação",
           completed: true,
         },
       },
@@ -131,7 +128,6 @@ async function main() {
           age: 26,
           heightCm: 180,
           weightKg: 80,
-          course: "SI",
           stars: 4,
           completed: true,
         },
@@ -162,8 +158,6 @@ async function main() {
             age: player.age,
             heightCm: player.heightCm,
             weightKg: player.weightKg,
-            course: player.course,
-            courseName: player.course === "OTHER" ? "Engenharia" : null,
             stars: player.stars,
             completed: true,
           },

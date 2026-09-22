@@ -1,5 +1,4 @@
 import type {
-  Course,
   Foot,
   GameDayStatus,
   MatchEndReason,
@@ -28,12 +27,6 @@ export const POSITION_LABEL: Record<Position, string> = {
   FIXO: "Fixo",
   ALA: "Ala",
   PIVO: "Pivô",
-};
-
-export const COURSE_LABEL: Record<Course, string> = {
-  LCC: "LCC",
-  SI: "SI",
-  OTHER: "Outro",
 };
 
 export const GAMEDAY_STATUS_LABEL: Record<GameDayStatus, string> = {

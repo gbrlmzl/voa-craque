@@ -20,8 +20,6 @@ export default async function OnboardingPage() {
         age: String(profile.age),
         heightCm: String(profile.heightCm),
         weightKg: String(profile.weightKg),
-        course: profile.course,
-        courseName: profile.courseName ?? "",
         photoUrl: profile.photoUrl ?? "",
       }
     : // Quem entrou pelo Google ja chega com a foto de la; da para trocar.

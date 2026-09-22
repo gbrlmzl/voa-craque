@@ -26,22 +26,15 @@ export const registerSchema = z
     path: ["passwordConfirm"],
   });
 
-export const profileSchema = z
-  .object({
-    nickname: z.string().trim().max(30).optional().or(z.literal("")),
-    foot: z.enum(["LEFT", "RIGHT", "BOTH"], { message: "Escolha o pe que voce chuta." }),
-    position: z.enum(["GOALKEEPER", "FIXO", "ALA", "PIVO"], { message: "Escolha sua posicao." }),
-    age: z.coerce.number().int("Idade invalida.").min(14, "Idade minima 14 anos.").max(70),
-    heightCm: z.coerce.number().int().min(130, "Altura em centimetros.").max(230),
-    weightKg: z.coerce.number().int().min(35, "Peso em quilos.").max(200),
-    course: z.enum(["LCC", "SI", "OTHER"], { message: "Escolha seu curso." }),
-    courseName: z.string().trim().max(60).optional().or(z.literal("")),
-    photoUrl: z.string().trim().max(500).optional().or(z.literal("")),
-  })
-  .refine((data) => data.course !== "OTHER" || (data.courseName ?? "").length >= 2, {
-    message: "Informe o nome do curso.",
-    path: ["courseName"],
-  });
+export const profileSchema = z.object({
+  nickname: z.string().trim().max(30).optional().or(z.literal("")),
+  foot: z.enum(["LEFT", "RIGHT", "BOTH"], { message: "Escolha o pe que voce chuta." }),
+  position: z.enum(["GOALKEEPER", "FIXO", "ALA", "PIVO"], { message: "Escolha sua posicao." }),
+  age: z.coerce.number().int("Idade invalida.").min(14, "Idade minima 14 anos.").max(70),
+  heightCm: z.coerce.number().int().min(130, "Altura em centimetros.").max(230),
+  weightKg: z.coerce.number().int().min(35, "Peso em quilos.").max(200),
+  photoUrl: z.string().trim().max(500).optional().or(z.literal("")),
+});
 
 export const gameDaySchema = z.object({
   title: z.string().trim().min(3, "De um nome para a pelada.").max(80),

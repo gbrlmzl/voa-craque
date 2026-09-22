@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { pageAdmin } from "@/lib/session";
-import { COURSE_LABEL, POSITION_LABEL } from "@/lib/labels";
+import { POSITION_LABEL } from "@/lib/labels";
 import { PlayerEvaluation, type EvaluationPlayer, type SkillOption } from "@/components/PlayerEvaluation";
 
 export const dynamic = "force-dynamic";
@@ -20,8 +20,6 @@ export default async function PlayersPage() {
             nickname: true,
             photoUrl: true,
             position: true,
-            course: true,
-            courseName: true,
             stars: true,
             skills: { select: { skill: { select: { code: true } } } },
           },
@@ -39,10 +37,6 @@ export default async function PlayersPage() {
       nickname: user.profile!.nickname,
       photoUrl: user.profile!.photoUrl,
       positionLabel: POSITION_LABEL[user.profile!.position],
-      courseLabel:
-        user.profile!.course === "OTHER"
-          ? user.profile!.courseName || "Outro"
-          : COURSE_LABEL[user.profile!.course],
       stars: user.profile!.stars,
       skillCodes: user.profile!.skills.map((entry) => entry.skill.code),
     }));

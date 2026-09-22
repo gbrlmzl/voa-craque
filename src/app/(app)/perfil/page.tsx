@@ -23,8 +23,6 @@ export default async function ProfilePage() {
         age: String(profile.age),
         heightCm: String(profile.heightCm),
         weightKg: String(profile.weightKg),
-        course: profile.course,
-        courseName: profile.courseName ?? "",
         photoUrl: profile.photoUrl ?? "",
       }
     : EMPTY_PROFILE;
