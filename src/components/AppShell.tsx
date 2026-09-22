@@ -8,7 +8,6 @@ import {
   ClipboardList,
   Home,
   LogOut,
-  Menu,
   ScrollText,
   Settings,
   Trophy,
@@ -101,13 +100,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
-            className="ml-auto flex items-center gap-2 rounded-xl px-1 py-1 sm:ml-0 sm:hidden"
+            className="ml-auto rounded-full sm:ml-0 sm:hidden"
             aria-label="Abrir menu"
           >
             <Suspense fallback={<SkeletonBlock className="h-9 w-9 rounded-full" />}>
               <UserAvatar size="sm" />
             </Suspense>
-            <Menu size={20} className="text-slate-400" />
           </button>
 
           <form action={logoutAction} className="hidden sm:block">
