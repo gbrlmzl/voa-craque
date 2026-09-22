@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "db:generate": "prisma generate",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "db:purge-sessions": "tsx scripts/purge-sessions.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.926.0",
