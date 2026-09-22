@@ -1,50 +1,92 @@
 import { cache } from "react";
-import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { redirect, unstable_rethrow } from "next/navigation";
 import type { Role } from "@/generated/prisma/client";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { forbidden, unauthorized } from "@/lib/http";
+import { SESSION_COOKIE_NAME } from "@/lib/auth/config";
+import type { CurrentUser } from "@/lib/auth/current-user";
+import { readSessionCookie } from "@/lib/auth/session-cookie";
+import { hashSessionToken, resolveTokenState } from "@/lib/auth/session-store";
 
-export type CurrentUser = {
-  id: string;
-  email: string;
-  name: string;
-  role: Role;
-  profileCompleted: boolean;
-  photoUrl: string | null;
-};
+export type { CurrentUser };
 
 const ADMIN_ROLES: Role[] = ["ADMIN", "SUPERADMIN"];
 
-/** Le a sessao e confere o usuario no banco, para papel e perfil sempre atuais. */
+/**
+ * Quem esta logado, segundo o banco. E a unica resposta que vale: o proxy so
+ * decide roteamento e o UserProvider so decide o que desenhar.
+ *
+ * Uma consulta por requisicao (o `cache` deduplica entre layout, pagina e
+ * guardas): token vivo ou em graca, do mesmo usuario que o cookie diz, ativo.
+ * Logout, reuso detectado e desativacao valem na hora, sem esperar o cookie
+ * expirar.
+ *
+ * So le. Rotacionar, confirmar sucessor e escrever cookie e trabalho exclusivo
+ * do proxy.
+ */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
-  const session = await auth();
-  const id = session?.user?.id;
-  if (!id) return null;
+  const claims = await readSessionCookie((await cookies()).get(SESSION_COOKIE_NAME)?.value);
+  if (!claims) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { id },
+  const token = await prisma.sessionToken.findUnique({
+    where: { tokenHash: hashSessionToken(claims.sid) },
     select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      active: true,
-      profile: { select: { completed: true, photoUrl: true } },
+      familyId: true,
+      revokedAt: true,
+      expiresAt: true,
+      user: {
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          active: true,
+          image: true,
+          passwordHash: true,
+          authProviders: { select: { provider: true } },
+          profile: { select: { completed: true, photoUrl: true } },
+        },
+      },
     },
   });
 
-  if (!user || !user.active) return null;
+  if (!token || token.user.id !== claims.sub || !token.user.active) return null;
 
+  // "active" inclui o sucessor pendente: o render da requisicao que rotacionou ja o enxerga.
+  const state = await resolveTokenState(token);
+  if (state !== "active" && state !== "grace") return null;
+
+  const { user } = token;
   return {
     id: user.id,
     email: user.email,
     name: user.name,
     role: user.role,
     profileCompleted: user.profile?.completed ?? false,
-    photoUrl: user.profile?.photoUrl ?? null,
+    photoUrl: user.profile?.photoUrl ?? user.image ?? null,
+    hasPassword: user.passwordHash !== null,
+    googleLinked: user.authProviders.some((entry) => entry.provider === "google"),
   };
 });
+
+/**
+ * A sessao como promise, para o layout raiz entregar ao UserProvider sem
+ * `await`. Um layout que espera dado de runtime bloqueia a navegacao inteira e
+ * impede o loading.tsx de aparecer; assim, so quem le o usuario espera, cada um
+ * dentro do proprio <Suspense>.
+ *
+ * Qualquer falha vira "deslogado" com log, para a casca nunca quebrar por causa
+ * da sessao. `unstable_rethrow` devolve ao Next os erros de controle de fluxo
+ * dele (redirect, render dinamico), que nao sao falha.
+ */
+export function getSessionPromise(): Promise<CurrentUser | null> {
+  return getCurrentUser().catch((error: unknown) => {
+    unstable_rethrow(error);
+    console.error("[voacraque] falha ao carregar a sessao", error);
+    return null;
+  });
+}
 
 export const getSystemSettings = cache(async () => {
   const existing = await prisma.systemSetting.findUnique({ where: { id: "global" } });
@@ -90,6 +132,9 @@ export async function assertSiteOpen(user: CurrentUser | null): Promise<void> {
 }
 
 // ------------------------------------------------------------ guardas de pagina
+//
+// Cada page.tsx chama a sua. O layout de (app) nao guarda mais nada: se desse
+// `await` na sessao, bloquearia toda navegacao e os loading.tsx nao apareceriam.
 
 export async function pageUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
