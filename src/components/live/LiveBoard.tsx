@@ -3,6 +3,7 @@
 import { PlayerChip } from "@/components/Player";
 import { Badge, Card, EmptyState, SectionTitle, cn } from "@/components/ui";
 import { MATCH_END_REASON_LABEL, teamColor } from "@/lib/labels";
+import { matchMinute } from "@/lib/match-engine";
 import type { LiveSnapshot, LiveTeam } from "@/services/live";
 import { Scoreboard } from "@/components/live/Scoreboard";
 import { useCountdown, useLive } from "@/hooks/useLive";
@@ -93,7 +94,7 @@ export function LiveBoard({ gameDayId, initial }: { gameDayId: string; initial: 
             {match.events.map((event) => (
               <p key={event.id} className="flex items-center gap-2 text-sm text-slate-300">
                 <span className="w-11 shrink-0 text-xs text-slate-500 tabular-nums">
-                  {Math.floor(event.elapsedMs / 60000)}&apos;
+                  {matchMinute(event.elapsedMs)}&apos;
                 </span>
                 <span>{event.type === "GOAL" ? "⚽" : "👟"}</span>
                 <span className="truncate">{event.playerName}</span>

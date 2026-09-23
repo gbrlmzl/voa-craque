@@ -1,17 +1,32 @@
 "use client";
 
-import { ChevronRight, Footprints, Pause, Play, Square } from "lucide-react";
+import { ChevronRight, Pause, Play, Square } from "lucide-react";
 import { Avatar } from "@/components/Player";
 import { Badge, Button, Card, EmptyState, SectionTitle, cn } from "@/components/ui";
 import { MATCH_END_REASON_LABEL, teamColor } from "@/lib/labels";
+import { matchMinute } from "@/lib/match-engine";
 import type { LiveMatch, LivePlayer, LiveSnapshot, LiveTeam } from "@/services/live";
 import { FinishGameDayButton } from "@/components/gameday/FinishGameDayButton";
+import { GoalAssistModal } from "@/components/live/GoalAssistModal";
 import { Scoreboard } from "@/components/live/Scoreboard";
 import { useLivePanel } from "@/hooks/useLivePanel";
 
 export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: LiveSnapshot }) {
-  const { snapshot, match, remainingMs, streaming, busy, finished, showResult, record, changeState, dismissFinish } =
-    useLivePanel(gameDayId, initial);
+  const {
+    snapshot,
+    match,
+    remainingMs,
+    streaming,
+    busy,
+    finished,
+    showResult,
+    pendingGoal,
+    startGoal,
+    confirmGoal,
+    cancelGoal,
+    changeState,
+    dismissFinish,
+  } = useLivePanel(gameDayId, initial);
 
   return (
     <div className="grid gap-4">
@@ -33,19 +48,33 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
               ) : null}
 
               {match.status === "RUNNING" ? (
-                <Button variant="secondary" size="lg" onClick={() => changeState("PAUSE")} disabled={busy}>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => changeState("PAUSE")}
+                  disabled={busy || !!pendingGoal}
+                >
                   <Pause size={20} /> Pausar
                 </Button>
               ) : null}
 
               {match.status === "PAUSED" ? (
-                <Button size="lg" onClick={() => changeState("RESUME")} disabled={busy || remainingMs <= 0}>
+                <Button
+                  size="lg"
+                  onClick={() => changeState("RESUME")}
+                  disabled={busy || remainingMs <= 0 || !!pendingGoal}
+                >
                   <Play size={20} /> Retomar
                 </Button>
               ) : null}
 
               {match.status === "RUNNING" || match.status === "PAUSED" ? (
-                <Button variant="secondary" size="lg" onClick={() => changeState("END")} disabled={busy}>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => changeState("END")}
+                  disabled={busy || !!pendingGoal}
+                >
                   <Square size={18} /> Encerrar partida
                 </Button>
               ) : null}
@@ -95,14 +124,14 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
           <TeamPanel
             team={match.home}
             match={match}
-            disabled={busy || match.status === "SCHEDULED"}
-            onRecord={record}
+            disabled={busy || match.status === "SCHEDULED" || !!pendingGoal}
+            onGoal={startGoal}
           />
           <TeamPanel
             team={match.away}
             match={match}
-            disabled={busy || match.status === "SCHEDULED"}
-            onRecord={record}
+            disabled={busy || match.status === "SCHEDULED" || !!pendingGoal}
+            onGoal={startGoal}
           />
         </div>
       ) : null}
@@ -139,7 +168,7 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
             {match.events.slice(0, 12).map((event) => (
               <p key={event.id} className="flex items-center gap-2 text-sm text-slate-300">
                 <span className="w-11 shrink-0 text-xs text-slate-500 tabular-nums">
-                  {Math.floor(event.elapsedMs / 60000)}&apos;
+                  {matchMinute(event.elapsedMs)}&apos;
                 </span>
                 <span>{event.type === "GOAL" ? "⚽" : "👟"}</span>
                 <span className="truncate">{event.playerName}</span>
@@ -156,6 +185,16 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
           <FinishGameDayButton gameDayId={gameDayId} className="w-full" />
         </section>
       ) : null}
+
+      {pendingGoal ? (
+        <GoalAssistModal
+          team={pendingGoal.team}
+          scorer={pendingGoal.player}
+          busy={busy}
+          onConfirm={confirmGoal}
+          onCancel={cancelGoal}
+        />
+      ) : null}
     </div>
   );
 }
@@ -164,12 +203,12 @@ function TeamPanel({
   team,
   match,
   disabled,
-  onRecord,
+  onGoal,
 }: {
   team: LiveTeam;
   match: LiveMatch;
   disabled: boolean;
-  onRecord: (type: "GOAL" | "ASSIST", team: LiveTeam, player: LivePlayer) => void;
+  onGoal: (team: LiveTeam, player: LivePlayer) => void;
 }) {
   const palette = teamColor(team.name);
   const score = team.id === match.home.id ? match.homeScore : match.awayScore;
@@ -198,21 +237,11 @@ function TeamPanel({
             <button
               type="button"
               disabled={disabled}
-              onClick={() => onRecord("GOAL", team, player)}
+              onClick={() => onGoal(team, player)}
               aria-label={`Gol de ${player.name}`}
               className="ball-glow touch-target grid place-items-center rounded-xl bg-pitch-500/20 text-2xl ring-1 ring-pitch-500/40 transition-transform active:scale-90 disabled:opacity-40 disabled:ring-white/10"
             >
               ⚽
-            </button>
-
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => onRecord("ASSIST", team, player)}
-              aria-label={`Assistência de ${player.name}`}
-              className="touch-target grid place-items-center rounded-xl bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/30 transition-transform active:scale-90 disabled:opacity-40 disabled:ring-white/10"
-            >
-              <Footprints size={22} />
             </button>
           </div>
         ))}

@@ -189,3 +189,11 @@ export function formatClock(ms: number): string {
   const seconds = safe % 60;
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
+
+/**
+ * Minuto do jogo no padrao futebol: o tempo decorrido de 0:00 a 0:59 e o
+ * minuto 1, de 1:00 a 1:59 e o minuto 2, e assim por diante.
+ */
+export function matchMinute(elapsedMs: number): number {
+  return Math.floor(Math.max(0, elapsedMs) / 60000) + 1;
+}
