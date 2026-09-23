@@ -12,8 +12,8 @@ export function RegisterForm() {
   return (
     <Card>
       <form action={action} className="grid gap-4">
-        <Field label="Nome completo" error={state.fieldErrors?.name}>
-          <Input name="name" autoComplete="name" placeholder="Como te chamam na chamada" required />
+        <Field label="Nome de usuário" error={state.fieldErrors?.username}>
+          <Input name="username" autoComplete="username" required />
         </Field>
 
         <Field label="E-mail" error={state.fieldErrors?.email}>

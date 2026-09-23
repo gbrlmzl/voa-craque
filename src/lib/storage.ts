@@ -76,7 +76,7 @@ export async function saveUpload(file: File, folder: UploadFolder): Promise<stri
   const target = path.join(uploadDir(), key);
   await mkdir(path.dirname(target), { recursive: true });
   await writeFile(target, bytes);
-  return `/api/arquivos/${key}`;
+  return `/api/files/${key}`;
 }
 
 export function localFilePath(segments: string[]): string {

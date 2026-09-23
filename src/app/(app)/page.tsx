@@ -36,7 +36,7 @@ export default async function HomePage() {
     <div className="grid gap-6">
       <div>
         <p className="text-sm text-slate-400">Salve,</p>
-        <h1 className="text-2xl font-bold tracking-tight">{user.name.split(" ")[0]}</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{(user.name ?? user.username).split(" ")[0]}</h1>
       </div>
 
       <section>
@@ -96,14 +96,14 @@ export default async function HomePage() {
             ) : null}
 
             <div className="grid gap-2 sm:grid-cols-2">
-              <Link href={`/peladas/${gameDay.id}`}>
+              <Link href={`/game-days/${gameDay.id}`}>
                 <Button variant="secondary" size="lg" className="w-full">
                   Ver a pelada
                 </Button>
               </Link>
 
               {gameDay.status === "LIVE" || gameDay.status === "TEAMS_SET" ? (
-                <Link href={admin ? `/peladas/${gameDay.id}/painel` : `/peladas/${gameDay.id}/ao-vivo`}>
+                <Link href={admin ? `/game-days/${gameDay.id}/panel` : `/game-days/${gameDay.id}/live`}>
                   <Button size="lg" className="w-full">
                     <Radio size={18} /> {admin ? "Abrir painel" : "Acompanhar"}
                   </Button>

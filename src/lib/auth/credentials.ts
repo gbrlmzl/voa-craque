@@ -10,22 +10,26 @@ import { logSecurityEvent } from "@/lib/security-log";
 const dummyHash = hash("voacraque:senha-que-ninguem-tem", 10);
 const getDummyHash = () => dummyHash;
 
-export type VerifiedUser = { id: string; email: string; name: string };
+export type VerifiedUser = { id: string; username: string };
 
 /**
  * A mensagem para quem tenta e sempre a mesma; a diferenca vai so para o log,
  * porque e ela que da sentido ao alerta: user_not_found repetido do mesmo IP e
- * varredura de e-mails, invalid_password repetido na mesma conta e forca bruta.
+ * varredura de usuarios, invalid_password repetido na mesma conta e forca bruta.
  */
-export async function verifyCredentials(email: string, password: string, ip: string): Promise<VerifiedUser | null> {
+export async function verifyCredentials(
+  username: string,
+  password: string,
+  ip: string,
+): Promise<VerifiedUser | null> {
   const user = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true, email: true, name: true, active: true, passwordHash: true },
+    where: { username },
+    select: { id: true, username: true, active: true, passwordHash: true },
   });
 
   if (!user?.passwordHash) {
     await compare(password, await getDummyHash());
-    logSecurityEvent("login_failed", { reason: user ? "no_local_password" : "user_not_found", email, ip });
+    logSecurityEvent("login_failed", { reason: user ? "no_local_password" : "user_not_found", username, ip });
     return null;
   }
 
@@ -40,5 +44,5 @@ export async function verifyCredentials(email: string, password: string, ip: str
     return null;
   }
 
-  return { id: user.id, email: user.email, name: user.name };
+  return { id: user.id, username: user.username };
 }

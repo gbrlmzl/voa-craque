@@ -24,15 +24,8 @@ export function LoginForm({
       <form action={action} className="grid gap-4">
         <input type="hidden" name="proximo" value={next ?? "/"} />
 
-        <Field label="E-mail" error={state.fieldErrors?.email}>
-          <Input
-            name="email"
-            type="email"
-            autoComplete="email"
-            inputMode="email"
-            placeholder="voce@aluno.edu.br"
-            required
-          />
+        <Field label="Usuário" error={state.fieldErrors?.username}>
+          <Input name="username" type="text" autoComplete="username" placeholder="poucasombra" required />
         </Field>
 
         <Field label="Senha" error={state.fieldErrors?.password}>

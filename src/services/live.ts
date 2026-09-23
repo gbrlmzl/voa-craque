@@ -104,8 +104,8 @@ export async function buildLiveSnapshot(gameDayId: string): Promise<LiveSnapshot
               user: {
                 select: {
                   id: true,
-                  name: true,
-                  profile: { select: { nickname: true, photoUrl: true } },
+                  username: true,
+                  profile: { select: { name: true, nickname: true, photoUrl: true } },
                 },
               },
             },
@@ -118,7 +118,7 @@ export async function buildLiveSnapshot(gameDayId: string): Promise<LiveSnapshot
           events: {
             orderBy: { createdAt: "desc" },
             include: {
-              user: { select: { name: true } },
+              user: { select: { username: true, profile: { select: { name: true } } } },
               team: { select: { name: true } },
             },
           },
@@ -150,7 +150,7 @@ export async function buildLiveSnapshot(gameDayId: string): Promise<LiveSnapshot
       players: team.players
         .map((member) => ({
           userId: member.userId,
-          name: member.user.profile?.nickname || member.user.name,
+          name: member.user.profile?.nickname || member.user.profile?.name || member.user.username,
           nickname: member.user.profile?.nickname ?? null,
           photoUrl: member.user.profile?.photoUrl ?? null,
           isKeeper: member.isKeeper,
@@ -186,7 +186,7 @@ export async function buildLiveSnapshot(gameDayId: string): Promise<LiveSnapshot
           teamId: event.teamId,
           teamName: event.team.name,
           userId: event.userId,
-          playerName: event.user.name,
+          playerName: event.user.profile?.name ?? event.user.username,
           elapsedMs: event.elapsedMs,
           createdAt: event.createdAt.toISOString(),
         })),

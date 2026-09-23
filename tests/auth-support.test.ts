@@ -10,12 +10,12 @@ describe("classifyPath", () => {
     ["/api/auth/callback/google", "auth-endpoint"],
     ["/api/auth", "auth-endpoint"],
     ["/login", "guest-only"],
-    ["/registrar", "guest-only"],
-    ["/manutencao", "public"],
-    ["/api/peladas", "protected-api"],
+    ["/register", "guest-only"],
+    ["/maintenance", "public"],
+    ["/api/game-days", "protected-api"],
     ["/api/authorize-algo", "protected-api"], // prefixo parecido nao e rota do Auth.js
     ["/", "protected-page"],
-    ["/primeiro-acesso", "protected-page"],
+    ["/onboarding", "protected-page"],
     ["/login/extra", "protected-page"],
   ])("%s -> %s", (path, kind) => {
     expect(classifyPath(path)).toBe(kind);
@@ -24,7 +24,7 @@ describe("classifyPath", () => {
 
 describe("safeNextPath", () => {
   it.each([
-    ["/peladas/abc", "/peladas/abc"],
+    ["/game-days/abc", "/game-days/abc"],
     ["/ranking?ordem=gols", "/ranking?ordem=gols"],
     ["//evil.com", "/"],
     ["/\\evil.com", "/"],
@@ -95,6 +95,7 @@ describe("patch do usuario no contexto", () => {
   const server: CurrentUser = {
     id: "u1",
     email: "a@b.c",
+    username: "gabriel",
     name: "Gabriel",
     role: "USER",
     profileCompleted: true,

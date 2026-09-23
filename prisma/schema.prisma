@@ -81,9 +81,9 @@ enum MatchEventType {
 model User {
   id              String    @id @default(cuid())
   email           String    @unique
+  username        String    @unique
   // Nulo em conta criada pelo Google: sem senha local, so entra pelo Google.
   passwordHash    String?
-  name            String
   role            Role      @default(USER)
   active          Boolean   @default(true)
   // Preenchido quando um provedor externo prova a posse do e-mail. O cadastro
@@ -151,6 +151,8 @@ model SessionToken {
 model PlayerProfile {
   id         String   @id @default(cuid())
   userId     String   @unique
+  // Nome de verdade, preenchido no primeiro acesso; a conta guarda so o username.
+  name       String
   photoUrl   String?
   foot       Foot
   position   Position

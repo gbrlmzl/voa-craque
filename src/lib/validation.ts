@@ -10,13 +10,23 @@ const email = z
 const password = z.string().min(8, "A senha precisa de pelo menos 8 caracteres.").max(72);
 
 export const credentialsSchema = z.object({
-  email,
+  username: z
+    .string()
+    .trim()
+    .min(1, "Informe o usuário.")
+    .transform((value) => value.toLowerCase()),
   password: z.string().min(1, "Informe a senha."),
 });
 
 export const registerSchema = z
   .object({
-    name: z.string().trim().min(3, "Informe seu nome completo.").max(80),
+    username: z
+      .string()
+      .trim()
+      .min(3, "Minimo de 3 caracteres.")
+      .max(24, "Maximo de 24 caracteres.")
+      .regex(/^[a-zA-Z0-9_.]+$/, "Use letras, numeros, ponto ou underscore.")
+      .transform((value) => value.toLowerCase()),
     email,
     password,
     passwordConfirm: z.string(),
@@ -27,6 +37,7 @@ export const registerSchema = z
   });
 
 export const profileSchema = z.object({
+  name: z.string().trim().min(2, "Informe seu nome.").max(80),
   nickname: z.string().trim().max(30).optional().or(z.literal("")),
   foot: z.enum(["LEFT", "RIGHT", "BOTH"], { message: "Escolha o pe que voce chuta." }),
   position: z.enum(["GOALKEEPER", "FIXO", "ALA", "PIVO"], { message: "Escolha sua posicao." }),

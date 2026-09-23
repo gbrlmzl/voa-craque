@@ -22,7 +22,7 @@ import { clientIp } from "@/lib/client-ip";
  *
  * Toca no banco em tres casos so: token passou de SESSION_ROTATE_AFTER_S, cookie
  * de sucessor voltando pela primeira vez, e alguem com cookie abrindo /login ou
- * /registrar.
+ * /register.
  */
 export async function proxy(req: NextRequest) {
   const route = classifyPath(req.nextUrl.pathname);

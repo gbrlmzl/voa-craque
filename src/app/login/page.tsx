@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { isGoogleAuthEnabled } from "@/lib/auth/config";
+import { BrandIcon } from "@/components/BrandIcon";
 import { LoginForm } from "@/components/forms/LoginForm";
 import { GoogleSignInButton, OrDivider } from "@/components/forms/GoogleSignInButton";
 
@@ -15,7 +16,7 @@ function authErrorMessage(error?: string, code?: string): string | undefined {
   if (error === "CredentialsSignin") {
     return code === "rate_limited"
       ? "Muitas tentativas de login. Espere alguns minutos e tente de novo."
-      : "E-mail ou senha não conferem.";
+      : "Usuário ou senha não conferem.";
   }
   if (error === "AccessDenied") return "Não foi possível entrar com essa conta do Google.";
   if (error === "Configuration") return "O login está indisponível agora. Tente de novo em instantes.";
@@ -33,16 +34,14 @@ export default async function LoginPage({
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
       <div className="mb-8 text-center">
-        <span className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-pitch-500 text-2xl font-black text-night-950">
-          V
-        </span>
+        <BrandIcon className="mx-auto mb-3 h-14 w-14 rounded-2xl" />
         <h1 className="text-2xl font-bold tracking-tight">Voa Craque</h1>
       </div>
 
       {googleEnabled ? (
         <>
           <GoogleSignInButton next={proximo} />
-          <OrDivider label="ou entre com e-mail" />
+          <OrDivider label="ou entre com usuário e senha" />
         </>
       ) : null}
 
@@ -50,7 +49,7 @@ export default async function LoginPage({
 
       <p className="mt-6 text-center text-sm text-slate-400">
         Primeira vez aqui?{" "}
-        <Link href="/registrar" className="font-semibold text-pitch-400 underline underline-offset-4">
+        <Link href="/register" className="font-semibold text-pitch-400 underline underline-offset-4">
           Criar conta
         </Link>
       </p>

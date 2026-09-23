@@ -33,7 +33,7 @@ function fieldErrorsOf(error: ZodError): Record<string, string> {
  */
 export async function loginAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const parsed = credentialsSchema.safeParse({
-    email: formData.get("email"),
+    username: formData.get("username"),
     password: formData.get("password"),
   });
   if (!parsed.success) return { fieldErrors: fieldErrorsOf(parsed.error) };
@@ -44,8 +44,8 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
     if (error instanceof CredentialsSignin && error.code === "rate_limited") {
       return { message: "Muitas tentativas de login. Espere alguns minutos e tente de novo." };
     }
-    // A mesma mensagem para e-mail inexistente e senha errada: nao revela quem tem conta.
-    if (error instanceof AuthError) return { message: "E-mail ou senha não conferem." };
+    // A mesma mensagem para usuario inexistente e senha errada: nao revela quem tem conta.
+    if (error instanceof AuthError) return { message: "Usuário ou senha não conferem." };
     throw error;
   }
   return {};
@@ -59,7 +59,7 @@ export async function registerAction(_prev: FormState, formData: FormData): Prom
   }
 
   const parsed = registerSchema.safeParse({
-    name: formData.get("name"),
+    username: formData.get("username"),
     email: formData.get("email"),
     password: formData.get("password"),
     passwordConfirm: formData.get("passwordConfirm"),
@@ -69,30 +69,35 @@ export async function registerAction(_prev: FormState, formData: FormData): Prom
   // Conta toda tentativa valida, inclusive as que dao certo (ver registerLimiter).
   registerLimiter.hit(ip);
 
-  const { name, email, password } = parsed.data;
+  const { username, email, password } = parsed.data;
 
-  const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-  if (existing) {
+  const existingEmail = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  if (existingEmail) {
     return { fieldErrors: { email: "Já existe uma conta com este e-mail." } };
   }
 
+  const existingUsername = await prisma.user.findUnique({ where: { username }, select: { id: true } });
+  if (existingUsername) {
+    return { fieldErrors: { username: "Este nome de usuário já está em uso." } };
+  }
+
   const user = await prisma.user.create({
-    data: { name, email, passwordHash: await hash(password, 10) },
+    data: { username, email, passwordHash: await hash(password, 10) },
   });
 
   await recordAudit(user, {
     action: AUDIT_ACTIONS.USER_CREATED,
     entity: "User",
     entityId: user.id,
-    summary: `${user.name} criou a conta`,
-    after: { name: user.name, email: user.email, role: user.role },
+    summary: `${user.username} criou a conta`,
+    after: { username: user.username, email: user.email, role: user.role },
   });
 
   try {
-    await signIn("credentials", { email, password, redirectTo: "/primeiro-acesso" });
+    await signIn("credentials", { username, password, redirectTo: "/onboarding" });
   } catch (error) {
     if (error instanceof AuthError) {
-      return { message: "Conta criada. Entre com seu e-mail e senha." };
+      return { message: "Conta criada. Entre com seu usuário e senha." };
     }
     throw error;
   }

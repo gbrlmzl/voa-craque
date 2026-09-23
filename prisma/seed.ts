@@ -69,6 +69,7 @@ async function main() {
   const superEmail = (process.env.SUPERADMIN_EMAIL ?? "super@voacraque.app").toLowerCase();
   const superPassword = process.env.SUPERADMIN_PASSWORD ?? "VoaCraque123!";
   const superName = process.env.SUPERADMIN_NAME ?? "Superadmin";
+  const superUsername = process.env.SUPERADMIN_USERNAME ?? superEmail.split("@")[0];
 
   await prisma.systemSetting.upsert({
     where: { id: "global" },
@@ -87,14 +88,15 @@ async function main() {
 
   const superadmin = await prisma.user.upsert({
     where: { email: superEmail },
-    update: { role: "SUPERADMIN", name: superName },
+    update: { role: "SUPERADMIN" },
     create: {
       email: superEmail,
-      name: superName,
+      username: superUsername,
       role: "SUPERADMIN",
       passwordHash: await hash(superPassword, 10),
       profile: {
         create: {
+          name: superName,
           foot: "RIGHT",
           position: "FIXO",
           age: 30,
@@ -117,11 +119,12 @@ async function main() {
     update: { role: "ADMIN" },
     create: {
       email: "organizador@voacraque.app",
-      name: "Rodrigo Organizador",
+      username: "organizador",
       role: "ADMIN",
       passwordHash: await hash("VoaCraque123!", 10),
       profile: {
         create: {
+          name: "Rodrigo Organizador",
           nickname: "Digão",
           foot: "RIGHT",
           position: "ALA",
@@ -142,16 +145,18 @@ async function main() {
 
   for (const player of SAMPLE_PLAYERS) {
     const email = emailFor(player.name);
+    const username = email.split("@")[0];
     const user = await prisma.user.upsert({
       where: { email },
       update: {},
       create: {
         email,
-        name: player.name,
+        username,
         role: "USER",
         passwordHash: playerPassword,
         profile: {
           create: {
+            name: player.name,
             nickname: player.nickname,
             foot: player.foot,
             position: player.position,

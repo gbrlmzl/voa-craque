@@ -50,7 +50,7 @@ export async function signInWithGoogle(providerAccountId: string, profile: Googl
 
   const existing = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, name: true, email: true, role: true, active: true, image: true, passwordHash: true, emailVerifiedAt: true },
+    select: { id: true, username: true, email: true, role: true, active: true, image: true, passwordHash: true, emailVerifiedAt: true },
   });
 
   if (existing) {
@@ -77,7 +77,7 @@ export async function signInWithGoogle(providerAccountId: string, profile: Googl
  */
 type LinkableUser = {
   id: string;
-  name: string;
+  username: string;
   email: string;
   role: Role;
   image: string | null;
@@ -114,41 +114,62 @@ async function linkGoogleAccount(
     entity: "User",
     entityId: user.id,
     summary: dropUnverifiedPassword
-      ? `${user.name} vinculou o Google; a senha não verificada foi removida`
-      : `${user.name} vinculou o Google`,
+      ? `${user.username} vinculou o Google; a senha não verificada foi removida`
+      : `${user.username} vinculou o Google`,
     after: { provider: PROVIDER, passwordDropped: dropUnverifiedPassword },
   });
 }
 
+/** Base do username a partir do e-mail; sufixo numerico entra so se already em uso. */
+function baseUsernameFor(email: string): string {
+  const cleaned = email
+    .split("@")[0]
+    .toLowerCase()
+    .replace(/[^a-z0-9_.]/g, "_")
+    .slice(0, 20);
+  return cleaned || "jogador";
+}
+
 async function createGoogleUser(email: string, providerAccountId: string, profile: GoogleProfile): Promise<boolean> {
-  const name = (profile.name?.trim() || email.split("@")[0]).slice(0, 80);
+  const base = baseUsernameFor(email);
 
-  try {
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name,
-        passwordHash: null,
-        emailVerifiedAt: new Date(),
-        image: profile.picture ?? null,
-        authProviders: { create: { provider: PROVIDER, providerAccountId } },
-      },
-      select: { id: true, email: true, name: true, role: true },
-    });
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const username = attempt === 0 ? base : `${base}${Math.floor(1000 + Math.random() * 9000)}`;
 
-    await recordAudit(user, {
-      action: AUDIT_ACTIONS.USER_CREATED,
-      entity: "User",
-      entityId: user.id,
-      summary: `${user.name} criou a conta pelo Google`,
-      after: { name: user.name, email: user.email, role: user.role, provider: PROVIDER },
-    });
-    return true;
-  } catch (error) {
-    // Dois primeiros logins simultaneos da mesma conta: o outro ja criou.
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return true;
-    throw error;
+    try {
+      const user = await prisma.user.create({
+        data: {
+          email,
+          username,
+          passwordHash: null,
+          emailVerifiedAt: new Date(),
+          image: profile.picture ?? null,
+          authProviders: { create: { provider: PROVIDER, providerAccountId } },
+        },
+        select: { id: true, email: true, username: true, role: true },
+      });
+
+      await recordAudit(user, {
+        action: AUDIT_ACTIONS.USER_CREATED,
+        entity: "User",
+        entityId: user.id,
+        summary: `${user.username} criou a conta pelo Google`,
+        after: { username: user.username, email: user.email, role: user.role, provider: PROVIDER },
+      });
+      return true;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        const target = (error.meta?.target as string[] | undefined) ?? [];
+        // Dois primeiros logins simultaneos do mesmo e-mail: o outro ja criou.
+        if (target.includes("email")) return true;
+        // Colisao so no username gerado: tenta de novo com um sufixo novo.
+        continue;
+      }
+      throw error;
+    }
   }
+
+  throw new Error("Não foi possível gerar um nome de usuário único para a conta do Google.");
 }
 
 /** Callback `jwt`: o usuario do banco por tras da conta Google que acabou de autorizar. */

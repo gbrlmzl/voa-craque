@@ -7,8 +7,8 @@
  */
 export type RouteKind = "auth-endpoint" | "guest-only" | "public" | "protected-api" | "protected-page";
 
-const GUEST_ONLY = new Set(["/login", "/registrar"]);
-const PUBLIC = new Set(["/manutencao"]);
+const GUEST_ONLY = new Set(["/login", "/register"]);
+const PUBLIC = new Set(["/maintenance"]);
 
 export function classifyPath(pathname: string): RouteKind {
   if (pathname === "/api/auth" || pathname.startsWith("/api/auth/")) return "auth-endpoint";

@@ -330,7 +330,7 @@ export async function recordMatchEvent(
         elapsedMs,
         createdById: actor.id,
       },
-      include: { user: { select: { name: true } }, team: { select: { name: true } } },
+      include: { user: { select: { username: true, profile: { select: { name: true } } } }, team: { select: { name: true } } },
     });
 
     let score = { home: match.homeScore, away: match.awayScore };
@@ -346,7 +346,7 @@ export async function recordMatchEvent(
       action: AUDIT_ACTIONS.MATCH_EVENT_CREATED,
       entity: "MatchEvent",
       entityId: event.id,
-      summary: `${input.type === "GOAL" ? "Gol" : "Assistência"} de ${event.user.name} (time ${event.team.name})`,
+      summary: `${input.type === "GOAL" ? "Gol" : "Assistência"} de ${event.user.profile?.name ?? event.user.username} (time ${event.team.name})`,
       after: { matchId, type: input.type, userId: input.userId, teamId: input.teamId, elapsedMs },
     });
 
@@ -387,7 +387,7 @@ export async function undoMatchEvent(
   await withLock(`clock:${match.gameDayId}`, async () => {
     const event = await prisma.matchEvent.findUnique({
       where: { id: eventId },
-      include: { user: { select: { name: true } }, team: { select: { name: true } } },
+      include: { user: { select: { username: true, profile: { select: { name: true } } } }, team: { select: { name: true } } },
     });
     if (!event || event.matchId !== matchId) throw notFound("Evento não encontrado.");
     if (match.gameDay.status === "FINISHED") throw conflict("A pelada já foi encerrada.");
@@ -458,7 +458,7 @@ export async function undoMatchEvent(
       action: AUDIT_ACTIONS.MATCH_EVENT_UNDONE,
       entity: "MatchEvent",
       entityId: eventId,
-      summary: `Desfeito: ${event.type === "GOAL" ? "gol" : "assistência"} de ${event.user.name} (time ${event.team.name})`,
+      summary: `Desfeito: ${event.type === "GOAL" ? "gol" : "assistência"} de ${event.user.profile?.name ?? event.user.username} (time ${event.team.name})`,
       before: {
         matchId,
         type: event.type,

@@ -8,7 +8,9 @@ import type { Role } from "@/generated/prisma/client";
 export type CurrentUser = {
   id: string;
   email: string;
-  name: string;
+  username: string;
+  /** Nome de verdade, do perfil de jogador; nulo ate o primeiro acesso terminar. */
+  name: string | null;
   role: Role;
   profileCompleted: boolean;
   /** Foto do perfil de jogador; sem ela, a foto do Google; sem as duas, null. */

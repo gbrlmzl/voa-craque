@@ -26,9 +26,10 @@ export async function loadPool(gameDayId: string): Promise<PoolPlayer[]> {
       user: {
         select: {
           id: true,
-          name: true,
+          username: true,
           profile: {
             select: {
+              name: true,
               nickname: true,
               photoUrl: true,
               stars: true,
@@ -45,7 +46,7 @@ export async function loadPool(gameDayId: string): Promise<PoolPlayer[]> {
 
   return registrations.map((registration) => ({
     userId: registration.user.id,
-    name: registration.user.name,
+    name: registration.user.profile?.name ?? registration.user.username,
     nickname: registration.user.profile?.nickname ?? null,
     photoUrl: registration.user.profile?.photoUrl ?? null,
     stars: registration.user.profile?.stars ?? null,

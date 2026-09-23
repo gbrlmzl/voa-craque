@@ -36,7 +36,7 @@ export const { handlers, signIn, signOut } = NextAuth({
 
   providers: [
     Credentials({
-      credentials: { email: {}, password: {} },
+      credentials: { username: {}, password: {} },
       // Tambem roda quando alguem posta direto em /api/auth/callback/credentials,
       // sem passar pela loginAction: por isso o rate limit mora aqui.
       async authorize(raw, request) {
@@ -46,7 +46,7 @@ export const { handlers, signIn, signOut } = NextAuth({
         const ip = clientIp(request.headers);
         if (loginLimiter.retryAfter(ip) > 0) throw new RateLimitedSignin();
 
-        const user = await verifyCredentials(parsed.data.email, parsed.data.password, ip);
+        const user = await verifyCredentials(parsed.data.username, parsed.data.password, ip);
         if (!user) {
           loginLimiter.hit(ip);
           return null;

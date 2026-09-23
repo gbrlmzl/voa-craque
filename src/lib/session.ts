@@ -39,13 +39,13 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
         select: {
           id: true,
           email: true,
-          name: true,
+          username: true,
           role: true,
           active: true,
           image: true,
           passwordHash: true,
           authProviders: { select: { provider: true } },
-          profile: { select: { completed: true, photoUrl: true } },
+          profile: { select: { completed: true, photoUrl: true, name: true } },
         },
       },
     },
@@ -61,7 +61,8 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   return {
     id: user.id,
     email: user.email,
-    name: user.name,
+    username: user.username,
+    name: user.profile?.name ?? null,
     role: user.role,
     profileCompleted: user.profile?.completed ?? false,
     photoUrl: user.profile?.photoUrl ?? user.image ?? null,
@@ -140,14 +141,14 @@ export async function pageUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const settings = await getSystemSettings();
-  if (!settings.publicAccessEnabled && !isSuperadmin(user)) redirect("/manutencao");
+  if (!settings.publicAccessEnabled && !isSuperadmin(user)) redirect("/maintenance");
   return user;
 }
 
 /** Primeiro acesso: ninguem circula pelo site sem o perfil de jogador pronto. */
 export async function pageUserWithProfile(): Promise<CurrentUser> {
   const user = await pageUser();
-  if (!user.profileCompleted) redirect("/primeiro-acesso");
+  if (!user.profileCompleted) redirect("/onboarding");
   return user;
 }
 

@@ -30,8 +30,8 @@ export async function buildRanking(): Promise<RankingRow[]> {
       where: { active: true, profile: { completed: true } },
       select: {
         id: true,
-        name: true,
-        profile: { select: { nickname: true, photoUrl: true, position: true, stars: true } },
+        username: true,
+        profile: { select: { name: true, nickname: true, photoUrl: true, position: true, stars: true } },
       },
     }),
     prisma.match.findMany({
@@ -57,7 +57,7 @@ export async function buildRanking(): Promise<RankingRow[]> {
   for (const player of players) {
     rows.set(player.id, {
       userId: player.id,
-      name: player.name,
+      name: player.profile?.name ?? player.username,
       nickname: player.profile?.nickname ?? null,
       photoUrl: player.profile?.photoUrl ?? null,
       position: player.profile?.position ?? null,
