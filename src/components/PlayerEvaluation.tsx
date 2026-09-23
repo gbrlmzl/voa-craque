@@ -1,24 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { ChevronDown, Search } from "lucide-react";
-import { Avatar, SkillTag, Stars } from "@/components/player";
-import { useToast } from "@/components/toast";
+import { Avatar, SkillTag, Stars } from "@/components/Player";
 import { Badge, Button, Card, EmptyState, Input, cn } from "@/components/ui";
 import { SKILL_HINTS } from "@/lib/skills";
+import { type EvaluationPlayer, type SkillOption, usePlayerEvaluation } from "@/hooks/usePlayerEvaluation";
+import { usePlayerEvaluationRow } from "@/hooks/usePlayerEvaluationRow";
 
-export type EvaluationPlayer = {
-  userId: string;
-  name: string;
-  nickname: string | null;
-  photoUrl: string | null;
-  positionLabel: string;
-  stars: number | null;
-  skillCodes: string[];
-};
-
-export type SkillOption = { code: string; label: string; polarity: "POSITIVE" | "NEGATIVE" };
+export type { EvaluationPlayer, SkillOption } from "@/hooks/usePlayerEvaluation";
 
 const STAR_STEPS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 
@@ -29,14 +18,7 @@ export function PlayerEvaluation({
   players: EvaluationPlayer[];
   skills: SkillOption[];
 }) {
-  const [query, setQuery] = useState("");
-  const [openId, setOpenId] = useState<string | null>(null);
-
-  const filtered = players.filter((player) =>
-    `${player.name} ${player.nickname ?? ""}`.toLowerCase().includes(query.trim().toLowerCase()),
-  );
-
-  const unrated = players.filter((player) => player.stars === null).length;
+  const { query, setQuery, openId, toggle, filtered, unrated } = usePlayerEvaluation(players);
 
   return (
     <div className="grid gap-3">
@@ -66,7 +48,7 @@ export function PlayerEvaluation({
             player={player}
             skills={skills}
             expanded={openId === player.userId}
-            onToggle={() => setOpenId(openId === player.userId ? null : player.userId)}
+            onToggle={() => toggle(player.userId)}
           />
         ))
       )}
@@ -85,36 +67,7 @@ function PlayerRow({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const router = useRouter();
-  const toast = useToast();
-  const [stars, setStars] = useState<number | null>(player.stars);
-  const [selected, setSelected] = useState<string[]>(player.skillCodes);
-  const [saving, setSaving] = useState(false);
-
-  const dirty =
-    stars !== player.stars ||
-    selected.length !== player.skillCodes.length ||
-    selected.some((code) => !player.skillCodes.includes(code));
-
-  async function save() {
-    setSaving(true);
-    try {
-      const response = await fetch(`/api/jogadores/${player.userId}/avaliacao`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stars, skillCodes: selected }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "Não foi possível salvar.");
-      toast.show({ message: `${player.name} avaliado.`, tone: "success" });
-      router.refresh();
-    } catch (error) {
-      toast.show({ message: (error as Error).message, tone: "error" });
-    } finally {
-      setSaving(false);
-    }
-  }
-
+  const { stars, setStars, selected, toggleSkill, saving, dirty, save } = usePlayerEvaluationRow(player);
   const chosenSkills = skills.filter((skill) => player.skillCodes.includes(skill.code));
 
   return (
@@ -182,13 +135,7 @@ function PlayerRow({
                     key={skill.code}
                     type="button"
                     title={SKILL_HINTS[skill.code]}
-                    onClick={() =>
-                      setSelected((current) =>
-                        current.includes(skill.code)
-                          ? current.filter((code) => code !== skill.code)
-                          : [...current, skill.code],
-                      )
-                    }
+                    onClick={() => toggleSkill(skill.code)}
                     className={cn(
                       "h-10 rounded-xl border px-3 text-sm",
                       active && skill.polarity === "POSITIVE"

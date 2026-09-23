@@ -1,19 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { Check, Copy, Loader2, Receipt } from "lucide-react";
-import { useToast } from "@/components/toast";
 import { Badge, Button, Card, SectionTitle } from "@/components/ui";
 import { PAYMENT_METHOD_LABEL, PAYMENT_STATUS_LABEL } from "@/lib/labels";
+import { type Registration, useRegistrationPanel } from "@/hooks/useRegistrationPanel";
 
-type Registration = {
-  id: string;
-  paymentMethod: "PIX" | "ON_SITE";
-  paymentStatus: "PENDING" | "CONFIRMED" | "REJECTED";
-  receiptUrl: string | null;
-  rejectedReason: string | null;
-};
+export type { Registration } from "@/hooks/useRegistrationPanel";
 
 const STATUS_TONE = { PENDING: "warn", CONFIRMED: "good", REJECTED: "bad" } as const;
 
@@ -32,69 +25,9 @@ export function RegistrationPanel({
   open: boolean;
   full: boolean;
 }) {
-  const router = useRouter();
-  const toast = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
-
-  const [method, setMethod] = useState<"PIX" | "ON_SITE">("PIX");
-  const [receiptUrl, setReceiptUrl] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-
-  async function uploadReceipt(file: File) {
-    setUploading(true);
-    setMessage(null);
-    try {
-      const form = new FormData();
-      form.set("file", file);
-      form.set("tipo", "comprovante");
-      const response = await fetch("/api/uploads", { method: "POST", body: form });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "Falha ao enviar o comprovante.");
-      setReceiptUrl(body.url);
-    } catch (error) {
-      setMessage((error as Error).message);
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function subscribe() {
-    setSaving(true);
-    setMessage(null);
-    try {
-      const response = await fetch(`/api/peladas/${gameDayId}/inscricoes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentMethod: method, receiptUrl }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "Não foi possível inscrever.");
-      toast.show({ message: "Inscrição feita. Boa pelada!", tone: "success" });
-      router.refresh();
-    } catch (error) {
-      setMessage((error as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function cancel() {
-    setSaving(true);
-    setMessage(null);
-    try {
-      const response = await fetch(`/api/peladas/${gameDayId}/inscricoes`, { method: "DELETE" });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "Não foi possível cancelar.");
-      toast.show({ message: "Inscrição cancelada." });
-      router.refresh();
-    } catch (error) {
-      setMessage((error as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  }
+  const { method, setMethod, receiptUrl, uploading, uploadReceipt, saving, message, subscribe, cancel, copyPixKey } =
+    useRegistrationPanel(gameDayId);
 
   if (registration) {
     return (
@@ -180,10 +113,7 @@ export function RegistrationPanel({
             {pixKey ? (
               <button
                 type="button"
-                onClick={() => {
-                  void navigator.clipboard?.writeText(pixKey);
-                  toast.show({ message: "Chave PIX copiada." });
-                }}
+                onClick={() => copyPixKey(pixKey)}
                 className="flex items-center justify-between gap-2 rounded-xl bg-night-800 px-3 py-3 text-left"
               >
                 <span className="min-w-0">

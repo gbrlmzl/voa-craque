@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { Badge, Card, EmptyState, cn } from "@/components/ui";
 import { AUDIT_ACTION_LABEL, type AuditAction } from "@/lib/audit-actions";
+import { useAuditEntry } from "@/hooks/useAuditEntry";
 
 export type AuditRow = {
   id: string;
@@ -47,14 +47,14 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
 }
 
 function AuditEntry({ row }: { row: AuditRow }) {
-  const [open, setOpen] = useState(false);
+  const { open, toggle } = useAuditEntry();
   const hasDiff = row.before !== null || row.after !== null;
 
   return (
     <Card className="p-3">
       <button
         type="button"
-        onClick={() => hasDiff && setOpen((value) => !value)}
+        onClick={() => hasDiff && toggle()}
         className="flex w-full items-start gap-3 text-left"
       >
         <div className="min-w-0 flex-1">

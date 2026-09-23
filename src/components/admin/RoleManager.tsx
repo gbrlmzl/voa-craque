@@ -1,44 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { PlayerChip } from "@/components/player";
-import { useToast } from "@/components/toast";
+import { PlayerChip } from "@/components/Player";
 import { Card, Select } from "@/components/ui";
-import { ROLE_LABEL } from "@/lib/labels";
+import { type ManagedUser, useRoleManager } from "@/hooks/useRoleManager";
 
-export type ManagedUser = {
-  id: string;
-  name: string;
-  email: string;
-  photoUrl: string | null;
-  role: "SUPERADMIN" | "ADMIN" | "USER";
-  hasProfile: boolean;
-};
+export type { ManagedUser } from "@/hooks/useRoleManager";
 
 export function RoleManager({ users, currentUserId }: { users: ManagedUser[]; currentUserId: string }) {
-  const router = useRouter();
-  const toast = useToast();
-  const [busy, setBusy] = useState<string | null>(null);
-
-  async function change(user: ManagedUser, role: ManagedUser["role"]) {
-    setBusy(user.id);
-    try {
-      const response = await fetch(`/api/usuarios/${user.id}/papel`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "Não foi possível alterar o papel.");
-      toast.show({ message: `${user.name} agora é ${ROLE_LABEL[role]}.`, tone: "success" });
-      router.refresh();
-    } catch (error) {
-      toast.show({ message: (error as Error).message, tone: "error" });
-    } finally {
-      setBusy(null);
-    }
-  }
+  const { busy, change } = useRoleManager();
 
   return (
     <Card className="grid gap-1 p-2">

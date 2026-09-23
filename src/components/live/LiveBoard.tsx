@@ -1,11 +1,11 @@
 "use client";
 
-import { PlayerChip } from "@/components/player";
+import { PlayerChip } from "@/components/Player";
 import { Badge, Card, EmptyState, SectionTitle, cn } from "@/components/ui";
 import { MATCH_END_REASON_LABEL, teamColor } from "@/lib/labels";
 import type { LiveSnapshot, LiveTeam } from "@/services/live";
 import { Scoreboard } from "@/components/live/Scoreboard";
-import { useCountdown, useLive } from "@/components/live/useLive";
+import { useCountdown, useLive } from "@/hooks/useLive";
 
 /** Tela de quem espera na fila: leitura pura, sem nenhum botao de acao. */
 export function LiveBoard({ gameDayId, initial }: { gameDayId: string; initial: LiveSnapshot }) {

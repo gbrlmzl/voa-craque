@@ -1,91 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { ChevronRight, Footprints, Pause, Play, Square } from "lucide-react";
-import { Avatar } from "@/components/player";
-import { useToast } from "@/components/toast";
+import { Avatar } from "@/components/Player";
 import { Badge, Button, Card, EmptyState, SectionTitle, cn } from "@/components/ui";
 import { MATCH_END_REASON_LABEL, teamColor } from "@/lib/labels";
 import type { LiveMatch, LivePlayer, LiveSnapshot, LiveTeam } from "@/services/live";
 import { FinishGameDayButton } from "@/components/gameday/FinishGameDayButton";
 import { Scoreboard } from "@/components/live/Scoreboard";
-import { useCountdown, useLive } from "@/components/live/useLive";
-
-type Pending = { eventId: string; matchId: string } | null;
+import { useLivePanel } from "@/hooks/useLivePanel";
 
 export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: LiveSnapshot }) {
-  const router = useRouter();
-  const toast = useToast();
-  const { snapshot, receivedAt, streaming, refresh } = useLive(gameDayId, initial);
-  const remainingMs = useCountdown(snapshot.match, receivedAt);
-
-  const [busy, setBusy] = useState(false);
-  const [dismissedFinish, setDismissedFinish] = useState<string | null>(null);
-
-  const match = snapshot.match;
-  const finished = snapshot.gameDay.status === "FINISHED";
-  const showResult =
-    !!snapshot.lastFinished &&
-    snapshot.lastFinished.id !== dismissedFinish &&
-    (!match || match.status === "SCHEDULED");
-
-  async function call(url: string, init: RequestInit, successMessage?: string) {
-    setBusy(true);
-    try {
-      const response = await fetch(url, init);
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "Não deu certo.");
-      if (successMessage) toast.show({ message: successMessage, tone: "success" });
-      await refresh();
-      router.refresh();
-      return body as Record<string, unknown>;
-    } catch (error) {
-      toast.show({ message: (error as Error).message, tone: "error" });
-      return null;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function undo(pending: NonNullable<Pending>) {
-    await call(
-      `/api/partidas/${pending.matchId}/eventos/${pending.eventId}`,
-      { method: "DELETE" },
-      "Desfeito.",
-    );
-  }
-
-  async function record(type: "GOAL" | "ASSIST", team: LiveTeam, player: LivePlayer) {
-    if (!match) return;
-    const matchId = match.id;
-
-    const body = await call(`/api/partidas/${matchId}/eventos`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type, teamId: team.id, userId: player.userId }),
-    });
-    if (!body?.eventId) return;
-
-    toast.show({
-      message: `${type === "GOAL" ? "Gol" : "Assistência"} de ${player.name}`,
-      tone: "success",
-      durationMs: 4000,
-      actionLabel: "Desfazer",
-      onAction: () => undo({ eventId: String(body.eventId), matchId }),
-    });
-  }
-
-  const changeState = (action: "START" | "PAUSE" | "RESUME" | "END") =>
-    call(
-      `/api/partidas/${match?.id}/estado`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      },
-      action === "START" ? "Partida iniciada." : action === "END" ? "Partida encerrada." : undefined,
-    );
+  const { snapshot, match, remainingMs, streaming, busy, finished, showResult, record, changeState, dismissFinish } =
+    useLivePanel(gameDayId, initial);
 
   return (
     <div className="grid gap-4">
@@ -146,11 +72,7 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
           </p>
 
           {match && match.status === "SCHEDULED" ? (
-            <Button
-              size="lg"
-              className="mt-3 w-full"
-              onClick={() => setDismissedFinish(snapshot.lastFinished!.id)}
-            >
+            <Button size="lg" className="mt-3 w-full" onClick={dismissFinish}>
               Próxima partida <ChevronRight size={18} />
             </Button>
           ) : (

@@ -1,115 +1,27 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { Camera, Loader2 } from "lucide-react";
-import { Avatar } from "@/components/player";
-import { useToast } from "@/components/toast";
+import { Avatar } from "@/components/Player";
 import { Button, Card, Field, Input, Select } from "@/components/ui";
-import { useUpdateCurrentUser } from "@/components/UserProvider";
-
-export type ProfileValues = {
-  nickname: string;
-  foot: string;
-  position: string;
-  age: string;
-  heightCm: string;
-  weightKg: string;
-  photoUrl: string;
-};
-
-export const EMPTY_PROFILE: ProfileValues = {
-  nickname: "",
-  foot: "RIGHT",
-  position: "ALA",
-  age: "",
-  heightCm: "",
-  weightKg: "",
-  photoUrl: "",
-};
+import { useProfileForm } from "@/hooks/useProfileForm";
+import type { ProfileValues } from "@/lib/profile-defaults";
 
 export function ProfileForm({
-  name,
   initial,
   mode,
 }: {
-  name: string;
   initial: ProfileValues;
   mode: "onboarding" | "edit";
 }) {
-  const router = useRouter();
-  const toast = useToast();
-  const updateCurrentUser = useUpdateCurrentUser();
   const fileInput = useRef<HTMLInputElement>(null);
-
-  const [values, setValues] = useState<ProfileValues>(initial);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [message, setMessage] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-
-  const set = <K extends keyof ProfileValues>(key: K, value: ProfileValues[K]) =>
-    setValues((current) => ({ ...current, [key]: value }));
-
-  async function uploadPhoto(file: File) {
-    setUploading(true);
-    setMessage(null);
-    try {
-      const form = new FormData();
-      form.set("file", file);
-      form.set("tipo", "foto");
-      const response = await fetch("/api/uploads", { method: "POST", body: form });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "Falha no envio da foto.");
-      set("photoUrl", body.url);
-    } catch (error) {
-      setMessage((error as Error).message);
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    setSaving(true);
-    setErrors({});
-    setMessage(null);
-
-    try {
-      const response = await fetch("/api/perfil", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      });
-      const body = await response.json();
-
-      if (!response.ok) {
-        if (body.details && typeof body.details === "object") setErrors(body.details);
-        throw new Error(body.error ?? "Não foi possível salvar.");
-      }
-
-      if (mode === "onboarding") {
-        // O servidor precisa reavaliar profileCompleted: aqui o refresh e necessario.
-        router.replace("/");
-        router.refresh();
-      } else {
-        // Nada nesta tela depende do servidor alem da foto no cabecalho, que o
-        // contexto atualiza sem ida e volta.
-        if (values.photoUrl) updateCurrentUser({ photoUrl: values.photoUrl });
-        toast.show({ message: "Perfil atualizado.", tone: "success" });
-      }
-    } catch (error) {
-      setMessage((error as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  }
+  const { values, set, errors, message, saving, uploading, uploadPhoto, submit } = useProfileForm(initial, mode);
 
   return (
     <Card>
       <form onSubmit={submit} className="grid gap-4">
         <div className="flex items-center gap-4">
-          <Avatar name={name} photoUrl={values.photoUrl || null} size="lg" />
+          <Avatar name={values.name || "?"} photoUrl={values.photoUrl || null} size="lg" />
           <div>
             <input
               ref={fileInput}
@@ -134,7 +46,16 @@ export function ProfileForm({
           </div>
         </div>
 
-        <Field label="Apelido na quadra" hint="Como o pessoal te chama." error={errors.nickname}>
+        <Field label="Nome" error={errors.name}>
+          <Input
+            value={values.name}
+            onChange={(event) => set("name", event.target.value)}
+            placeholder="Seu nome"
+            required
+          />
+        </Field>
+
+        <Field label="Vulgo" hint="Como o pessoal te chama." error={errors.nickname}>
           <Input
             value={values.nickname}
             onChange={(event) => set("nickname", event.target.value)}
@@ -143,7 +64,7 @@ export function ProfileForm({
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Pé que chuta" error={errors.foot}>
+          <Field label="Melhor pé" error={errors.foot}>
             <Select value={values.foot} onChange={(event) => set("foot", event.target.value)}>
               <option value="RIGHT">Destro</option>
               <option value="LEFT">Canhoto</option>

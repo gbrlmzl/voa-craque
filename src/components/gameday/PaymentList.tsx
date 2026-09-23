@@ -1,64 +1,18 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { Check, Receipt, RotateCcw, X } from "lucide-react";
-import { PlayerChip } from "@/components/player";
-import { useToast } from "@/components/toast";
+import { PlayerChip } from "@/components/Player";
 import { Badge, Button, Card, EmptyState, SectionTitle } from "@/components/ui";
 import { PAYMENT_METHOD_LABEL, PAYMENT_STATUS_LABEL } from "@/lib/labels";
+import { type PaymentRow, usePaymentList } from "@/hooks/usePaymentList";
 
-export type PaymentRow = {
-  id: string;
-  userId: string;
-  name: string;
-  photoUrl: string | null;
-  paymentMethod: "PIX" | "ON_SITE";
-  paymentStatus: "PENDING" | "CONFIRMED" | "REJECTED";
-  receiptUrl: string | null;
-};
+export type { PaymentRow } from "@/hooks/usePaymentList";
 
 const STATUS_TONE = { PENDING: "warn", CONFIRMED: "good", REJECTED: "bad" } as const;
 
 /** Confirmacao manual: o organizador olha o comprovante e decide. */
 export function PaymentList({ gameDayId, rows }: { gameDayId: string; rows: PaymentRow[] }) {
-  const router = useRouter();
-  const toast = useToast();
-  const [busy, setBusy] = useState<string | null>(null);
-
-  async function decide(row: PaymentRow, status: PaymentRow["paymentStatus"]) {
-    let rejectedReason = "";
-    if (status === "REJECTED") {
-      rejectedReason = window.prompt("Motivo da recusa:")?.trim() ?? "";
-      if (!rejectedReason) return;
-    }
-
-    setBusy(row.id);
-    try {
-      const response = await fetch(`/api/peladas/${gameDayId}/inscricoes/${row.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentStatus: status, rejectedReason }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "Não foi possível atualizar.");
-      toast.show({
-        message:
-          status === "CONFIRMED"
-            ? `Pagamento de ${row.name} confirmado.`
-            : status === "REJECTED"
-              ? `Pagamento de ${row.name} recusado.`
-              : `Pagamento de ${row.name} voltou para pendente.`,
-        tone: status === "CONFIRMED" ? "success" : "neutral",
-      });
-      router.refresh();
-    } catch (error) {
-      toast.show({ message: (error as Error).message, tone: "error" });
-    } finally {
-      setBusy(null);
-    }
-  }
-
+  const { busy, decide } = usePaymentList(gameDayId);
   const pending = rows.filter((row) => row.paymentStatus === "PENDING").length;
 
   return (

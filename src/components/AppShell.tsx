@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense } from "react";
 import {
   CalendarDays,
   ClipboardList,
@@ -18,25 +17,27 @@ import {
 import type { Role } from "@/generated/prisma/client";
 import { logoutAction } from "@/actions/auth";
 import { ROLE_LABEL } from "@/lib/labels";
-import { Avatar } from "@/components/player";
+import { BrandIcon } from "@/components/BrandIcon";
+import { Avatar } from "@/components/Player";
 import { SkeletonBlock, SkeletonText } from "@/components/Skeleton";
 import { Button, cn } from "@/components/ui";
-import { useCurrentUser } from "@/components/UserProvider";
+import { useCurrentUser } from "@/components/providers/UserProvider";
+import { useAppShell } from "@/hooks/useAppShell";
 
 type NavItem = { href: string; label: string; icon: typeof Home; roles?: Role[] };
 
 const MAIN_NAV: NavItem[] = [
   { href: "/", label: "Início", icon: Home },
-  { href: "/peladas", label: "Peladas", icon: CalendarDays },
+  { href: "/game-days", label: "Peladas", icon: CalendarDays },
   { href: "/ranking", label: "Ranking", icon: Trophy },
-  { href: "/perfil", label: "Perfil", icon: UserRound },
+  { href: "/profile", label: "Perfil", icon: UserRound },
 ];
 
 const EXTRA_NAV: NavItem[] = [
-  { href: "/jogadores", label: "Avaliar jogadores", icon: ClipboardList, roles: ["ADMIN", "SUPERADMIN"] },
-  { href: "/admin/usuarios", label: "Usuários e papéis", icon: Users, roles: ["SUPERADMIN"] },
-  { href: "/admin/sistema", label: "Sistema", icon: Settings, roles: ["SUPERADMIN"] },
-  { href: "/admin/auditoria", label: "Auditoria", icon: ScrollText, roles: ["SUPERADMIN"] },
+  { href: "/players", label: "Avaliar jogadores", icon: ClipboardList, roles: ["ADMIN", "SUPERADMIN"] },
+  { href: "/admin/users", label: "Usuários e papéis", icon: Users, roles: ["SUPERADMIN"] },
+  { href: "/admin/system", label: "Sistema", icon: Settings, roles: ["SUPERADMIN"] },
+  { href: "/admin/audit", label: "Auditoria", icon: ScrollText, roles: ["SUPERADMIN"] },
 ];
 
 /**
@@ -46,10 +47,7 @@ const EXTRA_NAV: NavItem[] = [
  * o papel chega, mas o acesso a essas paginas e decidido no servidor.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  const { menuOpen, openMenu, closeMenu, isActive } = useAppShell();
 
   const desktopLink = (item: NavItem) => (
     <Link
@@ -70,7 +68,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Link
         key={item.href}
         href={item.href}
-        onClick={() => setMenuOpen(false)}
+        onClick={closeMenu}
         className="touch-target flex items-center gap-3 rounded-xl px-3 text-sm text-slate-200 hover:bg-white/5"
       >
         <Icon size={20} className="text-slate-400" />
@@ -84,9 +82,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-white/10 bg-night-950/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
           <Link href="/" className="flex items-center gap-2">
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-pitch-500 text-base font-black text-night-950">
-              V
-            </span>
+            <BrandIcon className="h-8 w-8 rounded-lg" />
             <span className="text-base font-bold tracking-tight">Voa Craque</span>
           </Link>
 
@@ -99,7 +95,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <button
             type="button"
-            onClick={() => setMenuOpen(true)}
+            onClick={openMenu}
             className="ml-auto rounded-full sm:ml-0 sm:hidden"
             aria-label="Abrir menu"
           >
@@ -141,7 +137,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </nav>
 
       {menuOpen ? (
-        <div className="fixed inset-0 z-50 bg-black/70 sm:hidden" onClick={() => setMenuOpen(false)}>
+        <div className="fixed inset-0 z-50 bg-black/70 sm:hidden" onClick={closeMenu}>
           <div
             className="snack-in absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-white/10 bg-night-900 p-4 pb-8"
             onClick={(event) => event.stopPropagation()}
@@ -150,7 +146,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Suspense fallback={<DrawerIdentitySkeleton />}>
                 <DrawerIdentity />
               </Suspense>
-              <Button variant="ghost" size="sm" onClick={() => setMenuOpen(false)} aria-label="Fechar">
+              <Button variant="ghost" size="sm" onClick={closeMenu} aria-label="Fechar">
                 <X size={18} />
               </Button>
             </div>
@@ -176,7 +172,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function UserAvatar({ size }: { size: "sm" | "md" }) {
   const user = useCurrentUser();
-  return <Avatar name={user?.name ?? ""} photoUrl={user?.photoUrl} size={size} />;
+  return <Avatar name={user?.name ?? user?.username ?? ""} photoUrl={user?.photoUrl} size={size} />;
 }
 
 function ExtraNav({ render }: { render: (item: NavItem) => React.ReactNode }) {
@@ -191,7 +187,7 @@ function DrawerIdentity() {
     <>
       <UserAvatar size="md" />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold">{user?.name}</p>
+        <p className="truncate font-semibold">{user?.name ?? user?.username}</p>
         <p className="text-xs text-slate-500">{user ? ROLE_LABEL[user.role] : null}</p>
       </div>
     </>

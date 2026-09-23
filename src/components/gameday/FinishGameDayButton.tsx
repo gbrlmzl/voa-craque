@@ -1,10 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { Flag } from "lucide-react";
-import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui";
+import { useFinishGameDay } from "@/hooks/useFinishGameDay";
 
 /**
  * Encerrar a pelada e irreversivel, entao aqui a confirmacao existe de proposito
@@ -19,26 +17,7 @@ export function FinishGameDayButton({
   variant?: "danger" | "secondary";
   className?: string;
 }) {
-  const router = useRouter();
-  const toast = useToast();
-  const [confirming, setConfirming] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  async function finish() {
-    setSaving(true);
-    try {
-      const response = await fetch(`/api/peladas/${gameDayId}/encerrar`, { method: "POST" });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "Não foi possível encerrar.");
-      toast.show({ message: "Pelada encerrada. Estatísticas contabilizadas.", tone: "success" });
-      setConfirming(false);
-      router.refresh();
-    } catch (error) {
-      toast.show({ message: (error as Error).message, tone: "error" });
-    } finally {
-      setSaving(false);
-    }
-  }
+  const { confirming, setConfirming, saving, finish } = useFinishGameDay(gameDayId);
 
   if (!confirming) {
     return (
