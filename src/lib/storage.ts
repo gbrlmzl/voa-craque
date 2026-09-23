@@ -56,12 +56,40 @@ async function saveToS3(key: string, bytes: Buffer, contentType: string): Promis
     new PutObjectCommand({ Bucket: bucket, Key: key, Body: bytes, ContentType: contentType }),
   );
 
-  const base = process.env.S3_PUBLIC_BASE_URL?.replace(/\/$/, "");
-  return base ? `${base}/${key}` : `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+  // Sempre serve pelo proxy autenticado (/api/files), mesmo no driver s3: o bucket
+  // fica privado e o comprovante de pagamento nao pode virar link publico direto.
+  return `/api/files/${key}`;
 }
 
 /**
- * Grava foto de perfil ou comprovante e devolve a URL publica do arquivo.
+ * URL assinada e de curta duracao para o driver s3, usada pelo proxy /api/files
+ * depois que ele ja confirmou que o usuario pode ver o arquivo.
+ */
+export async function signedS3Url(key: string): Promise<string> {
+  const bucket = process.env.S3_BUCKET;
+  const region = process.env.S3_REGION;
+  if (!bucket || !region) {
+    throw badRequest("Armazenamento S3 não configurado. Defina S3_BUCKET e S3_REGION.");
+  }
+
+  const { S3Client, GetObjectCommand } = await import("@aws-sdk/client-s3");
+  const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
+  const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+
+  const client = new S3Client({
+    region,
+    credentials: accessKeyId && secretAccessKey ? { accessKeyId, secretAccessKey } : undefined,
+  });
+
+  return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key }), {
+    expiresIn: 60,
+  });
+}
+
+/**
+ * Grava foto de perfil ou comprovante e devolve o caminho para buscar o
+ * arquivo depois (sempre via /api/files, que aplica o controle de acesso).
  * O driver local escreve no volume montado; o driver s3 sobe para o bucket.
  */
 export async function saveUpload(file: File, folder: UploadFolder): Promise<string> {
