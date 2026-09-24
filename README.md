@@ -106,7 +106,7 @@ Estão todas em `.env.example`, com valores que funcionam sem edição.
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | Login com Google (opcional). Sem as duas, o botão não aparece |
 | `TRUST_PROXY_HOPS` | Quantos proxies confiáveis ficam na frente da aplicação; define o IP usado no rate limit e na auditoria (padrão `1`) |
 | `SUPERADMIN_EMAIL` / `_PASSWORD` / `_NAME` | Superadmin criado pelo seed |
-| `SEED_SAMPLE_DATA` | `false` cria só o superadmin e as skills |
+| `SEED_SAMPLE_DATA` | `false` cria só o superadmin |
 | `STORAGE_DRIVER` | `local` (volume do container) ou `s3` |
 | `UPLOAD_DIR`, `MAX_UPLOAD_MB` | Pasta e limite dos arquivos no driver local |
 | `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Usados só quando `STORAGE_DRIVER=s3`. O bucket fica privado; os arquivos são sempre servidos por `/api/files` (que confere sessão e dono) via URL assinada de 60s, nunca por link direto do bucket. Sem as duas credenciais, o SDK usa a IAM role da instância |
@@ -157,7 +157,7 @@ desligado, todo mundo menos ele vê a página de manutenção), abre e fecha as 
 muda o papel dos outros e consulta o log de auditoria.
 
 **Organizador (admin)** — cria e edita peladas, confirma pagamento na mão, define
-estrelas e skills, sorteia e monta times, opera o painel ao vivo e encerra a pelada.
+estrelas, sorteia e monta times, opera o painel ao vivo e encerra a pelada.
 
 **Jogador (user)** — edita o próprio perfil, se inscreve, acompanha a partida ao vivo e
 vê o ranking. Não define as próprias estrelas.

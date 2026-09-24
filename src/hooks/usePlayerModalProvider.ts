@@ -14,7 +14,6 @@ export type PlayerDetail = {
   heightCm: number;
   weightKg: number;
   stars: number | null;
-  skills: { code: string; label: string; polarity: "POSITIVE" | "NEGATIVE" }[];
   stats: { goals: number; assists: number; played: number; won: number; winRate: number };
 };
 

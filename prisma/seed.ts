@@ -2,7 +2,6 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hash } from "bcryptjs";
 import { PrismaClient, type Foot, type Position } from "../src/generated/prisma/client";
-import { SKILL_CATALOG } from "../src/lib/skills";
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -42,17 +41,6 @@ const SAMPLE_PLAYERS: SamplePlayer[] = [
   { name: "Vinícius Aguiar", nickname: "Vini", position: "PIVO", foot: "LEFT", age: 18, heightCm: 166, weightKg: 62, stars: null },
 ];
 
-/** Algumas skills já atribuídas, para a tela de ranking nascer com conteúdo. */
-const SAMPLE_SKILLS: Record<string, string[]> = {
-  "gabriel.marques@voacraque.app": ["tita", "diferenciado"],
-  "pedro.sa@voacraque.app": ["tita", "acougueiro"],
-  "joao.lira@voacraque.app": ["garcom", "racudo"],
-  "eduardo.vilela@voacraque.app": ["brocador"],
-  "samuel.fontes@voacraque.app": ["ensaboado", "ele-se-esforca"],
-  "kaique.serrano@voacraque.app": ["nao-marca"],
-  "matheus.rangel@voacraque.app": ["piter"],
-};
-
 function emailFor(name: string): string {
   const parts = name
     .normalize("NFD")
@@ -76,15 +64,6 @@ async function main() {
     update: {},
     create: { id: "global" },
   });
-
-  for (const skill of SKILL_CATALOG) {
-    await prisma.skill.upsert({
-      where: { code: skill.code },
-      update: { label: skill.label, polarity: skill.polarity },
-      create: { code: skill.code, label: skill.label, polarity: skill.polarity },
-    });
-  }
-  console.log(`[seed] ${SKILL_CATALOG.length} skills disponíveis`);
 
   const superadmin = await prisma.user.upsert({
     where: { email: superEmail },
@@ -140,13 +119,11 @@ async function main() {
   console.log(`[seed] organizador: ${admin.email}`);
 
   const playerPassword = await hash("VoaCraque123!", 10);
-  const skills = await prisma.skill.findMany();
-  const skillByCode = new Map(skills.map((skill) => [skill.code, skill.id]));
 
   for (const player of SAMPLE_PLAYERS) {
     const email = emailFor(player.name);
     const username = email.split("@")[0];
-    const user = await prisma.user.upsert({
+    await prisma.user.upsert({
       where: { email },
       update: {},
       create: {
@@ -168,21 +145,7 @@ async function main() {
           },
         },
       },
-      include: { profile: true },
     });
-
-    const codes = SAMPLE_SKILLS[email];
-    if (codes && user.profile) {
-      for (const code of codes) {
-        const skillId = skillByCode.get(code);
-        if (!skillId) continue;
-        await prisma.playerSkill.upsert({
-          where: { profileId_skillId: { profileId: user.profile.id, skillId } },
-          update: {},
-          create: { profileId: user.profile.id, skillId, assignedById: admin.id },
-        });
-      }
-    }
   }
   console.log(`[seed] ${SAMPLE_PLAYERS.length} jogadores de exemplo`);
 

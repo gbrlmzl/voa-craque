@@ -29,11 +29,6 @@ enum Position {
   PIVO
 }
 
-enum SkillPolarity {
-  POSITIVE
-  NEGATIVE
-}
-
 enum GameDayStatus {
   OPEN
   TEAMS_SET
@@ -105,7 +100,6 @@ model User {
   createdGameDays    GameDay[]        @relation("GameDayCreator")
   confirmedPayments  Registration[]   @relation("PaymentConfirmer")
   auditLogs          AuditLog[]
-  skillAssignments   PlayerSkill[]    @relation("SkillAssigner")
   systemSettingEdits SystemSetting[]  @relation("SettingsEditor")
 
   @@index([role])
@@ -165,30 +159,7 @@ model PlayerProfile {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  skills PlayerSkill[]
-}
-
-model Skill {
-  id       String        @id @default(cuid())
-  code     String        @unique
-  label    String
-  polarity SkillPolarity
-
-  players PlayerSkill[]
-}
-
-model PlayerSkill {
-  profileId    String
-  skillId      String
-  assignedById String?
-  createdAt    DateTime @default(now())
-
-  profile    PlayerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  skill      Skill         @relation(fields: [skillId], references: [id], onDelete: Cascade)
-  assignedBy User?         @relation("SkillAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
-
-  @@id([profileId, skillId])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // ---------------------------------------------------------------- pelada

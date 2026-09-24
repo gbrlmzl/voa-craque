@@ -3,7 +3,7 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui";
-import { Avatar, SkillTag, Stars } from "@/components/Player";
+import { Avatar, Stars } from "@/components/Player";
 import { type ModalApi, usePlayerModalProvider } from "@/hooks/usePlayerModalProvider";
 
 export type { PlayerDetail } from "@/hooks/usePlayerModalProvider";
@@ -67,19 +67,6 @@ export function PlayerModalProvider({ children }: { children: ReactNode }) {
                   <Detail label="Altura" value={`${(player.heightCm / 100).toFixed(2).replace(".", ",")} m`} />
                   <Detail label="Peso" value={`${player.weightKg} kg`} />
                 </dl>
-
-                <div className="mt-5">
-                  <p className="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">Skills</p>
-                  {player.skills.length === 0 ? (
-                    <p className="text-sm text-slate-500">Nenhuma skill atribuída ainda.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-1.5">
-                      {player.skills.map((skill) => (
-                        <SkillTag key={skill.code} label={skill.label} polarity={skill.polarity} />
-                      ))}
-                    </div>
-                  )}
-                </div>
 
                 <div className="mt-5 grid grid-cols-4 gap-2 rounded-2xl bg-night-800 p-3 text-center">
                   <Stat label="Gols" value={player.stats.goals} />

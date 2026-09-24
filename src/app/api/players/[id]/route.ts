@@ -28,7 +28,6 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
             heightCm: true,
             weightKg: true,
             stars: true,
-            skills: { include: { skill: true } },
           },
         },
       },
@@ -82,11 +81,6 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       heightCm: profile.heightCm,
       weightKg: profile.weightKg,
       stars: profile.stars,
-      skills: profile.skills.map((entry) => ({
-        code: entry.skill.code,
-        label: entry.skill.label,
-        polarity: entry.skill.polarity,
-      })),
       stats: {
         goals: events.find((entry) => entry.type === "GOAL")?._count._all ?? 0,
         assists: events.find((entry) => entry.type === "ASSIST")?._count._all ?? 0,

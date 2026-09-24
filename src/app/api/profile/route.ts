@@ -7,7 +7,7 @@ import { AUDIT_ACTIONS, recordAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
-/** O jogador edita o proprio perfil. Estrelas e skills ficam fora: so o admin mexe. */
+/** O jogador edita o proprio perfil. Estrelas ficam fora: so o admin mexe. */
 export async function PUT(req: NextRequest) {
   return route(async () => {
     const user = await requireUser();

@@ -1,23 +1,16 @@
 "use client";
 
 import { ChevronDown, Search } from "lucide-react";
-import { Avatar, SkillTag, Stars } from "@/components/Player";
-import { Badge, Button, Card, EmptyState, Input, cn } from "@/components/ui";
-import { SKILL_HINTS } from "@/lib/skills";
-import { type EvaluationPlayer, type SkillOption, usePlayerEvaluation } from "@/hooks/usePlayerEvaluation";
+import { Avatar, Stars } from "@/components/Player";
+import { Button, Card, EmptyState, Input, cn } from "@/components/ui";
+import { type EvaluationPlayer, usePlayerEvaluation } from "@/hooks/usePlayerEvaluation";
 import { usePlayerEvaluationRow } from "@/hooks/usePlayerEvaluationRow";
 
-export type { EvaluationPlayer, SkillOption } from "@/hooks/usePlayerEvaluation";
+export type { EvaluationPlayer } from "@/hooks/usePlayerEvaluation";
 
 const STAR_STEPS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 
-export function PlayerEvaluation({
-  players,
-  skills,
-}: {
-  players: EvaluationPlayer[];
-  skills: SkillOption[];
-}) {
+export function PlayerEvaluation({ players }: { players: EvaluationPlayer[] }) {
   const { query, setQuery, openId, toggle, filtered, unrated } = usePlayerEvaluation(players);
 
   return (
@@ -46,7 +39,6 @@ export function PlayerEvaluation({
           <PlayerRow
             key={player.userId}
             player={player}
-            skills={skills}
             expanded={openId === player.userId}
             onToggle={() => toggle(player.userId)}
           />
@@ -58,17 +50,14 @@ export function PlayerEvaluation({
 
 function PlayerRow({
   player,
-  skills,
   expanded,
   onToggle,
 }: {
   player: EvaluationPlayer;
-  skills: SkillOption[];
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const { stars, setStars, selected, toggleSkill, saving, dirty, save } = usePlayerEvaluationRow(player);
-  const chosenSkills = skills.filter((skill) => player.skillCodes.includes(skill.code));
+  const { stars, setStars, saving, dirty, save } = usePlayerEvaluationRow(player);
 
   return (
     <Card className="p-3">
@@ -79,10 +68,6 @@ function PlayerRow({
           <p className="truncate text-xs text-slate-500">{player.positionLabel}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <Stars value={player.stars} size={13} />
-            {chosenSkills.slice(0, 2).map((skill) => (
-              <SkillTag key={skill.code} label={skill.label} polarity={skill.polarity} />
-            ))}
-            {chosenSkills.length > 2 ? <Badge>+{chosenSkills.length - 2}</Badge> : null}
           </div>
         </div>
         <ChevronDown size={18} className={cn("shrink-0 text-slate-500 transition-transform", expanded && "rotate-180")} />
@@ -120,35 +105,6 @@ function PlayerRow({
                   {value.toFixed(1).replace(".", ",")}
                 </button>
               ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">
-              Skills e contra-skills
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {skills.map((skill) => {
-                const active = selected.includes(skill.code);
-                return (
-                  <button
-                    key={skill.code}
-                    type="button"
-                    title={SKILL_HINTS[skill.code]}
-                    onClick={() => toggleSkill(skill.code)}
-                    className={cn(
-                      "h-10 rounded-xl border px-3 text-sm",
-                      active && skill.polarity === "POSITIVE"
-                        ? "border-pitch-500 bg-pitch-500/15 text-pitch-300"
-                        : active
-                          ? "border-rose-500 bg-rose-500/15 text-rose-300"
-                          : "border-white/10 bg-night-800 text-slate-400",
-                    )}
-                  >
-                    {skill.label}
-                  </button>
-                );
-              })}
             </div>
           </div>
 

@@ -9,10 +9,7 @@ export type EvaluationPlayer = {
   photoUrl: string | null;
   positionLabel: string;
   stars: number | null;
-  skillCodes: string[];
 };
-
-export type SkillOption = { code: string; label: string; polarity: "POSITIVE" | "NEGATIVE" };
 
 export function usePlayerEvaluation(players: EvaluationPlayer[]) {
   const [query, setQuery] = useState("");

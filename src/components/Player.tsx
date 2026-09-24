@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Star } from "lucide-react";
-import { Badge, cn } from "@/components/ui";
+import { cn } from "@/components/ui";
 import { usePlayerModal } from "@/components/providers/PlayerModalProvider";
 
 // ---------------------------------------------------------------- avatar
@@ -70,10 +70,6 @@ export function Stars({ value, size = 16 }: { value: number | null; size?: numbe
       })}
     </span>
   );
-}
-
-export function SkillTag({ label, polarity }: { label: string; polarity: "POSITIVE" | "NEGATIVE" }) {
-  return <Badge tone={polarity === "POSITIVE" ? "good" : "bad"}>{label}</Badge>;
 }
 
 // ---------------------------------------------------------------- chip
