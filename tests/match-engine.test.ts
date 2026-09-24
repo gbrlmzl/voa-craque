@@ -6,6 +6,7 @@ import {
   elapsedAt,
   evaluateOutcome,
   formatClock,
+  matchMinute,
   pauseClock,
   remainingAt,
   resumeClock,
@@ -84,6 +85,15 @@ describe("cronometro", () => {
     expect(formatClock(TEN_MIN)).toBe("10:00");
     expect(formatClock(65_000)).toBe("01:05");
     expect(formatClock(-500)).toBe("00:00");
+  });
+
+  it("marca o minuto do jogo como no futebol, comecando em 1", () => {
+    expect(matchMinute(0)).toBe(1);
+    expect(matchMinute(30_000)).toBe(1);
+    expect(matchMinute(59_999)).toBe(1);
+    expect(matchMinute(60_000)).toBe(2);
+    expect(matchMinute(65_000)).toBe(2);
+    expect(matchMinute(-1000)).toBe(1);
   });
 });
 

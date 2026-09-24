@@ -3,14 +3,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { forbidden, notFound, toErrorResponse } from "@/lib/http";
 import { isAdmin, requireUser } from "@/lib/session";
-import { contentTypeFor, localFilePath } from "@/lib/storage";
+import { contentTypeFor, localFilePath, signedS3Url } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 /**
- * Serve os arquivos do driver local. Comprovante de pagamento e dado sensivel:
- * so o dono da inscricao e os organizadores enxergam.
+ * Serve os arquivos independente do driver. Comprovante de pagamento e dado
+ * sensivel: so o dono da inscricao e os organizadores enxergam. No driver s3
+ * o bucket fica privado, entao so redireciona depois de confirmar o acesso.
  */
 export async function GET(_req: Request, ctx: { params: Promise<{ path: string[] }> }) {
   try {
@@ -24,6 +25,11 @@ export async function GET(_req: Request, ctx: { params: Promise<{ path: string[]
         select: { id: true },
       });
       if (!owned) throw forbidden("Este comprovante não é seu.");
+    }
+
+    if ((process.env.STORAGE_DRIVER ?? "local") === "s3") {
+      const signedUrl = await signedS3Url(segments.join("/"));
+      return NextResponse.redirect(signedUrl, { status: 302 });
     }
 
     const file = await readFile(localFilePath(segments)).catch(() => null);

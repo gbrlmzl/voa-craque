@@ -7,6 +7,7 @@ import type { LivePlayer, LiveSnapshot, LiveTeam } from "@/services/live";
 import { useCountdown, useLive } from "@/hooks/useLive";
 
 type Pending = { eventId: string; matchId: string };
+export type PendingGoal = { team: LiveTeam; player: LivePlayer };
 
 export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
   const router = useRouter();
@@ -16,6 +17,7 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
 
   const [busy, setBusy] = useState(false);
   const [dismissedFinish, setDismissedFinish] = useState<string | null>(null);
+  const [pendingGoal, setPendingGoal] = useState<PendingGoal | null>(null);
 
   const match = snapshot.match;
   const finished = snapshot.gameDay.status === "FINISHED";
@@ -77,9 +79,48 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
       action === "START" ? "Partida iniciada." : action === "END" ? "Partida encerrada." : undefined,
     );
 
+  /**
+   * Gol sempre para o jogo: primeiro pausa (se estiver rolando) e so entao
+   * abre o modal de assistencia. O organizador precisa retomar manualmente.
+   */
+  async function startGoal(team: LiveTeam, player: LivePlayer) {
+    if (!match) return;
+    if (match.status === "RUNNING") {
+      const body = await changeState("PAUSE");
+      if (!body) return;
+    }
+    setPendingGoal({ team, player });
+  }
+
+  async function confirmGoal(assist: LivePlayer | null) {
+    if (!pendingGoal) return;
+    const { team, player } = pendingGoal;
+    setPendingGoal(null);
+    await record("GOAL", team, player);
+    if (assist) await record("ASSIST", team, assist);
+  }
+
+  function cancelGoal() {
+    setPendingGoal(null);
+  }
+
   function dismissFinish() {
     if (snapshot.lastFinished) setDismissedFinish(snapshot.lastFinished.id);
   }
 
-  return { snapshot, match, remainingMs, streaming, busy, finished, showResult, record, changeState, dismissFinish };
+  return {
+    snapshot,
+    match,
+    remainingMs,
+    streaming,
+    busy,
+    finished,
+    showResult,
+    pendingGoal,
+    startGoal,
+    confirmGoal,
+    cancelGoal,
+    changeState,
+    dismissFinish,
+  };
 }

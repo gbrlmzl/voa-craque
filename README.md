@@ -69,6 +69,28 @@ Se instalar ou remover uma dependência, refaça o build da imagem:
 docker compose -f docker-compose.dev.yml up --build
 ```
 
+### Seed de teste (pelada com 19 jogadores)
+
+Além do seed principal, `prisma/seed-pelada-teste.ts` cria uma pelada de teste isolada,
+sem misturar com os dados de exemplo do seed principal:
+
+```bash
+npm run db:seed:pelada-teste
+```
+
+Cria 19 jogadores (`jogadorteste1` a `jogadorteste19`, senha `Senhapadraoteste`, e-mail
+`jogadortesteN@teste.com`, nome e sobrenome aleatórios, 10 deles com vulgo) e um admin
+(`adminteste`, senha `adminteste`), todos inscritos e com pagamento confirmado na pelada
+"Pelada Sesi 23/09" (23/09/2026 16h, local Sesi, times de 4, R$ 6 por jogador, partidas de
+8 minutos, 2 gols encerram). É idempotente: rodar de novo não duplica nada.
+
+Para aplicar no banco do `docker-compose.dev.yml` (o que o app containerizado realmente
+usa) em vez do Postgres apontado pelo `DATABASE_URL` do host:
+
+```bash
+docker exec -it voacraque-app-dev npm run db:seed:pelada-teste
+```
+
 ## Variáveis de ambiente
 
 Estão todas em `.env.example`, com valores que funcionam sem edição.
@@ -87,7 +109,7 @@ Estão todas em `.env.example`, com valores que funcionam sem edição.
 | `SEED_SAMPLE_DATA` | `false` cria só o superadmin e as skills |
 | `STORAGE_DRIVER` | `local` (volume do container) ou `s3` |
 | `UPLOAD_DIR`, `MAX_UPLOAD_MB` | Pasta e limite dos arquivos no driver local |
-| `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_BASE_URL` | Usados só quando `STORAGE_DRIVER=s3` |
+| `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Usados só quando `STORAGE_DRIVER=s3`. O bucket fica privado; os arquivos são sempre servidos por `/api/files` (que confere sessão e dono) via URL assinada de 60s, nunca por link direto do bucket. Sem as duas credenciais, o SDK usa a IAM role da instância |
 
 O compose usa nomes próprios (`VOACRAQUE_*`) de propósito: `POSTGRES_PASSWORD` e afins
 são comuns no ambiente da máquina e o Docker Compose dá precedência ao ambiente sobre

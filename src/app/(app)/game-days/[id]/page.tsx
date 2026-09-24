@@ -15,6 +15,8 @@ import { PlayerChip, Stars } from "@/components/Player";
 import { RegistrationPanel } from "@/components/gameday/RegistrationPanel";
 import { PaymentList, type PaymentRow } from "@/components/gameday/PaymentList";
 import { FinishGameDayButton } from "@/components/gameday/FinishGameDayButton";
+import { ShareStoryButton } from "@/components/gameday/ShareStoryButton";
+import { buildGameDayStats } from "@/services/gameday-stats";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +68,11 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
 
   if (!gameDay) notFound();
 
+  const myStats =
+    gameDay.status === "FINISHED"
+      ? (await buildGameDayStats(gameDay.id)).find((row) => row.userId === user.id)
+      : undefined;
+
   const myRegistration = gameDay.registrations.find((row) => row.userId === user.id) ?? null;
   const paymentRows: PaymentRow[] = gameDay.registrations.map((row) => ({
     id: row.id,
@@ -112,6 +119,17 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
           <p className="mt-3 rounded-xl bg-white/5 px-3 py-2 text-sm text-slate-300">{gameDay.notes}</p>
         ) : null}
       </header>
+
+      {myStats ? (
+        <ShareStoryButton
+          gameDay={{
+            title: gameDay.title,
+            scheduledAt: gameDay.scheduledAt.toISOString(),
+            location: gameDay.location,
+          }}
+          stats={myStats}
+        />
+      ) : null}
 
       {(hasTeams && gameDay.status !== "FINISHED") || gameDay.status === "LIVE" ? (
         <Link href={liveHref}>
@@ -209,7 +227,7 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
 
       {admin ? (
         <PaymentList gameDayId={gameDay.id} rows={paymentRows} />
-      ) : (
+      ) : gameDay.status !== "FINISHED" ? (
         <section>
           <SectionTitle hint={`${gameDay.registrations.length}/${gameDay.maxPlayers}`}>
             Quem vai
@@ -230,7 +248,7 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
             </Card>
           )}
         </section>
-      )}
+      ) : null}
 
       {admin && gameDay.status !== "FINISHED" ? (
         <section>
