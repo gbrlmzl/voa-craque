@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, MapPin, Pencil, Radio, Shuffle, Users } from "lucide-react";
+import { CalendarDays, MapPin, Pencil, Radio, Shuffle, Trophy, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { isAdmin, pageUserWithProfile } from "@/lib/session";
 import {
@@ -119,6 +119,14 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
           <p className="mt-3 rounded-xl bg-white/5 px-3 py-2 text-sm text-slate-300">{gameDay.notes}</p>
         ) : null}
       </header>
+
+      {gameDay.status === "FINISHED" ? (
+        <Link href={`/game-days/${id}/stats`}>
+          <Button variant="secondary" size="lg" className="w-full">
+            <Trophy size={18} /> Ver estatísticas da pelada
+          </Button>
+        </Link>
+      ) : null}
 
       {myStats ? (
         <ShareStoryButton
