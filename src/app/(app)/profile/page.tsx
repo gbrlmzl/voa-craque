@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { pageUserWithProfile } from "@/lib/session";
 import { ROLE_LABEL } from "@/lib/labels";
 import { Badge, Card, SectionTitle } from "@/components/ui";
-import { SkillTag, Stars } from "@/components/Player";
+import { Stars } from "@/components/Player";
 import { ProfileForm } from "@/components/forms/ProfileForm";
 import { EMPTY_PROFILE, type ProfileValues } from "@/lib/profile-defaults";
 
@@ -11,10 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function ProfilePage() {
   const user = await pageUserWithProfile();
 
-  const profile = await prisma.playerProfile.findUnique({
-    where: { userId: user.id },
-    include: { skills: { include: { skill: true } } },
-  });
+  const profile = await prisma.playerProfile.findUnique({ where: { userId: user.id } });
 
   const initial: ProfileValues = profile
     ? {
@@ -42,15 +39,6 @@ export default async function ProfilePage() {
         <SectionTitle hint="definido pelo organizador">Sua avaliação</SectionTitle>
         <Card className="grid gap-3">
           <Stars value={profile?.stars ?? null} size={20} />
-          {profile && profile.skills.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {profile.skills.map((entry) => (
-                <SkillTag key={entry.skillId} label={entry.skill.label} polarity={entry.skill.polarity} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500">Nenhuma skill atribuída ainda.</p>
-          )}
         </Card>
       </section>
 

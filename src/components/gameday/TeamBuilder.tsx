@@ -1,6 +1,7 @@
 "use client";
 
-import { AlertTriangle, Save, Shuffle } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, LayoutDashboard, Save, Shuffle } from "lucide-react";
 import { PlayerChip, Stars } from "@/components/Player";
 import { Badge, Button, Card, SectionTitle, Select } from "@/components/ui";
 import { PAYMENT_STATUS_LABEL, teamColor } from "@/lib/labels";
@@ -57,6 +58,12 @@ export function TeamBuilder({
             mediana do grupo para eles.
           </p>
         ) : null}
+
+        <Link href={`/game-days/${gameDayId}`}>
+          <Button variant="secondary" size="lg" className="w-full">
+            <LayoutDashboard size={18} /> Painel
+          </Button>
+        </Link>
 
         <Button size="lg" onClick={draw} disabled={busy || pool.length < teamSize * 2}>
           <Shuffle size={18} /> {teams.length > 0 ? "Sortear de novo" : "Sortear times"}

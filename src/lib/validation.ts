@@ -80,10 +80,6 @@ export const starsSchema = z.object({
     ),
 });
 
-export const skillsSchema = z.object({
-  skillCodes: z.array(z.string().trim().min(1)).max(10),
-});
-
 export const roleSchema = z.object({
   role: z.enum(["SUPERADMIN", "ADMIN", "USER"]),
 });

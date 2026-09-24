@@ -11,3 +11,6 @@ coverage
 
 # Prisma Client gerado (prisma generate)
 src/generated
+
+# Certificado de origem da Cloudflare (so existe no servidor de producao)
+/certs

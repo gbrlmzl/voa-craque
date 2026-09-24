@@ -9,11 +9,14 @@ export type RouteKind = "auth-endpoint" | "guest-only" | "public" | "protected-a
 
 const GUEST_ONLY = new Set(["/login", "/register"]);
 const PUBLIC = new Set(["/maintenance"]);
+// Estatisticas de uma pelada encerrada podem ser vistas por qualquer um (para
+// compartilhar o link); a pelada em si (inscricao, pagamento, escalacao) nao.
+const PUBLIC_PATTERNS = [/^\/game-days\/[^/]+\/stats$/];
 
 export function classifyPath(pathname: string): RouteKind {
   if (pathname === "/api/auth" || pathname.startsWith("/api/auth/")) return "auth-endpoint";
   if (GUEST_ONLY.has(pathname)) return "guest-only";
-  if (PUBLIC.has(pathname)) return "public";
+  if (PUBLIC.has(pathname) || PUBLIC_PATTERNS.some((pattern) => pattern.test(pathname))) return "public";
   if (pathname === "/api" || pathname.startsWith("/api/")) return "protected-api";
   return "protected-page";
 }
