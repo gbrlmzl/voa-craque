@@ -16,6 +16,11 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      # prisma.config.ts exige DATABASE_URL so pra carregar (mesmo em "prisma
+      # generate", que nao acessa banco nenhum) — mesmo placeholder que o
+      # Dockerfile ja usa pro build.
+      DATABASE_URL: "postgresql://user:pass@localhost:5432/db?schema=public"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
