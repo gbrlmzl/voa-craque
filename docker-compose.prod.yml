@@ -3,6 +3,7 @@ services:
     ports: !reset []
 
   app:
+    image: ${APP_IMAGE:-636227829069.dkr.ecr.sa-east-1.amazonaws.com/voacraque:latest}
     ports: !reset []
 
   caddy:
