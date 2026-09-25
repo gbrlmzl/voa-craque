@@ -160,8 +160,12 @@ pediu pode ver aquele arquivo.
 - **Disco**: 20 GiB gp3 — folga confortável para imagens Docker, o volume do Postgres e o
   código da aplicação.
 - Sem par de chaves (`key-name` vazio) — acesso exclusivo via SSM.
-- `user data` (cloud-init) instala Docker Engine + o plugin `docker compose` do repositório
-  oficial da Docker no primeiro boot.
+- `user data` (cloud-init, script salvo em `scripts/ec2-bootstrap.sh` para referência)
+  instala, no primeiro boot: Docker Engine + o plugin `docker compose` do repositório
+  oficial da Docker, e o **AWS CLI v2** — necessário porque `scripts/remote-deploy.sh`
+  roda `aws ecr get-login-password` *na própria instância* para autenticar o `docker
+  login` no ECR (não basta o runner do GitHub Actions ter o CLI; quem efetivamente puxa
+  a imagem é a instância).
 
 ## 8. Banco de dados
 
