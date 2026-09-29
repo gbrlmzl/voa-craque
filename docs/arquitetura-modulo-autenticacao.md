@@ -432,9 +432,14 @@ moram no mesmo lugar. Isso muda duas coisas em relação ao Cenário B:
 | `src/lib/auth/credentials.ts` | Verificação de senha com custo constante de bcrypt |
 | `src/lib/auth/google.ts` | Achar ou criar o usuário do Google, vínculo seguro por e-mail |
 | `src/lib/auth/routes.ts` | Classificação de rotas do proxy e destino seguro pós-login |
+| `src/lib/auth/password.ts` | Custo do bcrypt para senha nova, num lugar só (registro, troca, redefinição) |
+| `src/lib/auth/password-reset-state.ts` | Parte pura da redefinição: TTL, hash do token, classificação, montagem da URL a partir de `AUTH_URL` |
+| `src/lib/auth/password-reset.ts` | Ciclo de vida do link de redefinição no banco: emitir, ler (sem consumir), consumir e trocar a senha, purgar |
+| `src/lib/mail/mailer.ts`, `src/lib/mail/templates.ts` | Envio de e-mail (driver `console` ou `smtp` via nodemailer) e os textos de redefinição/aviso de senha alterada |
 | `src/proxy.ts` | Roteamento heurístico + único ponto de rotação e confirmação |
 | `src/lib/session.ts` | `getCurrentUser()` (autoridade), `getSessionPromise()`, guardas de API e de página |
 | `src/actions/auth.ts` | Server Actions de login, cadastro, Google e logout |
+| `src/actions/password.ts` | Server Actions de troca de senha logado, pedido de link e redefinição por e-mail |
 | `src/components/UserProvider.tsx` | Contexto com a promise, `useCurrentUser`, `useUpdateCurrentUser` |
 | `src/lib/rate-limit.ts`, `client-ip.ts`, `security-log.ts` | Defesas transversais |
 | `scripts/purge-sessions.ts` | Purga agendada |
@@ -623,6 +628,8 @@ vira `/login?error=CredentialsSignin&code=rate_limited`. A página de login trat
 | Logout | Limpo | Família revogada | Este dispositivo, **na hora** |
 | Reuso detectado | Limpo para quem apresentou | Família revogada | Os dois lados do roubo |
 | Vínculo Google com senha não verificada | — | Todas as famílias do usuário revogadas | Todos os dispositivos |
+| Troca de senha (logado) | Continua (não é reescrito) | As **outras** famílias são revogadas; a família do dispositivo atual continua | Todos os outros dispositivos |
+| Redefinição por e-mail | Limpo em todos (ninguém tinha sessão aberta pelo link) | **Todas** as famílias do usuário revogadas; nenhuma é aberta | Todos os dispositivos |
 | Usuário desativado | Continua no navegador | — | Todos, **na hora** (`getCurrentUser` confere `active`) |
 | 30 dias sem uso | Expira | Linha expira; a purga apaga | — |
 | Troca do `AUTH_SECRET` sem `AUTH_SECRET_1` | Não decifra mais | — | Todos |

@@ -110,6 +110,9 @@ Estão todas em `.env.example`, com valores que funcionam sem edição.
 | `STORAGE_DRIVER` | `local` (volume do container) ou `s3` |
 | `UPLOAD_DIR`, `MAX_UPLOAD_MB` | Pasta e limite dos arquivos no driver local |
 | `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Usados só quando `STORAGE_DRIVER=s3`. O bucket fica privado; os arquivos são sempre servidos por `/api/files` (que confere sessão e dono) via URL assinada de 60s, nunca por link direto do bucket. Sem as duas credenciais, o SDK usa a IAM role da instância |
+| `MAIL_DRIVER` | `console` (padrão: imprime a mensagem no log do servidor, fora de produção) ou `smtp` (envia de verdade) |
+| `MAIL_FROM` | Remetente dos e-mails de recuperação de senha e avisos de segurança |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` | Usados só quando `MAIL_DRIVER=smtp`. `SMTP_SECURE=true` para a porta 465 (TLS direto); `false` para 587 (STARTTLS) |
 
 O compose usa nomes próprios (`VOACRAQUE_*`) de propósito: `POSTGRES_PASSWORD` e afins
 são comuns no ambiente da máquina e o Docker Compose dá precedência ao ambiente sobre
@@ -136,6 +139,8 @@ entrar de cada conta.
 
 A arquitetura completa (e o modelo para outros projetos) está em
 [`docs/arquitetura-modulo-autenticacao.md`](docs/arquitetura-modulo-autenticacao.md). O
+caminho que o código percorre, da conta nova até a inscrição numa pelada, está em
+[`docs/jornada-autenticacao-ate-inscricao.md`](docs/jornada-autenticacao-ate-inscricao.md). O
 essencial para operar:
 
 - O cookie de sessão carrega um token opaco que aponta para uma linha em `SessionToken`.
@@ -149,6 +154,24 @@ essencial para operar:
   (vale agendar diariamente).
 - **Ao publicar esta versão, todo mundo precisa entrar de novo uma vez**: os cookies do
   formato anterior deixam de valer.
+
+## Alterar e recuperar senha
+
+Quem tem senha local (`hasPassword`) troca a senha logado em `/profile`, informando a
+senha atual; a troca revoga as sessões de todos os *outros* aparelhos e mantém a sessão
+atual aberta. Quem esqueceu a senha pede um link em `/forgot-password`: a resposta é
+sempre a mesma frase neutra, exista ou não conta com aquele e-mail (a diferença vai só
+para o log de segurança), e todo o trabalho que revelaria a existência da conta
+(consulta, emissão do token, envio do e-mail) roda depois da resposta já ter saído
+(`after()`), para não vazar pela latência. O link em `/reset-password` vale por 30
+minutos, funciona uma única vez e, ao ser usado, revoga **todas** as sessões do usuário
+(nenhuma é aberta automaticamente) e marca o e-mail como verificado. Conta só-Google
+(sem `passwordHash`) não ganha senha por nenhum dos dois fluxos. Toda troca ou
+redefinição dispara um e-mail curto avisando o dono da conta.
+
+Com `MAIL_DRIVER=console` (padrão fora de produção), o e-mail não é enviado de verdade:
+a mensagem inteira, inclusive o link, aparece no log do servidor. Em produção com esse
+driver, nada é impresso — só um aviso de que o e-mail não saiu.
 
 ## Papéis
 
@@ -205,9 +228,13 @@ automático pela virada do cronômetro aparece com ator "Sistema".
 12. **Arquivos** ficam em volume local por padrão. `STORAGE_DRIVER=s3` sobe para um
     bucket da AWS; o driver local mantém o `docker compose up` funcionando sem conta na
     nuvem.
-13. **Sem e-mail**: não há recuperação de senha nem redefinição pelo superadmin. Quem
-    esquecer a senha pode entrar pelo Google (se usar o mesmo e-mail), criar uma nova
-    conta ou pedir alteração direta no banco.
+13. **E-mail só para senha**: o único uso de e-mail no projeto é a recuperação de senha
+    (`/forgot-password` → `/reset-password`) e o aviso de senha alterada; não há
+    verificação de e-mail no cadastro, nem redefinição pelo superadmin, nem "definir
+    primeira senha" para quem só entra pelo Google (essa conta não tem `passwordHash` e
+    continua entrando só pelo Google). Sem SMTP configurado (`MAIL_DRIVER=console`, o
+    padrão), o link de redefinição sai no log do servidor em vez de numa caixa de
+    entrada de verdade.
 14. **Porta do banco**: o `.env.example` publica o Postgres em `55432` porque a máquina
     de desenvolvimento já tinha um Postgres nativo ocupando 5432. Dentro do compose a
     aplicação sempre fala com `db:5432`.
@@ -231,6 +258,9 @@ puros e sem banco:
   cookie do formato antigo).
 - `tests/auth-support.test.ts` — classificação de rotas do proxy, destino seguro após o
   login, IP do cliente atrás de proxy, rate limit e a mescla do usuário no contexto.
+- `tests/password-reset.test.ts` — classificação do token de redefinição de senha,
+  hash do token, montagem do link a partir de `AUTH_URL`, os schemas de troca/redefinição
+  de senha e o driver `console` do envio de e-mail.
 
 Verificação de tipos:
 
