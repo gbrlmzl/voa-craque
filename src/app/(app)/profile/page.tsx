@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { pageUserWithProfile } from "@/lib/session";
 import { ROLE_LABEL } from "@/lib/labels";
-import { Badge, Card, SectionTitle } from "@/components/ui";
-import { Stars } from "@/components/Player";
+import { Badge, SectionTitle } from "@/components/ui";
+import { ChangePasswordModal } from "@/components/forms/ChangePasswordModal";
 import { ProfileForm } from "@/components/forms/ProfileForm";
 import { EMPTY_PROFILE, type ProfileValues } from "@/lib/profile-defaults";
 
@@ -15,6 +15,7 @@ export default async function ProfilePage() {
 
   const initial: ProfileValues = profile
     ? {
+        stars: profile.stars,
         name: profile.name,
         nickname: profile.nickname ?? "",
         foot: profile.foot,
@@ -36,24 +37,16 @@ export default async function ProfilePage() {
       </div>
 
       <section>
-        <SectionTitle hint="definido pelo organizador">Sua avaliação</SectionTitle>
-        <Card className="grid gap-3">
-          <Stars value={profile?.stars ?? null} size={20} />
-        </Card>
-      </section>
-
-      <section>
         <SectionTitle>Seus dados</SectionTitle>
         <ProfileForm initial={initial} mode="edit" />
       </section>
 
-      <section>
-        <SectionTitle>Formas de entrar</SectionTitle>
-        <Card className="grid gap-2 text-sm">
-          <SignInMethod label="E-mail e senha" enabled={user.hasPassword} />
-          <SignInMethod label="Google" enabled={user.googleLinked} />
-        </Card>
-      </section>
+      {user.hasPassword ? (
+        <section>
+          <SectionTitle>Senha</SectionTitle>
+          <ChangePasswordModal username={user.username} />
+        </section>
+      ) : null}
     </div>
   );
 }
