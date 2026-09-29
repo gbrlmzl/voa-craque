@@ -195,6 +195,26 @@ export async function revokeSessionFamily(raw: string): Promise<void> {
 }
 
 /**
+ * Troca de senha logado: derruba as sessoes de todos os OUTROS aparelhos, mas
+ * mantem a familia do dispositivo atual viva. Reescrever o cookie ou revogar a
+ * propria familia aqui brigaria com a rotacao do proxy (que e o unico lugar que
+ * grava cookie); nao mexer na familia atual evita as duas coisas. Se o token
+ * atual nao for achado (cookie ja invalido por algum motivo), revoga tudo: nao
+ * ha "dispositivo atual" para preservar.
+ */
+export async function revokeOtherSessionFamilies(userId: string, currentRawSid: string): Promise<void> {
+  const current = await findToken(currentRawSid);
+  await prisma.sessionToken.updateMany({
+    where: {
+      userId,
+      revokedAt: null,
+      ...(current ? { familyId: { not: current.familyId } } : {}),
+    },
+    data: { revokedAt: new Date() },
+  });
+}
+
+/**
  * Remove as linhas que nenhum cookie consegue mais apresentar. O JWE do cookie
  * expira no mesmo instante que a linha (mesmo maxAge), entao depois do
  * expiresAt a linha nao serve nem para detectar reuso. Um dia de folga cobre a
