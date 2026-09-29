@@ -70,6 +70,31 @@ export const loginLimiter = createRateLimiter({ name: "login", max: 8, windowMs:
  */
 export const registerLimiter = createRateLimiter({ name: "register", max: 10, windowMs: 60 * 60_000 });
 
+/**
+ * O endpoint de "esqueci a senha" responde sempre a mesma mensagem, com ou sem
+ * conta: contar so falhas nao faria sentido (nao ha "falha" visivel) e
+ * desarmaria o limitador em silencio.
+ */
+export const forgotPasswordLimiter = createRateLimiter({ name: "forgot-password", max: 5, windowMs: 60 * 60_000 });
+
+/**
+ * Por e-mail, nao por IP: sem isso alguem poderia usar o site para encher a
+ * caixa de entrada de outra pessoa a partir de varios IPs. Estourado, o pedido
+ * e ignorado em silencio (mesma resposta neutra); a diferenca vai so para o
+ * log de seguranca (`password_reset_requested`, reason `email_rate_limited`).
+ */
+export const forgotPasswordEmailLimiter = createRateLimiter({
+  name: "forgot-password-email",
+  max: 3,
+  windowMs: 60 * 60_000,
+});
+
+/** Conta toda tentativa: o risco aqui e adivinhar o token, nao a senha em si. */
+export const resetPasswordLimiter = createRateLimiter({ name: "reset-password", max: 10, windowMs: 60 * 60_000 });
+
+/** Por userId, so falhas: igual ao login, quem acerta a senha atual nunca gasta cota. */
+export const changePasswordLimiter = createRateLimiter({ name: "change-password", max: 5, windowMs: 15 * 60_000 });
+
 export function formatRetry(seconds: number): string {
   const minutes = Math.max(1, Math.ceil(seconds / 60));
   return minutes === 1 ? "1 minuto" : `${minutes} minutos`;

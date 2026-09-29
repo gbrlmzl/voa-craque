@@ -6,7 +6,15 @@ export type SecurityEvent =
   | "login_failed"
   | "rate_limit_exceeded"
   | "google_login_denied"
-  | "google_account_linked";
+  | "google_account_linked"
+  | "password_changed"
+  /** `reason`: invalid_current_password */
+  | "password_change_failed"
+  /** `reason` quando nao envia: user_not_found, no_local_password, inactive, email_rate_limited */
+  | "password_reset_requested"
+  | "password_reset_completed"
+  /** `reason`: unknown, used, expired, inactive, no_local_password */
+  | "password_reset_rejected";
 
 /**
  * Uma linha, um objeto JSON, chaves estaveis: e isso que permite pendurar um

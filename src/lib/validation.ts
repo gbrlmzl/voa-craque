@@ -36,6 +36,30 @@ export const registerSchema = z
     path: ["passwordConfirm"],
   });
 
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Informe a senha atual."),
+    newPassword: password,
+    newPasswordConfirm: z.string(),
+  })
+  .refine((data) => data.newPassword === data.newPasswordConfirm, {
+    message: "As senhas nao conferem.",
+    path: ["newPasswordConfirm"],
+  });
+
+export const forgotPasswordSchema = z.object({ email });
+
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().min(20).max(200),
+    password,
+    passwordConfirm: z.string(),
+  })
+  .refine((data) => data.password === data.passwordConfirm, {
+    message: "As senhas nao conferem.",
+    path: ["passwordConfirm"],
+  });
+
 export const profileSchema = z.object({
   name: z.string().trim().min(2, "Informe seu nome.").max(80),
   nickname: z.string().trim().max(30).optional().or(z.literal("")),
