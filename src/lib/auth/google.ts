@@ -14,8 +14,9 @@ export type GoogleProfile = {
 };
 
 /**
- * Callback `signIn` do Auth.js para o Google: decide se entra e garante que o
- * usuario exista no banco. Tres caminhos, nessa ordem:
+ * Regras do login com o Google, chamadas por src/app/api/auth/callback/google/route.ts
+ * depois de o handshake fechar: decide se entra e garante que o usuario exista
+ * no banco. Tres caminhos, nessa ordem:
  *
  * 1. Conta Google ja vinculada: entra (preenche a foto se estiver vazia).
  * 2. Ja existe usuario com o mesmo e-mail: vincula o Google a ele.
@@ -104,7 +105,12 @@ async function linkGoogleAccount(
       },
     }),
     ...(dropUnverifiedPassword
-      ? [prisma.sessionToken.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: now } })]
+      ? [
+          prisma.refreshToken.updateMany({
+            where: { userId: user.id, revokedAt: null },
+            data: { revokedAt: now, revokedReason: "GOOGLE_LINKED" },
+          }),
+        ]
       : []),
   ]);
 
@@ -172,7 +178,7 @@ async function createGoogleUser(email: string, providerAccountId: string, profil
   throw new Error("Não foi possível gerar um nome de usuário único para a conta do Google.");
 }
 
-/** Callback `jwt`: o usuario do banco por tras da conta Google que acabou de autorizar. */
+/** O usuario do banco por tras da conta Google que acabou de autorizar: dono da sessao que o callback abre. */
 export async function userIdForGoogleAccount(providerAccountId: string): Promise<string | null> {
   const link = await prisma.userAuthProvider.findUnique({
     where: { provider_providerAccountId: { provider: PROVIDER, providerAccountId } },
