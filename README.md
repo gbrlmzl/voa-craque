@@ -91,6 +91,26 @@ usa) em vez do Postgres apontado pelo `DATABASE_URL` do host:
 docker exec -it voacraque-app-dev npm run db:seed:pelada-teste
 ```
 
+### Seed do piloto (Pelada UFPB)
+
+`prisma/seed-piloto.ts` monta o piloto real:
+
+```bash
+npm run db:seed:piloto
+```
+
+Cria o superadmin `mizael` (`gabrielmzl100@gmail.com`), o organizador `ariel` (ADMIN) e 19 jogadores
+(`diego`, `jotaum`, `matheus`, `paulo`, `iran`, `pedro`, `jotadois`, `dagoberto`, `wendel`, `guilherme`,
+`walison`, `caio`, `marcone`, `samuel`, `joao`, `jean`, `john`, `caua`, `vinicius`). As senhas
+provisórias estão no próprio arquivo: trocar depois do primeiro login. Só o mizael tem e-mail real;
+os outros saem como `usuario@example.com` até cada um cadastrar o seu.
+
+Também cria a pelada "Pelada UFPB" (30/09/2026 16h, Ginásio do Sesi, R$ 6, partidas de 8 minutos,
+2 gols encerram, 20 vagas, times de 4, Pix `arielliragdrf@gmail.com`, criada pelo mizael) e inscreve
+os 20 jogadores (mizael incluso, pagamento no local e pendente). O ariel organiza e **não** é
+inscrito. Nenhum perfil de jogador é criado: cada um o monta no primeiro acesso. É idempotente e não
+mexe em senha nem em pelada que já existem.
+
 ## Variáveis de ambiente
 
 Estão todas em `.env.example`, com valores que funcionam sem edição.
