@@ -1,26 +1,30 @@
 "use server";
 
 import { headers } from "next/headers";
-import { AuthError, CredentialsSignin } from "next-auth";
-import { signIn, signOut } from "@/auth";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { credentialsSchema, registerSchema } from "@/lib/validation";
 import { AUDIT_ACTIONS, recordAudit } from "@/lib/audit";
 import { isGoogleAuthEnabled } from "@/lib/auth/config";
+import { verifyCredentials } from "@/lib/auth/credentials";
+import { endSession, establishSession } from "@/lib/auth/establish-session";
+import { startGoogleSignIn } from "@/lib/auth/google-oauth";
 import { hashPassword } from "@/lib/auth/password";
 import { safeNextPath } from "@/lib/auth/routes";
 import { clientIp } from "@/lib/client-ip";
 import { fieldErrorsOf } from "@/lib/form-state";
-import { formatRetry, registerLimiter } from "@/lib/rate-limit";
+import { formatRetry, loginLimiter, registerLimiter } from "@/lib/rate-limit";
 
 export type FormState = { message?: string; fieldErrors?: Record<string, string>; ok?: boolean };
 
 /**
- * Server Action, e nao fetch do cliente: o Auth.js grava o cookie com
- * cookies().set dentro da action, e um cookie alterado numa action faz o Next
- * rerenderizar a arvore inteira na mesma resposta. O layout raiz cria uma
- * promise de sessao nova e o UserProvider ja recebe o usuario logado, sem
- * router.refresh().
+ * Server Action, e nao fetch do cliente: o cookie e gravado com cookies().set
+ * dentro da action, e um cookie alterado numa action faz o Next rerenderizar a
+ * arvore inteira na mesma resposta. O layout raiz cria uma promise de sessao nova
+ * e o UserProvider ja recebe o usuario logado, sem router.refresh().
+ *
+ * O limite de tentativas mora aqui: nao existe outro endpoint de login. Nunca
+ * ponha `redirect()` dentro de try/catch (ele lanca de proposito).
  */
 export async function loginAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const parsed = credentialsSchema.safeParse({
@@ -29,17 +33,20 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
   });
   if (!parsed.success) return { fieldErrors: fieldErrorsOf(parsed.error) };
 
-  try {
-    await signIn("credentials", { ...parsed.data, redirectTo: safeNextPath(formData.get("proximo")) });
-  } catch (error) {
-    if (error instanceof CredentialsSignin && error.code === "rate_limited") {
-      return { message: "Muitas tentativas de login. Espere alguns minutos e tente de novo." };
-    }
-    // A mesma mensagem para usuario inexistente e senha errada: nao revela quem tem conta.
-    if (error instanceof AuthError) return { message: "Usuário ou senha não conferem." };
-    throw error;
+  const ip = clientIp(await headers());
+  if (loginLimiter.retryAfter(ip) > 0) {
+    return { message: "Muitas tentativas de login. Espere alguns minutos e tente de novo." };
   }
-  return {};
+
+  const user = await verifyCredentials(parsed.data.username, parsed.data.password, ip);
+  if (!user) {
+    loginLimiter.hit(ip);
+    // A mesma mensagem para usuario inexistente e senha errada: nao revela quem tem conta.
+    return { message: "Usuário ou senha não conferem." };
+  }
+
+  await establishSession(user.id);
+  redirect(safeNextPath(formData.get("proximo")));
 }
 
 export async function registerAction(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -84,24 +91,22 @@ export async function registerAction(_prev: FormState, formData: FormData): Prom
     after: { username: user.username, email: user.email, role: user.role },
   });
 
-  try {
-    await signIn("credentials", { username, password, redirectTo: "/onboarding" });
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return { message: "Conta criada. Entre com seu usuário e senha." };
-    }
-    throw error;
-  }
-  return {};
+  await establishSession(user.id);
+  redirect("/onboarding");
 }
 
-/** Leva ao Google; a volta cai em /api/auth/callback/google e de la no destino. */
+/**
+ * Leva ao Google; a volta cai em /api/auth/callback/google (route handler) e de
+ * la no destino. Grava o cookie de state antes de redirecionar.
+ */
 export async function googleSignInAction(formData: FormData): Promise<void> {
   if (!isGoogleAuthEnabled()) return;
-  await signIn("google", { redirectTo: safeNextPath(formData.get("proximo")) });
+  const url = await startGoogleSignIn(safeNextPath(formData.get("proximo")));
+  redirect(url.toString());
 }
 
-/** Revoga a familia de tokens deste dispositivo (events.signOut em src/auth.ts) e limpa o cookie. */
+/** Revoga a familia de refresh deste aparelho e apaga os dois cookies (ver endSession). */
 export async function logoutAction(): Promise<void> {
-  await signOut({ redirectTo: "/login" });
+  await endSession();
+  redirect("/login");
 }

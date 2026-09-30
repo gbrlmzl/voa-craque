@@ -7,17 +7,13 @@ import { GoogleSignInButton, OrDivider } from "@/components/forms/GoogleSignInBu
 export const dynamic = "force-dynamic";
 
 /**
- * O Auth.js devolve erros para cá (`pages.error`) como /login?error=Tipo.
+ * O callback do Google devolve erros para cá como /login?error=Tipo. (Erro de
+ * senha não passa por aqui: volta no estado da loginAction.)
  * A mensagem nunca diz o motivo exato: "e-mail não verificado" e "conta
  * desativada" viram o mesmo texto, e o detalhe fica no log de segurança.
  */
-function authErrorMessage(error?: string, code?: string): string | undefined {
+function authErrorMessage(error?: string): string | undefined {
   if (!error) return undefined;
-  if (error === "CredentialsSignin") {
-    return code === "rate_limited"
-      ? "Muitas tentativas de login. Espere alguns minutos e tente de novo."
-      : "Usuário ou senha não conferem.";
-  }
   if (error === "AccessDenied") return "Não foi possível entrar com essa conta do Google.";
   if (error === "Configuration") return "O login está indisponível agora. Tente de novo em instantes.";
   return "Não foi possível concluir o login com o Google. Tente de novo.";
@@ -26,9 +22,9 @@ function authErrorMessage(error?: string, code?: string): string | undefined {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ proximo?: string; error?: string; code?: string; senha?: string }>;
+  searchParams: Promise<{ proximo?: string; error?: string; senha?: string }>;
 }) {
-  const { proximo, error, code, senha } = await searchParams;
+  const { proximo, error, senha } = await searchParams;
   const googleEnabled = isGoogleAuthEnabled();
 
   return (
@@ -51,7 +47,7 @@ export default async function LoginPage({
         </>
       ) : null}
 
-      <LoginForm next={proximo} notice={authErrorMessage(error, code)} googleEnabled={googleEnabled} />
+      <LoginForm next={proximo} notice={authErrorMessage(error)} googleEnabled={googleEnabled} />
 
       <p className="mt-6 text-center text-sm text-slate-400">
         Primeira vez aqui?{" "}

@@ -9,13 +9,14 @@ describe("classifyPath", () => {
   it.each([
     ["/api/auth/callback/google", "auth-endpoint"],
     ["/api/auth", "auth-endpoint"],
+    ["/api/auth/refresh", "auth-endpoint"],
     ["/login", "guest-only"],
     ["/register", "guest-only"],
     ["/forgot-password", "guest-only"],
     ["/reset-password", "public"],
     ["/maintenance", "public"],
     ["/api/game-days", "protected-api"],
-    ["/api/authorize-algo", "protected-api"], // prefixo parecido nao e rota do Auth.js
+    ["/api/authorize-algo", "protected-api"], // prefixo parecido nao e rota de autenticacao
     ["/", "protected-page"],
     ["/onboarding", "protected-page"],
     ["/login/extra", "protected-page"],
