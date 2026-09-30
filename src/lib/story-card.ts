@@ -349,7 +349,7 @@ function drawFooter(ctx: CanvasRenderingContext2D) {
   ctx.textBaseline = "middle";
   ctx.font = "500 28px system-ui, sans-serif";
   ctx.fillStyle = COLOR.slate500;
-  ctx.fillText("voacraque.app", STORY_WIDTH / 2, barY + 44);
+  ctx.fillText("voacraque.gabrielmizael.com", STORY_WIDTH / 2, barY + 44);
   ctx.restore();
 }
 
