@@ -14,19 +14,21 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:pelada-teste": "tsx prisma/seed-pelada-teste.ts",
-    "db:purge-sessions": "tsx scripts/purge-sessions.ts"
+    "db:seed:piloto": "tsx prisma/seed-piloto.ts",
+    "db:purge-tokens": "tsx scripts/purge-tokens.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.926.0",
     "@aws-sdk/s3-request-presigner": "^3.1138.0",
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
+    "arctic": "^3.7.0",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "dotenv": "^18.0.1",
+    "jose": "^6.2.12",
     "lucide-react": "^1.45.0",
     "next": "16.3.5",
-    "next-auth": "5.0.0-beta.32",
     "nodemailer": "^8.0.11",
     "react": "19.3.0",
     "react-dom": "19.3.0",
