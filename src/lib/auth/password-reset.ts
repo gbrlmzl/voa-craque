@@ -47,7 +47,10 @@ export type ResetPasswordResult =
   | { ok: true; user: { id: string; username: string; email: string; role: Role } }
   | { ok: false; reason: ResetPasswordFailureReason };
 
-/** Consome o token e troca a senha de forma atomica; revoga todas as sessoes do usuario. */
+/**
+ * Consome o token e troca a senha de forma atomica; revoga os refresh tokens do
+ * usuario (os aparelhos caem quando o access de 15 min vence).
+ */
 export async function resetPasswordWithToken(raw: string, newPassword: string): Promise<ResetPasswordResult> {
   const now = new Date();
   const row = await prisma.passwordResetToken.findUnique({
@@ -91,7 +94,10 @@ export async function resetPasswordWithToken(raw: string, newPassword: string): 
       data: { passwordHash, emailVerifiedAt: user.emailVerifiedAt ?? now },
     });
     await tx.passwordResetToken.updateMany({ where: { userId: user.id, usedAt: null }, data: { usedAt: now } });
-    await tx.sessionToken.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: now } });
+    await tx.refreshToken.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: now, revokedReason: "PASSWORD_RESET" },
+    });
     return true;
   });
 
@@ -99,7 +105,7 @@ export async function resetPasswordWithToken(raw: string, newPassword: string): 
   return { ok: true, user: { id: user.id, username: user.username, email: user.email, role: user.role } };
 }
 
-/** Apaga os tokens expirados ha mais de um dia; chamado tambem por scripts/purge-sessions.ts. */
+/** Apaga os tokens expirados ha mais de um dia; chamado tambem por scripts/purge-tokens.ts. */
 export async function purgeDeadPasswordResetTokens(now = new Date()): Promise<number> {
   const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const { count } = await prisma.passwordResetToken.deleteMany({ where: { expiresAt: { lt: cutoff } } });

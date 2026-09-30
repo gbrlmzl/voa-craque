@@ -1,5 +1,6 @@
 /**
- * - auth-endpoint:  rotas do proprio Auth.js (callback do Google etc.)
+ * - auth-endpoint:  rotas de autenticacao que gravam os proprios cookies (callback
+ *                   do Google, /api/auth/refresh); o proxy nao mexe nelas
  * - guest-only:     quem tem sessao e mandado para "/"
  * - public:         abre com ou sem sessao
  * - protected-api:  sem sessao responde 401 em JSON

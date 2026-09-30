@@ -4,60 +4,51 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import type { Role } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { forbidden, unauthorized } from "@/lib/http";
-import { SESSION_COOKIE_NAME } from "@/lib/auth/config";
+import { ACCESS_COOKIE_NAME } from "@/lib/auth/config";
 import type { CurrentUser } from "@/lib/auth/current-user";
-import { readSessionCookie } from "@/lib/auth/session-cookie";
-import { hashSessionToken, resolveTokenState } from "@/lib/auth/session-store";
+import { verifyAccessToken } from "@/lib/auth/tokens";
 
 export type { CurrentUser };
 
 const ADMIN_ROLES: Role[] = ["ADMIN", "SUPERADMIN"];
 
 /**
- * Quem esta logado, segundo o banco. E a unica resposta que vale: o proxy so
- * decide roteamento e o UserProvider so decide o que desenhar.
+ * Quem esta logado. E a unica resposta que vale: o proxy so decide roteamento e
+ * o UserProvider so decide o que desenhar.
  *
- * Uma consulta por requisicao (o `cache` deduplica entre layout, pagina e
- * guardas): token vivo ou em graca, do mesmo usuario que o cookie diz, ativo.
- * Logout, reuso detectado e desativacao valem na hora, sem esperar o cookie
- * expirar.
+ * Autoridade = access JWT valido (assinatura, iss, aud, exp) + usuario ativo no
+ * banco. Uma consulta por requisicao (o `cache` deduplica entre layout, pagina e
+ * guardas): desativacao e troca de papel valem na hora, porque o papel nao vai
+ * no token.
  *
- * So le. Rotacionar, confirmar sucessor e escrever cookie e trabalho exclusivo
- * do proxy.
+ * NAO consulta o refresh token: o access e stateless, e por isso nao e
+ * revogavel nos seus 15 minutos (logout e troca de senha derrubam o aparelho na
+ * proxima renovacao). Quem renova e o proxy.
+ *
+ * So le. Gravar cookie e trabalho do proxy, das actions e dos route handlers
+ * de /api/auth/*: num Server Component o Next lanca em cookies().set.
  */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
-  const claims = await readSessionCookie((await cookies()).get(SESSION_COOKIE_NAME)?.value);
+  const claims = await verifyAccessToken((await cookies()).get(ACCESS_COOKIE_NAME)?.value);
   if (!claims) return null;
 
-  const token = await prisma.sessionToken.findUnique({
-    where: { tokenHash: hashSessionToken(claims.sid) },
+  const user = await prisma.user.findUnique({
+    where: { id: claims.sub },
     select: {
-      familyId: true,
-      revokedAt: true,
-      expiresAt: true,
-      user: {
-        select: {
-          id: true,
-          email: true,
-          username: true,
-          role: true,
-          active: true,
-          image: true,
-          passwordHash: true,
-          authProviders: { select: { provider: true } },
-          profile: { select: { completed: true, photoUrl: true, name: true } },
-        },
-      },
+      id: true,
+      email: true,
+      username: true,
+      role: true,
+      active: true,
+      image: true,
+      passwordHash: true,
+      authProviders: { select: { provider: true } },
+      profile: { select: { completed: true, photoUrl: true, name: true } },
     },
   });
 
-  if (!token || token.user.id !== claims.sub || !token.user.active) return null;
+  if (!user || !user.active) return null;
 
-  // "active" inclui o sucessor pendente: o render da requisicao que rotacionou ja o enxerga.
-  const state = await resolveTokenState(token);
-  if (state !== "active" && state !== "grace") return null;
-
-  const { user } = token;
   return {
     id: user.id,
     email: user.email,

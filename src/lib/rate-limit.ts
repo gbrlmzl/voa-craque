@@ -95,6 +95,13 @@ export const resetPasswordLimiter = createRateLimiter({ name: "reset-password", 
 /** Por userId, so falhas: igual ao login, quem acerta a senha atual nunca gasta cota. */
 export const changePasswordLimiter = createRateLimiter({ name: "change-password", max: 5, windowMs: 15 * 60_000 });
 
+/**
+ * So para o endpoint explicito POST /api/auth/refresh. A renovacao no proxy nao
+ * passa por aqui: ela exige um token opaco de 320 bits, que nao e superficie de
+ * forca bruta.
+ */
+export const refreshLimiter = createRateLimiter({ name: "refresh", max: 30, windowMs: 15 * 60_000 });
+
 export function formatRetry(seconds: number): string {
   const minutes = Math.max(1, Math.ceil(seconds / 60));
   return minutes === 1 ? "1 minuto" : `${minutes} minutos`;
