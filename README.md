@@ -121,8 +121,8 @@ Estão todas em `.env.example`, com valores que funcionam sem edição.
 | `VOACRAQUE_DB_USER` / `_PASSWORD` / `_NAME` | Credenciais do container do banco |
 | `VOACRAQUE_DB_PORT` | Porta do banco publicada no host (padrão do arquivo: `55432`) |
 | `VOACRAQUE_APP_PORT` | Porta da aplicação no host |
-| `AUTH_SECRET` | Cifra o cookie de sessão. Gere com `openssl rand -base64 32`. Para trocar sem derrubar as sessões, mova o antigo para `AUTH_SECRET_1` |
-| `AUTH_TRUST_HOST`, `AUTH_URL` | Origem pública da aplicação. Com `https://`, o cookie de sessão sai com `Secure` (`NEXTAUTH_URL` ainda é aceito) |
+| `AUTH_SECRET` | Assina o JWT do cookie de sessão e o state do login com o Google. Mínimo de 32 caracteres; gere com `openssl rand -base64 32`. Para trocar sem derrubar as sessões, mova o antigo para `AUTH_SECRET_1` (quem tem este valor assina sessão de qualquer usuário: nunca commite) |
+| `AUTH_URL` | Origem pública da aplicação. Com `https://`, os cookies de sessão saem com `Secure` e o prefixo `__Host-`; também define o redirect URI do Google e o link do e-mail de redefinição de senha (`NEXTAUTH_URL` ainda é aceito) |
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | Login com Google (opcional). Sem as duas, o botão não aparece |
 | `TRUST_PROXY_HOPS` | Quantos proxies confiáveis ficam na frente da aplicação; define o IP usado no rate limit e na auditoria (padrão `1`) |
 | `SUPERADMIN_EMAIL` / `_PASSWORD` / `_NAME` | Superadmin criado pelo seed |
@@ -163,29 +163,39 @@ caminho que o código percorre, da conta nova até a inscrição numa pelada, es
 [`docs/jornada-autenticacao-ate-inscricao.md`](docs/jornada-autenticacao-ate-inscricao.md). O
 essencial para operar:
 
-- O cookie de sessão carrega um token opaco que aponta para uma linha em `SessionToken`.
-  Logout, desativação do usuário e roubo detectado derrubam a sessão na hora.
-- O token é rotacionado a cada 15 minutos de uso pelo `src/proxy.ts`. Um token antigo que
-  volta depois de rotacionado é tratado como roubo: a sessão daquele dispositivo cai e o
-  evento `session_token_reuse` vai para o log.
+- **Dois cookies.** `voacraque.session` é um JWT (HS256) de **15 minutos** que não tem linha
+  nenhuma no banco: `getCurrentUser()` só confere a assinatura e lê o usuário. `voacraque.refresh`
+  é um valor opaco de **7 dias** cujo hash fica em `RefreshToken`. Ambos são `HttpOnly` e
+  `SameSite=Lax`; em https saem com `Secure` e o prefixo `__Host-`.
+- **Só o `src/proxy.ts` renova**, e só quando o cookie de sessão falta ou está a menos de 60 s
+  de vencer (nunca a cada requisição): troca o refresh por um par novo, na mesma família, e a
+  requisição segue já autenticada. Vale para páginas, Server Actions e `/api/*`. A sessão cai
+  após 7 dias sem uso.
+- **Rotação com graça de 10 s e detecção de reuso.** Um refresh já rotacionado que volta depois
+  de 10 s é tratado como roubo: a família daquele login cai e o evento `refresh_token_reuse`
+  vai para o log. Dentro dos 10 s é concorrência normal (`refresh_token_grace_reuse`); um
+  refresh revogado por logout ou troca de senha gera só `refresh_token_revoked_use`, sem alarme.
+- **Limite conhecido:** o cookie de sessão não é revogável nos seus 15 minutos. O logout revoga o
+  refresh na hora, mas uma cópia do cookie de sessão vale até vencer.
 - Eventos de segurança saem no stderr como JSON de uma linha (`"type":"security"`), prontos
   para filtro e alarme.
-- Tokens expirados são apagados no boot do container e por `npm run db:purge-sessions`
-  (vale agendar diariamente).
-- **Ao publicar esta versão, todo mundo precisa entrar de novo uma vez**: os cookies do
-  formato anterior deixam de valer.
+- Refresh tokens expirados ou revogados há mais de 30 dias são apagados no boot do container e
+  por `npm run db:purge-tokens` (vale agendar diariamente).
+- Detalhes, decisões e fluxos: [`docs/arquitetura-sessao-jwt.md`](docs/arquitetura-sessao-jwt.md).
+- **Ao publicar esta versão, todo mundo precisa entrar de novo uma vez**: os cookies do Auth.js
+  deixam de valer (ficam órfãos no navegador e expiram sozinhos).
 
 ## Alterar e recuperar senha
 
 Quem tem senha local (`hasPassword`) troca a senha logado em `/profile`, informando a
-senha atual; a troca revoga as sessões de todos os *outros* aparelhos e mantém a sessão
-atual aberta. Quem esqueceu a senha pede um link em `/forgot-password`: a resposta é
+senha atual; a troca revoga os refresh tokens de todos os aparelhos e abre uma sessão nova neste; os
+*outros* aparelhos são encerrados **em até 15 minutos** (quando o cookie de sessão deles vence). Quem esqueceu a senha pede um link em `/forgot-password`: a resposta é
 sempre a mesma frase neutra, exista ou não conta com aquele e-mail (a diferença vai só
 para o log de segurança), e todo o trabalho que revelaria a existência da conta
 (consulta, emissão do token, envio do e-mail) roda depois da resposta já ter saído
 (`after()`), para não vazar pela latência. O link em `/reset-password` vale por 30
 minutos, funciona uma única vez e, ao ser usado, revoga **todas** as sessões do usuário
-(nenhuma é aberta automaticamente) e marca o e-mail como verificado. Conta só-Google
+(em até 15 minutos; nenhuma é aberta automaticamente) e marca o e-mail como verificado. Conta só-Google
 (sem `passwordHash`) não ganha senha por nenhum dos dois fluxos. Toda troca ou
 redefinição dispara um e-mail curto avisando o dono da conta.
 
@@ -273,9 +283,12 @@ puros e sem banco:
   sorteios.
 - `src/lib/match-engine.ts` — cronômetro, transições válidas e inválidas, fim por gols,
   fim por tempo, empate e rotação da fila.
-- `tests/auth-session.test.ts` — classificação do token (ativo, graça, reuso, expirado),
-  idade de rotação e o cookie cifrado (adulteração, segredo trocado, rotação de segredo,
-  cookie do formato antigo).
+- `tests/auth-tokens.test.ts` — JWT de sessão e state do OAuth (validade, adulteração, `alg: none`,
+  segredo trocado e rotação de segredo), `needsRefresh` e os cookies (atributos, `Secure` e
+  prefixo `__Host-` em https).
+- `tests/refresh-token-state.test.ts` — refresh opaco (geração e hash), prazos e a classificação
+  ativo, graça, reuso, revogado e expirado (inclusive por motivo de revogação).
+- `tests/google-oauth.test.ts` — redirect URI do Google e leitura dos claims do `id_token`.
 - `tests/auth-support.test.ts` — classificação de rotas do proxy, destino seguro após o
   login, IP do cliente atrás de proxy, rate limit e a mescla do usuário no contexto.
 - `tests/password-reset.test.ts` — classificação do token de redefinição de senha,

@@ -249,7 +249,7 @@ Itens conscientemente deixados de fora deste primeiro corte, para revisitar depo
 
 - **Backup do Postgres**: hoje não existe. Proposta: `pg_dump` agendado (cron na instância
   ou um segundo container) gravando no mesmo bucket S3, com lifecycle de expiração.
-- **`npm run db:purge-sessions` em cron diário**, como o README já recomenda.
+- **`npm run db:purge-tokens` em cron diário**, como o README já recomenda.
 - **Monitoramento de memória**: instalar o CloudWatch Agent (nem a instância do Cronos tem
   hoje) para ter alarme antes de um OOM, não descobrir depois.
 - **Renovação do certificado de origem da Cloudflare**: validade de 15 anos, não é urgente,

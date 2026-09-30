@@ -1,5 +1,9 @@
 # Arquitetura do módulo de autenticação, autorização e estado do usuário
 
+> **Atualização (30/09/2026):** o protocolo de sessão rotativa com `SessionToken` (seções 3, 4 e 7)
+> foi substituído por access token JWT stateless + refresh token rotativo em `RefreshToken`. Ver
+> [`arquitetura-sessao-jwt.md`](arquitetura-sessao-jwt.md).
+
 Modelo para estruturar, em projetos **Next.js (App Router) + React**, as três peças que
 sempre andam juntas:
 
