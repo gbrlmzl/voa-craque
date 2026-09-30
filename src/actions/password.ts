@@ -1,13 +1,13 @@
 "use server";
 
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { compare } from "bcryptjs";
 import type { FormState } from "@/actions/auth";
 import { prisma } from "@/lib/prisma";
 import { AUDIT_ACTIONS, recordAudit } from "@/lib/audit";
-import { SESSION_COOKIE_NAME } from "@/lib/auth/config";
+import { establishSession } from "@/lib/auth/establish-session";
 import { hashPassword } from "@/lib/auth/password";
 import {
   buildPasswordResetUrl,
@@ -15,8 +15,7 @@ import {
   issuePasswordResetToken,
   resetPasswordWithToken,
 } from "@/lib/auth/password-reset";
-import { readSessionCookie } from "@/lib/auth/session-cookie";
-import { revokeOtherSessionFamilies } from "@/lib/auth/session-store";
+import { revokeAllUserRefreshTokens } from "@/lib/auth/refresh-tokens";
 import { clientIp } from "@/lib/client-ip";
 import { fieldErrorsOf } from "@/lib/form-state";
 import { sendMail } from "@/lib/mail/mailer";
@@ -49,10 +48,14 @@ async function sendChangeNotice(to: string, username: string, when: Date): Promi
 }
 
 /**
- * Troca de senha logado. Exige a senha atual, revoga as sessoes de todos os
- * OUTROS aparelhos (a familia do dispositivo atual continua, sem reescrever o
- * cookie nem brigar com a rotacao do proxy) e invalida links de redefinicao
- * pendentes: uma senha nova torna qualquer link antigo desnecessario.
+ * Troca de senha logado. Exige a senha atual, revoga os refresh tokens de todos
+ * os aparelhos e abre uma familia nova neste (os outros caem em ate 15 min, o
+ * tempo de vida do access) e invalida links de redefinicao pendentes: uma senha
+ * nova torna qualquer link antigo desnecessario.
+ *
+ * Grava os dois cookies de sessao sozinha: o Set-Cookie de uma Server Action
+ * substitui o do proxy, e sem isso o navegador ficaria com o refresh que o proxy
+ * acabou de rotacionar.
  */
 export async function changePasswordAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await getCurrentUser();
@@ -85,16 +88,17 @@ export async function changePasswordAction(_prev: FormState, formData: FormData)
     return { fieldErrors: { newPassword: "A senha nova precisa ser diferente da atual." } };
   }
 
-  const claims = await readSessionCookie((await cookies()).get(SESSION_COOKIE_NAME)?.value);
-  if (!claims) redirect("/login");
-
   const now = new Date();
   const passwordHash = await hashPassword(parsed.data.newPassword);
   await prisma.$transaction([
     prisma.user.update({ where: { id: user.id }, data: { passwordHash } }),
     prisma.passwordResetToken.updateMany({ where: { userId: user.id, usedAt: null }, data: { usedAt: now } }),
   ]);
-  await revokeOtherSessionFamilies(user.id, claims.sid);
+  // Como na referencia: nenhuma sessao existente continua confiavel. Todas as
+  // familias caem e este aparelho recebe uma familia nova. Os outros aparelhos
+  // param na proxima renovacao (o access deles vive no maximo 15 min).
+  await revokeAllUserRefreshTokens(user.id, "PASSWORD_CHANGED");
+  await establishSession(user.id);
 
   changePasswordLimiter.reset(user.id);
   logSecurityEvent("password_changed", { userId: user.id });
@@ -107,7 +111,10 @@ export async function changePasswordAction(_prev: FormState, formData: FormData)
 
   after(() => sendChangeNotice(user.email, user.username, now));
 
-  return { ok: true, message: "Senha alterada. As sessões abertas em outros aparelhos foram encerradas." };
+  return {
+    ok: true,
+    message: "Senha alterada. As sessões abertas em outros aparelhos serão encerradas em até 15 minutos.",
+  };
 }
 
 /**
