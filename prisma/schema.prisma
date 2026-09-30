@@ -90,7 +90,7 @@ model User {
   updatedAt       DateTime  @updatedAt
 
   authProviders       UserAuthProvider[]
-  sessionTokens       SessionToken[]
+  refreshTokens       RefreshToken[]
   passwordResetTokens PasswordResetToken[]
   profile             PlayerProfile?
   registrations       Registration[]
@@ -121,25 +121,34 @@ model UserAuthProvider {
   @@unique([userId, provider])
 }
 
-// Token de sessao rotativo. Cada login abre uma familia (familyId). A rotacao
-// cria um sucessor pendente (usedAt nulo) sem revogar o atual; so quando o
-// sucessor aparece numa requisicao, prova de que chegou ao navegador, o resto da
-// familia e revogado. So o hash SHA-256 fica no banco. Linhas revogadas ficam
-// aqui de proposito: sao elas que permitem reconhecer o reuso de um token roubado.
-model SessionToken {
-  id        String    @id @default(cuid())
-  userId    String
-  familyId  String
-  tokenHash String    @unique
-  expiresAt DateTime
-  usedAt    DateTime?
-  revokedAt DateTime?
-  createdAt DateTime  @default(now())
+// Refresh token opaco e rotativo, agrupado por familia (uma por login em um
+// aparelho). So o hash SHA-256 fica aqui: um dump do banco nao devolve sessao
+// a ninguem. Linhas revogadas ficam de proposito: sao elas que permitem
+// reconhecer o reuso de um token roubado (ver src/lib/auth/refresh-tokens.ts).
+enum RefreshTokenRevokeReason {
+  ROTATED
+  LOGOUT
+  PASSWORD_CHANGED
+  PASSWORD_RESET
+  GOOGLE_LINKED
+  REUSE_DETECTED
+}
+
+model RefreshToken {
+  id            String                    @id @default(cuid())
+  userId        String
+  familyId      String
+  tokenHash     String                    @unique
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  // So ROTATED pode ser lido como reuso; os outros motivos sao sessao encerrada.
+  revokedReason RefreshTokenRevokeReason?
+  createdAt     DateTime                  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([familyId])
   @@index([userId])
+  @@index([familyId])
   @@index([expiresAt])
 }
 
