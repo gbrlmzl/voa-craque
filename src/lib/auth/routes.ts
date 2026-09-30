@@ -7,8 +7,10 @@
  */
 export type RouteKind = "auth-endpoint" | "guest-only" | "public" | "protected-api" | "protected-page";
 
-const GUEST_ONLY = new Set(["/login", "/register"]);
-const PUBLIC = new Set(["/maintenance"]);
+const GUEST_ONLY = new Set(["/login", "/register", "/forgot-password"]);
+// /reset-password precisa abrir mesmo com alguem logado no navegador: como
+// guest-only, o proxy mandaria para "/" e o token do link se perderia.
+const PUBLIC = new Set(["/maintenance", "/reset-password"]);
 // Estatisticas de uma pelada encerrada podem ser vistas por qualquer um (para
 // compartilhar o link); a pelada em si (inscricao, pagamento, escalacao) nao.
 const PUBLIC_PATTERNS = [/^\/game-days\/[^/]+\/stats$/];

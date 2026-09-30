@@ -12,6 +12,8 @@ export function useProfileForm(initial: ProfileValues, mode: "onboarding" | "edi
   const updateCurrentUser = useUpdateCurrentUser();
 
   const [values, setValues] = useState<ProfileValues>(initial);
+  // Ultimo estado salvo: "cancelar" volta para ele.
+  const [saved, setSaved] = useState<ProfileValues>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -20,7 +22,14 @@ export function useProfileForm(initial: ProfileValues, mode: "onboarding" | "edi
   const set = <K extends keyof ProfileValues>(key: K, value: ProfileValues[K]) =>
     setValues((current) => ({ ...current, [key]: value }));
 
-  async function uploadPhoto(file: File) {
+  function reset() {
+    setValues(saved);
+    setErrors({});
+    setMessage(null);
+  }
+
+  /** Envia a foto e devolve a URL, ou null se falhou (a mensagem fica em `message`). */
+  async function uploadPhoto(file: File): Promise<string | null> {
     setUploading(true);
     setMessage(null);
     try {
@@ -31,15 +40,17 @@ export function useProfileForm(initial: ProfileValues, mode: "onboarding" | "edi
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Falha no envio da foto.");
       set("photoUrl", body.url);
+      return body.url as string;
     } catch (error) {
       setMessage((error as Error).message);
+      return null;
     } finally {
       setUploading(false);
     }
   }
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
+  /** Salva `next` (padrao: os valores atuais). Devolve true se o servidor aceitou. */
+  async function save(next: ProfileValues = values): Promise<boolean> {
     setSaving(true);
     setErrors({});
     setMessage(null);
@@ -48,7 +59,7 @@ export function useProfileForm(initial: ProfileValues, mode: "onboarding" | "edi
       const response = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify(next),
       });
       const body = await response.json();
 
@@ -57,6 +68,8 @@ export function useProfileForm(initial: ProfileValues, mode: "onboarding" | "edi
         throw new Error(body.error ?? "Não foi possível salvar.");
       }
 
+      setSaved(next);
+
       if (mode === "onboarding") {
         // O servidor precisa reavaliar profileCompleted: aqui o refresh e necessario.
         router.replace("/");
@@ -64,15 +77,22 @@ export function useProfileForm(initial: ProfileValues, mode: "onboarding" | "edi
       } else {
         // Nada nesta tela depende do servidor alem da foto no cabecalho, que o
         // contexto atualiza sem ida e volta.
-        if (values.photoUrl) updateCurrentUser({ photoUrl: values.photoUrl });
+        if (next.photoUrl) updateCurrentUser({ photoUrl: next.photoUrl });
         toast.show({ message: "Perfil atualizado.", tone: "success" });
       }
+      return true;
     } catch (error) {
       setMessage((error as Error).message);
+      return false;
     } finally {
       setSaving(false);
     }
   }
 
-  return { values, set, errors, message, saving, uploading, uploadPhoto, submit };
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    await save();
+  }
+
+  return { values, set, errors, message, saving, uploading, uploadPhoto, save, reset, submit };
 }

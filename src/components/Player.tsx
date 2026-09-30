@@ -11,6 +11,7 @@ const AVATAR_SIZES = {
   sm: "h-9 w-9 text-xs",
   md: "h-12 w-12 text-sm",
   lg: "h-20 w-20 text-xl",
+  xl: "h-28 w-28 text-3xl",
 } as const;
 
 export function initialsOf(name: string): string {

@@ -1,4 +1,5 @@
 export type ProfileValues = {
+  stars?: number | null;
   name: string;
   nickname: string;
   foot: string;

@@ -26,9 +26,9 @@ function authErrorMessage(error?: string, code?: string): string | undefined {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ proximo?: string; error?: string; code?: string }>;
+  searchParams: Promise<{ proximo?: string; error?: string; code?: string; senha?: string }>;
 }) {
-  const { proximo, error, code } = await searchParams;
+  const { proximo, error, code, senha } = await searchParams;
   const googleEnabled = isGoogleAuthEnabled();
 
   return (
@@ -37,6 +37,12 @@ export default async function LoginPage({
         <BrandIcon className="mx-auto mb-3 h-14 w-14 rounded-2xl" />
         <h1 className="text-2xl font-bold tracking-tight">Voa Craque</h1>
       </div>
+
+      {senha === "redefinida" ? (
+        <p className="mb-4 rounded-xl bg-emerald-500/10 px-3 py-2 text-center text-sm text-emerald-300">
+          Senha redefinida. Entre com a senha nova.
+        </p>
+      ) : null}
 
       {googleEnabled ? (
         <>

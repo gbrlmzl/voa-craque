@@ -89,18 +89,19 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  authProviders      UserAuthProvider[]
-  sessionTokens      SessionToken[]
-  profile            PlayerProfile?
-  registrations      Registration[]
-  teamMemberships    TeamPlayer[]
-  reserves           GameDayReserve[]
-  matchEvents        MatchEvent[]     @relation("EventPlayer")
-  recordedEvents     MatchEvent[]     @relation("EventRecorder")
-  createdGameDays    GameDay[]        @relation("GameDayCreator")
-  confirmedPayments  Registration[]   @relation("PaymentConfirmer")
-  auditLogs          AuditLog[]
-  systemSettingEdits SystemSetting[]  @relation("SettingsEditor")
+  authProviders       UserAuthProvider[]
+  sessionTokens       SessionToken[]
+  passwordResetTokens PasswordResetToken[]
+  profile             PlayerProfile?
+  registrations       Registration[]
+  teamMemberships     TeamPlayer[]
+  reserves            GameDayReserve[]
+  matchEvents         MatchEvent[]     @relation("EventPlayer")
+  recordedEvents      MatchEvent[]     @relation("EventRecorder")
+  createdGameDays     GameDay[]        @relation("GameDayCreator")
+  confirmedPayments   Registration[]   @relation("PaymentConfirmer")
+  auditLogs           AuditLog[]
+  systemSettingEdits  SystemSetting[]  @relation("SettingsEditor")
 
   @@index([role])
 }
@@ -138,6 +139,22 @@ model SessionToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([familyId])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Link de redefinicao de senha enviado por e-mail. Uso unico, curta duracao, e
+// so o hash SHA-256 fica no banco: um dump nao devolve link valido a ninguem.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([expiresAt])
 }

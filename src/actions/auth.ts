@@ -2,27 +2,18 @@
 
 import { headers } from "next/headers";
 import { AuthError, CredentialsSignin } from "next-auth";
-import { hash } from "bcryptjs";
-import type { ZodError } from "zod";
 import { signIn, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { credentialsSchema, registerSchema } from "@/lib/validation";
 import { AUDIT_ACTIONS, recordAudit } from "@/lib/audit";
 import { isGoogleAuthEnabled } from "@/lib/auth/config";
+import { hashPassword } from "@/lib/auth/password";
 import { safeNextPath } from "@/lib/auth/routes";
 import { clientIp } from "@/lib/client-ip";
+import { fieldErrorsOf } from "@/lib/form-state";
 import { formatRetry, registerLimiter } from "@/lib/rate-limit";
 
-export type FormState = { message?: string; fieldErrors?: Record<string, string> };
-
-function fieldErrorsOf(error: ZodError): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const issue of error.issues) {
-    const key = issue.path.join(".") || "_";
-    if (!result[key]) result[key] = issue.message;
-  }
-  return result;
-}
+export type FormState = { message?: string; fieldErrors?: Record<string, string>; ok?: boolean };
 
 /**
  * Server Action, e nao fetch do cliente: o Auth.js grava o cookie com
@@ -82,7 +73,7 @@ export async function registerAction(_prev: FormState, formData: FormData): Prom
   }
 
   const user = await prisma.user.create({
-    data: { username, email, passwordHash: await hash(password, 10) },
+    data: { username, email, passwordHash: await hashPassword(password) },
   });
 
   await recordAudit(user, {

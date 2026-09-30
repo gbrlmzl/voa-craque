@@ -11,6 +11,8 @@ describe("classifyPath", () => {
     ["/api/auth", "auth-endpoint"],
     ["/login", "guest-only"],
     ["/register", "guest-only"],
+    ["/forgot-password", "guest-only"],
+    ["/reset-password", "public"],
     ["/maintenance", "public"],
     ["/api/game-days", "protected-api"],
     ["/api/authorize-algo", "protected-api"], // prefixo parecido nao e rota do Auth.js

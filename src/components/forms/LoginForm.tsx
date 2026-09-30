@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { loginAction, type FormState } from "@/actions/auth";
 import { Button, Card, Field, Input } from "@/components/ui";
@@ -31,6 +32,10 @@ export function LoginForm({
         <Field label="Senha" error={state.fieldErrors?.password}>
           <Input name="password" type="password" autoComplete="current-password" required />
         </Field>
+
+        <Link href="/forgot-password" className="-mt-2 text-right text-xs text-slate-400 underline underline-offset-4">
+          Esqueci minha senha
+        </Link>
 
         {message ? (
           <p role="alert" className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
