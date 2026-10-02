@@ -133,6 +133,18 @@ export const matchEventSchema = z.object({
   type: z.enum(["GOAL", "ASSIST"]),
   userId: z.string().min(1),
   teamId: z.string().min(1),
+  // Gol e assistencia viajam juntos: o gol decisivo encerra a partida e uma
+  // segunda chamada para a assistencia chegaria com ela ja FINISHED.
+  assistUserId: z.string().min(1).nullish(),
+});
+
+// "quem sai e quem entra sao a mesma pessoa" e as demais regras da troca ficam em
+// lib/substitution.ts, para o servidor responder 400 com mensagem clara.
+export const substitutionSchema = z.object({
+  teamId: z.string().min(1),
+  outUserId: z.string().min(1),
+  inUserId: z.string().min(1),
+  permanent: z.boolean().default(false),
 });
 
 export const systemSettingsSchema = z.object({

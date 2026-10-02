@@ -29,6 +29,8 @@ export const AUDIT_ACTIONS = {
   MATCH_FINISHED: "MATCH_FINISHED",
   MATCH_EVENT_CREATED: "MATCH_EVENT_CREATED",
   MATCH_EVENT_UNDONE: "MATCH_EVENT_UNDONE",
+  MATCH_SUBSTITUTION: "MATCH_SUBSTITUTION",
+  MATCH_SUBSTITUTION_UNDONE: "MATCH_SUBSTITUTION_UNDONE",
   SYSTEM_SETTINGS_UPDATED: "SYSTEM_SETTINGS_UPDATED",
 } as const;
 
@@ -60,6 +62,8 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   MATCH_FINISHED: "Partida encerrada",
   MATCH_EVENT_CREATED: "Evento registrado",
   MATCH_EVENT_UNDONE: "Evento desfeito",
+  MATCH_SUBSTITUTION: "Substituição registrada",
+  MATCH_SUBSTITUTION_UNDONE: "Substituição desfeita",
   SYSTEM_SETTINGS_UPDATED: "Configuração do sistema alterada",
 };
 
@@ -71,6 +75,7 @@ export const AUDIT_ENTITIES = [
   "Team",
   "Match",
   "MatchEvent",
+  "MatchSubstitution",
   "SystemSetting",
 ] as const;
 

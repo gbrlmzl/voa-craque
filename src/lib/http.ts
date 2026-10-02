@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { BalanceError } from "@/lib/team-balancer";
 import { MatchStateError } from "@/lib/match-engine";
+import { SubstitutionError } from "@/lib/substitution";
 
 export class HttpError extends Error {
   constructor(
@@ -40,7 +41,11 @@ export function toErrorResponse(error: unknown): NextResponse {
       { status: 422 },
     );
   }
-  if (error instanceof BalanceError || error instanceof MatchStateError) {
+  if (
+    error instanceof BalanceError ||
+    error instanceof MatchStateError ||
+    error instanceof SubstitutionError
+  ) {
     return NextResponse.json({ error: error.message }, { status: 409 });
   }
 

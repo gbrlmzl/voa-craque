@@ -2,6 +2,7 @@ import type { GameDayStatus, MatchEndReason, MatchEventType, MatchStatus } from 
 import { prisma } from "@/lib/prisma";
 import { notFound } from "@/lib/http";
 import { remainingAt } from "@/lib/match-engine";
+import { buildBench, type BenchPlayer } from "@/lib/substitution";
 import { syncMatchClock } from "@/services/match";
 
 export type LivePlayer = {
@@ -18,6 +19,9 @@ export type LiveTeam = {
   id: string;
   name: string;
   averageStrength: number;
+  /** userIds do elenco fixo do time (TeamPlayer), que pode diferir de quem esta em quadra. */
+  roster: string[];
+  /** Quem esta em quadra agora, pela escalacao da partida. */
   players: LivePlayer[];
 };
 
@@ -32,6 +36,24 @@ export type LiveEvent = {
   createdAt: string;
 };
 
+export type LiveSubstitution = {
+  id: string;
+  teamId: string;
+  teamName: string;
+  outName: string;
+  inName: string;
+  elapsedMs: number;
+  permanent: boolean;
+  createdAt: string;
+};
+
+/** Candidato a entrar: quem saiu da partida, quem espera na fila e as reservas. */
+export type LiveBenchPlayer = BenchPlayer & {
+  name: string;
+  nickname: string | null;
+  photoUrl: string | null;
+};
+
 export type LiveMatch = {
   id: string;
   orderIndex: number;
@@ -43,6 +65,8 @@ export type LiveMatch = {
   home: LiveTeam;
   away: LiveTeam;
   events: LiveEvent[];
+  substitutions: LiveSubstitution[];
+  bench: LiveBenchPlayer[];
 };
 
 export type FinishedMatch = {
@@ -138,24 +162,56 @@ export async function buildLiveSnapshot(gameDayId: string): Promise<LiveSnapshot
   const finishedMatches = gameDay.matches.filter((match) => match.status === "FINISHED");
   const lastFinishedRow = finishedMatches.at(-1) ?? null;
 
+  // Escalacao, trocas e reservas so interessam a partida atual: carregar de todas
+  // as partidas, como os lances, incharia o snapshot que o SSE empurra a cada mudanca.
+  const userSelect = {
+    select: {
+      id: true,
+      username: true,
+      profile: { select: { name: true, nickname: true, photoUrl: true } },
+    },
+  } as const;
+  const [lineup, substitutionRows, reserves] = current
+    ? await Promise.all([
+        prisma.matchPlayer.findMany({ where: { matchId: current.id }, include: { user: userSelect } }),
+        prisma.matchSubstitution.findMany({
+          where: { matchId: current.id },
+          orderBy: { createdAt: "desc" },
+          include: { team: { select: { name: true } }, outUser: userSelect, inUser: userSelect },
+        }),
+        prisma.gameDayReserve.findMany({ where: { gameDayId }, include: { user: userSelect } }),
+      ])
+    : [[], [], []];
+
+  type Person = { id: string; username: string; profile: { name: string; nickname: string | null; photoUrl: string | null } | null };
+  const people = new Map<string, Person>();
+  for (const team of gameDay.teams) for (const member of team.players) people.set(member.userId, member.user);
+  for (const row of lineup) people.set(row.userId, row.user);
+  for (const reserve of reserves) people.set(reserve.userId, reserve.user);
+
+  const displayName = (person: Person | undefined): string =>
+    person?.profile?.nickname || person?.profile?.name || person?.username || "?";
+
   const toLiveTeam = (teamId: string, events: typeof gameDay.matches[number]["events"]): LiveTeam => {
     const team = teamsById.get(teamId);
     if (!team) {
-      return { id: teamId, name: "?", averageStrength: 0, players: [] };
+      return { id: teamId, name: "?", averageStrength: 0, roster: [], players: [] };
     }
     return {
       id: team.id,
       name: team.name,
       averageStrength: team.averageStrength,
-      players: team.players
-        .map((member) => ({
-          userId: member.userId,
-          name: member.user.profile?.nickname || member.user.profile?.name || member.user.username,
-          nickname: member.user.profile?.nickname ?? null,
-          photoUrl: member.user.profile?.photoUrl ?? null,
-          isKeeper: member.isKeeper,
-          goals: events.filter((e) => e.userId === member.userId && e.type === "GOAL").length,
-          assists: events.filter((e) => e.userId === member.userId && e.type === "ASSIST").length,
+      roster: team.players.map((member) => member.userId),
+      players: lineup
+        .filter((row) => row.teamId === teamId && row.onCourt)
+        .map((row) => ({
+          userId: row.userId,
+          name: displayName(row.user),
+          nickname: row.user.profile?.nickname ?? null,
+          photoUrl: row.user.profile?.photoUrl ?? null,
+          isKeeper: row.isKeeper,
+          goals: events.filter((e) => e.userId === row.userId && e.type === "GOAL").length,
+          assists: events.filter((e) => e.userId === row.userId && e.type === "ASSIST").length,
         }))
         .sort((a, b) => Number(b.isKeeper) - Number(a.isKeeper) || a.name.localeCompare(b.name, "pt-BR")),
     };
@@ -190,6 +246,35 @@ export async function buildLiveSnapshot(gameDayId: string): Promise<LiveSnapshot
           elapsedMs: event.elapsedMs,
           createdAt: event.createdAt.toISOString(),
         })),
+        substitutions: substitutionRows.map((row) => ({
+          id: row.id,
+          teamId: row.teamId,
+          teamName: row.team.name,
+          outName: displayName(row.outUser),
+          inName: displayName(row.inUser),
+          elapsedMs: row.elapsedMs,
+          permanent: row.permanent,
+          createdAt: row.createdAt.toISOString(),
+        })),
+        bench: buildBench({
+          homeTeamId: current.homeTeamId,
+          awayTeamId: current.awayTeamId,
+          lineup,
+          rosters: gameDay.teams.map((team) => ({
+            teamId: team.id,
+            queuePosition: team.queuePosition,
+            userIds: team.players.map((member) => member.userId),
+          })),
+          reserveIds: reserves.map((reserve) => reserve.userId),
+        }).map((player) => {
+          const person = people.get(player.userId);
+          return {
+            ...player,
+            name: displayName(person),
+            nickname: person?.profile?.nickname ?? null,
+            photoUrl: person?.profile?.photoUrl ?? null,
+          };
+        }),
       }
     : null;
 

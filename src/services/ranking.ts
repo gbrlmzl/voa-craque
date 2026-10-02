@@ -25,7 +25,7 @@ export type RankingRow = {
  * conta depois que acaba, igual ao que o painel ao vivo mostra.
  */
 export async function buildRanking(): Promise<RankingRow[]> {
-  const [players, matches, events] = await Promise.all([
+  const [players, lineups, events] = await Promise.all([
     prisma.user.findMany({
       where: { active: true, profile: { completed: true } },
       select: {
@@ -34,16 +34,12 @@ export async function buildRanking(): Promise<RankingRow[]> {
         profile: { select: { name: true, nickname: true, photoUrl: true, position: true, stars: true } },
       },
     }),
-    prisma.match.findMany({
-      where: { status: "FINISHED" },
+    prisma.matchPlayer.findMany({
+      where: { match: { status: "FINISHED" } },
       select: {
-        id: true,
-        gameDayId: true,
-        result: true,
-        homeTeamId: true,
-        awayTeamId: true,
-        homeTeam: { select: { players: { select: { userId: true } } } },
-        awayTeam: { select: { players: { select: { userId: true } } } },
+        userId: true,
+        teamId: true,
+        match: { select: { gameDayId: true, result: true, homeTeamId: true } },
       },
     }),
     prisma.matchEvent.groupBy({
@@ -77,26 +73,20 @@ export async function buildRanking(): Promise<RankingRow[]> {
 
   const gameDaysByPlayer = new Map<string, Set<string>>();
 
-  for (const match of matches) {
-    const sides = [
-      { userIds: match.homeTeam.players.map((p) => p.userId), side: "HOME" as const },
-      { userIds: match.awayTeam.players.map((p) => p.userId), side: "AWAY" as const },
-    ];
+  // Presenca vem da escalacao da partida: quem entrou como substituto joga e
+  // pontua como quem comecou, e quem saiu continua com as partidas que jogou.
+  for (const { userId, teamId, match } of lineups) {
+    const row = rows.get(userId);
+    if (!row) continue;
+    const side = teamId === match.homeTeamId ? "HOME" : "AWAY";
+    row.played += 1;
+    if (match.result === "DRAW") row.drawn += 1;
+    else if (match.result === side) row.won += 1;
+    else if (match.result) row.lost += 1;
 
-    for (const { userIds, side } of sides) {
-      for (const userId of userIds) {
-        const row = rows.get(userId);
-        if (!row) continue;
-        row.played += 1;
-        if (match.result === "DRAW") row.drawn += 1;
-        else if (match.result === side) row.won += 1;
-        else if (match.result) row.lost += 1;
-
-        const seen = gameDaysByPlayer.get(userId) ?? new Set<string>();
-        seen.add(match.gameDayId);
-        gameDaysByPlayer.set(userId, seen);
-      }
-    }
+    const seen = gameDaysByPlayer.get(userId) ?? new Set<string>();
+    seen.add(match.gameDayId);
+    gameDaysByPlayer.set(userId, seen);
   }
 
   for (const entry of events) {

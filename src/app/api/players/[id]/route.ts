@@ -35,38 +35,23 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
     if (!user?.profile) throw notFound("Este jogador ainda não preencheu o perfil.");
 
-    const [events, memberships] = await Promise.all([
+    const [events, lineups] = await Promise.all([
       prisma.matchEvent.groupBy({
         by: ["type"],
         where: { userId: id, match: { status: "FINISHED" } },
         _count: { _all: true },
       }),
-      prisma.teamPlayer.findMany({
-        where: { userId: id },
-        select: {
-          teamId: true,
-          team: {
-            select: {
-              homeMatches: { where: { status: "FINISHED" }, select: { result: true } },
-              awayMatches: { where: { status: "FINISHED" }, select: { result: true } },
-            },
-          },
-        },
+      prisma.matchPlayer.findMany({
+        where: { userId: id, match: { status: "FINISHED" } },
+        select: { teamId: true, match: { select: { result: true, homeTeamId: true } } },
       }),
     ]);
 
-    let played = 0;
-    let won = 0;
-    for (const membership of memberships) {
-      for (const match of membership.team.homeMatches) {
-        played += 1;
-        if (match.result === "HOME") won += 1;
-      }
-      for (const match of membership.team.awayMatches) {
-        played += 1;
-        if (match.result === "AWAY") won += 1;
-      }
-    }
+    // Cada linha e uma partida que ele jogou, pelo time de que fez parte nela.
+    const played = lineups.length;
+    const won = lineups.filter(
+      ({ teamId, match }) => match.result === (teamId === match.homeTeamId ? "HOME" : "AWAY"),
+    ).length;
 
     const profile = user.profile;
     return {

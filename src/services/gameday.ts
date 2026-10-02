@@ -4,7 +4,7 @@ import { AUDIT_ACTIONS, recordAudit } from "@/lib/audit";
 import { publishGameDay } from "@/lib/realtime";
 import type { CurrentUser } from "@/lib/session";
 import { evaluateOutcome } from "@/lib/match-engine";
-import { finalizeMatch } from "@/services/match";
+import { deleteScheduledMatch, finalizeMatch } from "@/services/match";
 
 /**
  * Encerra a pelada do dia: a partida em andamento e fechada pelo placar atual,
@@ -44,7 +44,13 @@ export async function finishGameDay(gameDayId: string, actor: CurrentUser): Prom
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.match.deleteMany({ where: { gameDayId, status: "SCHEDULED" } });
+    const scheduled = await tx.match.findMany({
+      where: { gameDayId, status: "SCHEDULED" },
+      select: { id: true },
+    });
+    for (const match of scheduled) {
+      await deleteScheduledMatch(tx, gameDayId, match.id);
+    }
     await tx.team.updateMany({ where: { gameDayId }, data: { queuePosition: null } });
     await tx.gameDay.update({
       where: { id: gameDayId },

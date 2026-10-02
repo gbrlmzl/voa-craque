@@ -16,12 +16,13 @@ export type GameDayPlayerStats = {
 };
 
 /**
- * Estatisticas de uma pelada especifica, so entre quem se inscreveu e entrou em
- * time (jogou de verdade). "Artilheiro" aqui e sempre relativo a essa pelada,
- * nunca ao acumulado geral do ranking.
+ * Estatisticas de uma pelada especifica, so entre quem se inscreveu e jogou de
+ * verdade: quem tem linha na escalacao de uma partida encerrada, seja titular
+ * ou substituto. "Artilheiro" aqui e sempre relativo a essa pelada, nunca ao
+ * acumulado geral do ranking.
  */
 export async function buildGameDayStats(gameDayId: string): Promise<GameDayPlayerStats[]> {
-  const [registrations, matches, events] = await Promise.all([
+  const [registrations, lineups, events] = await Promise.all([
     prisma.registration.findMany({
       where: { gameDayId },
       select: {
@@ -31,13 +32,9 @@ export async function buildGameDayStats(gameDayId: string): Promise<GameDayPlaye
         },
       },
     }),
-    prisma.match.findMany({
-      where: { gameDayId, status: "FINISHED" },
-      select: {
-        result: true,
-        homeTeam: { select: { players: { select: { userId: true } } } },
-        awayTeam: { select: { players: { select: { userId: true } } } },
-      },
+    prisma.matchPlayer.findMany({
+      where: { match: { gameDayId, status: "FINISHED" } },
+      select: { userId: true, teamId: true, match: { select: { result: true, homeTeamId: true } } },
     }),
     prisma.matchEvent.groupBy({
       by: ["userId", "type"],
@@ -64,22 +61,16 @@ export async function buildGameDayStats(gameDayId: string): Promise<GameDayPlaye
     });
   }
 
-  for (const match of matches) {
-    const sides = [
-      { userIds: match.homeTeam.players.map((p) => p.userId), side: "HOME" as const },
-      { userIds: match.awayTeam.players.map((p) => p.userId), side: "AWAY" as const },
-    ];
-
-    for (const { userIds, side } of sides) {
-      for (const userId of userIds) {
-        const row = rows.get(userId);
-        if (!row) continue;
-        row.played += 1;
-        if (match.result === "DRAW") row.drawn += 1;
-        else if (match.result === side) row.won += 1;
-        else if (match.result) row.lost += 1;
-      }
-    }
+  // Quem jogou pelo time recebe o jogo e o resultado do lado desse time, tenha
+  // comecado a partida ou entrado depois.
+  for (const { userId, teamId, match } of lineups) {
+    const row = rows.get(userId);
+    if (!row) continue;
+    const side = teamId === match.homeTeamId ? "HOME" : "AWAY";
+    row.played += 1;
+    if (match.result === "DRAW") row.drawn += 1;
+    else if (match.result === side) row.won += 1;
+    else if (match.result) row.lost += 1;
   }
 
   for (const entry of events) {

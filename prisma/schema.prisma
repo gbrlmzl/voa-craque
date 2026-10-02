@@ -89,19 +89,23 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  authProviders       UserAuthProvider[]
-  refreshTokens       RefreshToken[]
-  passwordResetTokens PasswordResetToken[]
-  profile             PlayerProfile?
-  registrations       Registration[]
-  teamMemberships     TeamPlayer[]
-  reserves            GameDayReserve[]
-  matchEvents         MatchEvent[]     @relation("EventPlayer")
-  recordedEvents      MatchEvent[]     @relation("EventRecorder")
-  createdGameDays     GameDay[]        @relation("GameDayCreator")
-  confirmedPayments   Registration[]   @relation("PaymentConfirmer")
-  auditLogs           AuditLog[]
-  systemSettingEdits  SystemSetting[]  @relation("SettingsEditor")
+  authProviders         UserAuthProvider[]
+  refreshTokens         RefreshToken[]
+  passwordResetTokens   PasswordResetToken[]
+  profile               PlayerProfile?
+  registrations         Registration[]
+  teamMemberships       TeamPlayer[]
+  reserves              GameDayReserve[]
+  matchEvents           MatchEvent[]         @relation("EventPlayer")
+  recordedEvents        MatchEvent[]         @relation("EventRecorder")
+  matchLineups          MatchPlayer[]
+  substitutionsOut      MatchSubstitution[]  @relation("SubstitutionOut")
+  substitutionsIn       MatchSubstitution[]  @relation("SubstitutionIn")
+  recordedSubstitutions MatchSubstitution[]  @relation("SubstitutionRecorder")
+  createdGameDays       GameDay[]            @relation("GameDayCreator")
+  confirmedPayments     Registration[]       @relation("PaymentConfirmer")
+  auditLogs             AuditLog[]
+  systemSettingEdits    SystemSetting[]      @relation("SettingsEditor")
 
   @@index([role])
 }
@@ -249,12 +253,15 @@ model Team {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  gameDay     GameDay      @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
-  players     TeamPlayer[]
-  homeMatches Match[]      @relation("HomeTeam")
-  awayMatches Match[]      @relation("AwayTeam")
-  wonMatches  Match[]      @relation("WinnerTeam")
-  events      MatchEvent[]
+  gameDay           GameDay             @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
+  players           TeamPlayer[]
+  homeMatches       Match[]             @relation("HomeTeam")
+  awayMatches       Match[]             @relation("AwayTeam")
+  wonMatches        Match[]             @relation("WinnerTeam")
+  events            MatchEvent[]
+  matchLineups      MatchPlayer[]
+  substitutions     MatchSubstitution[] @relation("SubstitutionTeam")
+  substitutionsFrom MatchSubstitution[] @relation("SubstitutionFromTeam")
 
   @@unique([gameDayId, name])
   @@index([gameDayId, queuePosition])
@@ -310,14 +317,67 @@ model Match {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
-  gameDay    GameDay      @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
-  homeTeam   Team         @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Cascade)
-  awayTeam   Team         @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Cascade)
-  winnerTeam Team?        @relation("WinnerTeam", fields: [winnerTeamId], references: [id], onDelete: SetNull)
-  events     MatchEvent[]
+  gameDay       GameDay             @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
+  homeTeam      Team                @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Cascade)
+  awayTeam      Team                @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Cascade)
+  winnerTeam    Team?               @relation("WinnerTeam", fields: [winnerTeamId], references: [id], onDelete: SetNull)
+  events        MatchEvent[]
+  lineup        MatchPlayer[]
+  substitutions MatchSubstitution[]
 
   @@unique([gameDayId, orderIndex])
   @@index([gameDayId, status])
+}
+
+// Quem jogou cada partida. O elenco fixo (TeamPlayer) so diz de que time o
+// jogador e; e esta tabela que diz quem estava em quadra, e e dela que saem a
+// lista do painel, a validacao de gol e as estatisticas. Nasce em createMatch,
+// copiando o elenco dos dois times, e so muda por substituicao.
+model MatchPlayer {
+  id       String  @id @default(cuid())
+  matchId  String
+  teamId   String
+  userId   String
+  isKeeper Boolean @default(false)
+  // Comecou a partida. Quem entra depois por substituicao nasce com false.
+  starter  Boolean @default(true)
+  // Em quadra agora. Quem saiu continua na tabela: ja jogou e conta nas estatisticas.
+  onCourt  Boolean @default(true)
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team  Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, userId])
+  @@index([userId])
+}
+
+// Uma troca em quadra. Alimenta a lista de lances, a auditoria e o desfazer.
+model MatchSubstitution {
+  id           String   @id @default(cuid())
+  matchId      String
+  teamId       String
+  outUserId    String
+  inUserId     String
+  // Time do elenco fixo de quem entrou; nulo quando ele veio das reservas.
+  fromTeamId   String?
+  // Vale ate o fim da pelada (troca o elenco fixo), nao so esta partida.
+  permanent    Boolean  @default(false)
+  elapsedMs    Int
+  // Linhas de TeamPlayer e GameDayReserve afetadas, antes da troca permanente,
+  // para o desfazer restaurar o estado anterior. Nulo na troca so desta partida.
+  rosterBefore Json?
+  createdById  String
+  createdAt    DateTime @default(now())
+
+  match     Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team      Team  @relation("SubstitutionTeam", fields: [teamId], references: [id], onDelete: Cascade)
+  fromTeam  Team? @relation("SubstitutionFromTeam", fields: [fromTeamId], references: [id], onDelete: SetNull)
+  outUser   User  @relation("SubstitutionOut", fields: [outUserId], references: [id], onDelete: Cascade)
+  inUser    User  @relation("SubstitutionIn", fields: [inUserId], references: [id], onDelete: Cascade)
+  createdBy User  @relation("SubstitutionRecorder", fields: [createdById], references: [id])
+
+  @@index([matchId, createdAt])
 }
 
 model MatchEvent {
