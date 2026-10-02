@@ -1,14 +1,15 @@
 "use client";
 
-import { ChevronRight, Pause, Play, Square } from "lucide-react";
+import { ArrowLeftRight, ChevronRight, Pause, Play, Square } from "lucide-react";
 import { Avatar } from "@/components/Player";
 import { Badge, Button, Card, EmptyState, SectionTitle, cn } from "@/components/ui";
 import { MATCH_END_REASON_LABEL, teamColor } from "@/lib/labels";
-import { matchMinute } from "@/lib/match-engine";
 import type { LiveMatch, LivePlayer, LiveSnapshot, LiveTeam } from "@/services/live";
 import { FinishGameDayButton } from "@/components/gameday/FinishGameDayButton";
 import { GoalAssistModal } from "@/components/live/GoalAssistModal";
+import { MatchFeed } from "@/components/live/MatchFeed";
 import { Scoreboard } from "@/components/live/Scoreboard";
+import { SubstitutionModal } from "@/components/live/SubstitutionModal";
 import { useLivePanel } from "@/hooks/useLivePanel";
 
 export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: LiveSnapshot }) {
@@ -24,9 +25,16 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
     startGoal,
     confirmGoal,
     cancelGoal,
+    pendingSubstitution,
+    startSubstitution,
+    confirmSubstitution,
+    cancelSubstitution,
     changeState,
     dismissFinish,
   } = useLivePanel(gameDayId, initial);
+
+  // Com um modal aberto, o resto do painel nao aceita toque.
+  const modalOpen = !!pendingGoal || !!pendingSubstitution;
 
   return (
     <div className="grid gap-4">
@@ -42,7 +50,12 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
           {!finished ? (
             <div className="mt-2 grid grid-cols-2 gap-2">
               {match.status === "SCHEDULED" ? (
-                <Button size="lg" className="col-span-2" onClick={() => changeState("START")} disabled={busy}>
+                <Button
+                  size="lg"
+                  className="col-span-2"
+                  onClick={() => changeState("START")}
+                  disabled={busy || modalOpen}
+                >
                   <Play size={20} /> Iniciar partida
                 </Button>
               ) : null}
@@ -52,7 +65,7 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
                   variant="secondary"
                   size="lg"
                   onClick={() => changeState("PAUSE")}
-                  disabled={busy || !!pendingGoal}
+                  disabled={busy || modalOpen}
                 >
                   <Pause size={20} /> Pausar
                 </Button>
@@ -62,7 +75,7 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
                 <Button
                   size="lg"
                   onClick={() => changeState("RESUME")}
-                  disabled={busy || remainingMs <= 0 || !!pendingGoal}
+                  disabled={busy || remainingMs <= 0 || modalOpen}
                 >
                   <Play size={20} /> Retomar
                 </Button>
@@ -73,7 +86,7 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
                   variant="secondary"
                   size="lg"
                   onClick={() => changeState("END")}
-                  disabled={busy || !!pendingGoal}
+                  disabled={busy || modalOpen}
                 >
                   <Square size={18} /> Encerrar partida
                 </Button>
@@ -124,14 +137,18 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
           <TeamPanel
             team={match.home}
             match={match}
-            disabled={busy || match.status === "SCHEDULED" || !!pendingGoal}
+            disabled={busy || match.status === "SCHEDULED" || modalOpen}
+            substitutionDisabled={busy || finished || modalOpen}
             onGoal={startGoal}
+            onSubstitution={startSubstitution}
           />
           <TeamPanel
             team={match.away}
             match={match}
-            disabled={busy || match.status === "SCHEDULED" || !!pendingGoal}
+            disabled={busy || match.status === "SCHEDULED" || modalOpen}
+            substitutionDisabled={busy || finished || modalOpen}
             onGoal={startGoal}
+            onSubstitution={startSubstitution}
           />
         </div>
       ) : null}
@@ -161,21 +178,10 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
         )}
       </section>
 
-      {match && match.events.length > 0 ? (
+      {match && (match.events.length > 0 || match.substitutions.length > 0) ? (
         <section>
           <SectionTitle>Lances</SectionTitle>
-          <Card className="grid gap-1 p-3">
-            {match.events.slice(0, 12).map((event) => (
-              <p key={event.id} className="flex items-center gap-2 text-sm text-slate-300">
-                <span className="w-11 shrink-0 text-xs text-slate-500 tabular-nums">
-                  {matchMinute(event.elapsedMs)}&apos;
-                </span>
-                <span>{event.type === "GOAL" ? "⚽" : "👟"}</span>
-                <span className="truncate">{event.playerName}</span>
-                <span className="ml-auto shrink-0 text-xs text-slate-500">Time {event.teamName}</span>
-              </p>
-            ))}
-          </Card>
+          <MatchFeed events={match.events} substitutions={match.substitutions} limit={12} />
         </section>
       ) : null}
 
@@ -195,6 +201,17 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
           onCancel={cancelGoal}
         />
       ) : null}
+
+      {pendingSubstitution && match ? (
+        <SubstitutionModal
+          team={pendingSubstitution.team}
+          match={match}
+          queue={snapshot.queue}
+          busy={busy}
+          onConfirm={confirmSubstitution}
+          onCancel={cancelSubstitution}
+        />
+      ) : null}
     </div>
   );
 }
@@ -203,23 +220,36 @@ function TeamPanel({
   team,
   match,
   disabled,
+  substitutionDisabled,
   onGoal,
+  onSubstitution,
 }: {
   team: LiveTeam;
   match: LiveMatch;
   disabled: boolean;
+  substitutionDisabled: boolean;
   onGoal: (team: LiveTeam, player: LivePlayer) => void;
+  onSubstitution: (team: LiveTeam) => void;
 }) {
   const palette = teamColor(team.name);
   const score = team.id === match.home.id ? match.homeScore : match.awayScore;
 
   return (
     <Card className={cn("border p-3", palette.border)}>
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex items-center gap-2">
         <span className={cn("flex items-center gap-2 font-semibold", palette.text)}>
           <span className={cn("h-2.5 w-2.5 rounded-full", palette.dot)} /> Time {team.name}
         </span>
-        <span className="text-2xl font-black tabular-nums">{score}</span>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="touch-target ml-auto"
+          disabled={substitutionDisabled}
+          onClick={() => onSubstitution(team)}
+        >
+          <ArrowLeftRight size={16} aria-hidden /> Substituição
+        </Button>
+        <span className="min-w-8 text-right text-2xl font-black tabular-nums">{score}</span>
       </div>
 
       <div className="grid gap-1.5">

@@ -8,6 +8,8 @@ import { useCountdown, useLive } from "@/hooks/useLive";
 
 type Pending = { eventId: string; matchId: string };
 export type PendingGoal = { team: LiveTeam; player: LivePlayer };
+export type PendingSubstitution = { team: LiveTeam };
+type SubstitutionChoice = { outUserId: string; inUserId: string; permanent: boolean };
 
 export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
   const router = useRouter();
@@ -18,8 +20,18 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
   const [busy, setBusy] = useState(false);
   const [dismissedFinish, setDismissedFinish] = useState<string | null>(null);
   const [pendingGoal, setPendingGoal] = useState<PendingGoal | null>(null);
+  const [substitutionOf, setSubstitutionOf] = useState<{ matchId: string; teamId: string } | null>(null);
 
   const match = snapshot.match;
+  // Guarda so os ids e relê o time do snapshot: o modal acompanha a partida ao
+  // vivo e fecha sozinho se ela mudar (por exemplo, o tempo acabar) com ele aberto.
+  const substitutionTeam =
+    match && substitutionOf?.matchId === match.id
+      ? ([match.home, match.away].find((team) => team.id === substitutionOf.teamId) ?? null)
+      : null;
+  const pendingSubstitution: PendingSubstitution | null = substitutionTeam
+    ? { team: substitutionTeam }
+    : null;
   const finished = snapshot.gameDay.status === "FINISHED";
   const showResult =
     !!snapshot.lastFinished &&
@@ -66,6 +78,48 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
       actionLabel: "Desfazer",
       onAction: () => undo({ eventId: String(body.eventId), matchId }),
     });
+  }
+
+  async function undoSubstitution(matchId: string, substitutionId: string) {
+    await call(
+      `/api/matches/${matchId}/substitutions/${substitutionId}`,
+      { method: "DELETE" },
+      "Substituição desfeita.",
+    );
+  }
+
+  /** A troca nao pausa a partida: no futsal ela e volante, com a bola rolando. */
+  function startSubstitution(team: LiveTeam) {
+    if (match) setSubstitutionOf({ matchId: match.id, teamId: team.id });
+  }
+
+  async function confirmSubstitution(choice: SubstitutionChoice) {
+    if (!match || !pendingSubstitution) return;
+    const matchId = match.id;
+    const { team } = pendingSubstitution;
+    const outName = team.players.find((player) => player.userId === choice.outUserId)?.name ?? "?";
+    const inName = match.bench.find((player) => player.userId === choice.inUserId)?.name ?? "?";
+
+    const body = await call(`/api/matches/${matchId}/substitutions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teamId: team.id, ...choice }),
+    });
+    // Em caso de erro o toast ja avisou e o modal continua aberto para ajustar a troca.
+    if (!body?.substitutionId) return;
+
+    setSubstitutionOf(null);
+    toast.show({
+      message: `Entrou ${inName}, saiu ${outName}`,
+      tone: "success",
+      durationMs: 4000,
+      actionLabel: "Desfazer",
+      onAction: () => undoSubstitution(matchId, String(body.substitutionId)),
+    });
+  }
+
+  function cancelSubstitution() {
+    setSubstitutionOf(null);
   }
 
   const changeState = (action: "START" | "PAUSE" | "RESUME" | "END") =>
@@ -120,6 +174,10 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
     startGoal,
     confirmGoal,
     cancelGoal,
+    pendingSubstitution,
+    startSubstitution,
+    confirmSubstitution,
+    cancelSubstitution,
     changeState,
     dismissFinish,
   };
