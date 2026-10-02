@@ -11,7 +11,7 @@ export default async function HomePage() {
   const user = await pageUserWithProfile();
   const admin = isAdmin(user);
 
-  const [gameDay, myEvents, myMatches] = await Promise.all([
+  const [gameDay, myEvents, myGameDays] = await Promise.all([
     prisma.gameDay.findFirst({
       where: { status: { not: "FINISHED" } },
       orderBy: { scheduledAt: "asc" },
@@ -25,7 +25,11 @@ export default async function HomePage() {
       where: { userId: user.id, match: { status: "FINISHED" } },
       _count: { _all: true },
     }),
-    prisma.teamPlayer.count({ where: { userId: user.id } }),
+    // Peladas distintas em que jogou ao menos uma partida encerrada.
+    prisma.match.groupBy({
+      by: ["gameDayId"],
+      where: { status: "FINISHED", lineup: { some: { userId: user.id } } },
+    }),
   ]);
 
   const myRegistration = gameDay?.registrations[0] ?? null;
@@ -127,8 +131,8 @@ export default async function HomePage() {
               <p className="text-xs text-slate-500">Assistências</p>
             </div>
             <div>
-              <p className="text-2xl font-bold">{myMatches}</p>
-              <p className="text-xs text-slate-500">Escalações</p>
+              <p className="text-2xl font-bold">{myGameDays.length}</p>
+              <p className="text-xs text-slate-500">Peladas</p>
             </div>
           </div>
           <Link href="/ranking" className="mt-4 block">
