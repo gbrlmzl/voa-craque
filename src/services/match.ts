@@ -5,6 +5,7 @@ import { badRequest, conflict, notFound } from "@/lib/http";
 import { AUDIT_ACTIONS, recordAudit } from "@/lib/audit";
 import { publishGameDay, withLock } from "@/lib/realtime";
 import type { CurrentUser } from "@/lib/session";
+import { planMatchEvents, type MatchEventRequest } from "@/lib/match-event";
 import {
   applyGoal,
   elapsedAt,
@@ -350,13 +351,13 @@ export async function changeMatchState(
   });
 }
 
-export type EventInput = { type: "GOAL" | "ASSIST"; userId: string; teamId: string };
+export type EventInput = MatchEventRequest & { teamId: string };
 
 export async function recordMatchEvent(
   matchId: string,
   input: EventInput,
   actor: CurrentUser,
-): Promise<{ eventId: string }> {
+): Promise<{ eventId: string; assistEventId: string | null }> {
   const match = await loadMatch(matchId);
 
   if (match.status === "FINISHED") throw conflict("A partida já foi encerrada.");
@@ -365,50 +366,71 @@ export async function recordMatchEvent(
     throw badRequest("Este time não está nesta partida.");
   }
 
+  const plan = planMatchEvents(input);
+  if (!plan.ok) throw badRequest(plan.message);
+
   return withLock(`clock:${match.gameDayId}`, async () => {
     const now = Date.now();
     const side: Side = input.teamId === match.homeTeamId ? "HOME" : "AWAY";
 
     // Vale a escalacao da partida, nao o elenco fixo: o substituto marca. Nao
     // exige onCourt, para aceitar o gol anotado com atraso de quem ja saiu.
-    const belongs = await prisma.matchPlayer.findUnique({
-      where: { matchId_userId: { matchId, userId: input.userId } },
+    const lineup = await prisma.matchPlayer.findMany({
+      where: { matchId, userId: { in: plan.drafts.map((draft) => draft.userId) } },
     });
-    if (!belongs || belongs.teamId !== input.teamId) {
-      throw badRequest("Este jogador não está neste time.");
+    for (const draft of plan.drafts) {
+      const row = lineup.find((player) => player.userId === draft.userId);
+      if (!row || row.teamId !== input.teamId) {
+        throw badRequest(
+          draft.type === "GOAL" ? "Este jogador não está neste time." : "Quem deu a assistência não está neste time.",
+        );
+      }
     }
 
     const clock = clockOf(match);
     const elapsedMs = Math.max(0, match.durationMs - remainingAt(clock, now));
 
-    const event = await prisma.matchEvent.create({
-      data: {
-        matchId,
-        teamId: input.teamId,
-        userId: input.userId,
-        type: input.type,
-        elapsedMs,
-        createdById: actor.id,
-      },
-      include: { user: { select: { username: true, profile: { select: { name: true } } } }, team: { select: { name: true } } },
+    // Gol e assistencia entram juntos, na mesma transacao e com o mesmo minuto:
+    // o gol decisivo encerra a partida logo abaixo e nao pode deixar a
+    // assistencia para uma segunda chamada, que ja a encontraria FINISHED.
+    let score = { home: match.homeScore, away: match.awayScore };
+    const events = await prisma.$transaction(async (tx) => {
+      const created = [];
+      for (const draft of plan.drafts) {
+        created.push(
+          await tx.matchEvent.create({
+            data: {
+              matchId,
+              teamId: input.teamId,
+              userId: draft.userId,
+              type: draft.type,
+              elapsedMs,
+              createdById: actor.id,
+            },
+            include: { user: { select: { username: true, profile: { select: { name: true } } } }, team: { select: { name: true } } },
+          }),
+        );
+      }
+
+      if (input.type === "GOAL") {
+        score = applyGoal(score, side);
+        await tx.match.update({
+          where: { id: matchId },
+          data: { homeScore: score.home, awayScore: score.away },
+        });
+      }
+      return created;
     });
 
-    let score = { home: match.homeScore, away: match.awayScore };
-    if (input.type === "GOAL") {
-      score = applyGoal(score, side);
-      await prisma.match.update({
-        where: { id: matchId },
-        data: { homeScore: score.home, awayScore: score.away },
+    for (const event of events) {
+      await recordAudit(actor, {
+        action: AUDIT_ACTIONS.MATCH_EVENT_CREATED,
+        entity: "MatchEvent",
+        entityId: event.id,
+        summary: `${event.type === "GOAL" ? "Gol" : "Assistência"} de ${event.user.profile?.name ?? event.user.username} (time ${event.team.name})`,
+        after: { matchId, type: event.type, userId: event.userId, teamId: event.teamId, elapsedMs },
       });
     }
-
-    await recordAudit(actor, {
-      action: AUDIT_ACTIONS.MATCH_EVENT_CREATED,
-      entity: "MatchEvent",
-      entityId: event.id,
-      summary: `${input.type === "GOAL" ? "Gol" : "Assistência"} de ${event.user.profile?.name ?? event.user.username} (time ${event.team.name})`,
-      after: { matchId, type: input.type, userId: input.userId, teamId: input.teamId, elapsedMs },
-    });
 
     const outcome = evaluateOutcome({
       score,
@@ -429,31 +451,46 @@ export async function recordMatchEvent(
       publishGameDay(match.gameDayId, "event-created");
     }
 
-    return { eventId: event.id };
+    return { eventId: events[0].id, assistEventId: events[1]?.id ?? null };
   });
 }
 
 /**
  * Desfaz um evento. Se o gol desfeito era o que encerrou a partida, a partida
  * volta para o jogo: o placar, a fila e a proxima partida sao revertidos.
+ *
+ * `assistEventId` e a assistencia criada junto com o gol; sai na mesma
+ * transacao, para o "Desfazer" do snackbar nao deixar assistencia orfa.
  */
 export async function undoMatchEvent(
   matchId: string,
   eventId: string,
   actor: CurrentUser,
+  assistEventId?: string | null,
 ): Promise<void> {
   const match = await loadMatch(matchId);
 
   await withLock(`clock:${match.gameDayId}`, async () => {
-    const event = await prisma.matchEvent.findUnique({
-      where: { id: eventId },
-      include: { user: { select: { username: true, profile: { select: { name: true } } } }, team: { select: { name: true } } },
-    });
+    const eventInclude = {
+      user: { select: { username: true, profile: { select: { name: true } } } },
+      team: { select: { name: true } },
+    };
+    const event = await prisma.matchEvent.findUnique({ where: { id: eventId }, include: eventInclude });
     if (!event || event.matchId !== matchId) throw notFound("Evento não encontrado.");
     if (match.gameDay.status === "FINISHED") throw conflict("A pelada já foi encerrada.");
 
+    // So desfaz junto a assistencia que e mesmo deste gol (mesma partida e time).
+    // Se ela ja saiu por outro caminho, o desfazer do gol segue normalmente.
+    const assist = assistEventId
+      ? await prisma.matchEvent.findUnique({ where: { id: assistEventId }, include: eventInclude })
+      : null;
+    if (assist && (event.type !== "GOAL" || assist.type !== "ASSIST" || assist.matchId !== matchId || assist.teamId !== event.teamId)) {
+      throw badRequest("Esta assistência não pertence a este gol.");
+    }
+    const removed = assist ? [event, assist] : [event];
+
     const undone = await prisma.$transaction(async (tx) => {
-      await tx.matchEvent.delete({ where: { id: eventId } });
+      await tx.matchEvent.deleteMany({ where: { id: { in: removed.map((row) => row.id) } } });
 
       const goals = await tx.matchEvent.groupBy({
         by: ["teamId"],
@@ -514,20 +551,22 @@ export async function undoMatchEvent(
       await finalizeMatch({ matchId, actor, reason: "TIME", result, now: Date.now() });
     }
 
-    await recordAudit(actor, {
-      action: AUDIT_ACTIONS.MATCH_EVENT_UNDONE,
-      entity: "MatchEvent",
-      entityId: eventId,
-      summary: `Desfeito: ${event.type === "GOAL" ? "gol" : "assistência"} de ${event.user.profile?.name ?? event.user.username} (time ${event.team.name})`,
-      before: {
-        matchId,
-        type: event.type,
-        userId: event.userId,
-        teamId: event.teamId,
-        elapsedMs: event.elapsedMs,
-      },
-      after: { reopenedMatch: undone.reopened, homeScore: undone.homeScore, awayScore: undone.awayScore },
-    });
+    for (const row of removed) {
+      await recordAudit(actor, {
+        action: AUDIT_ACTIONS.MATCH_EVENT_UNDONE,
+        entity: "MatchEvent",
+        entityId: row.id,
+        summary: `Desfeito: ${row.type === "GOAL" ? "gol" : "assistência"} de ${row.user.profile?.name ?? row.user.username} (time ${row.team.name})`,
+        before: {
+          matchId,
+          type: row.type,
+          userId: row.userId,
+          teamId: row.teamId,
+          elapsedMs: row.elapsedMs,
+        },
+        after: { reopenedMatch: undone.reopened, homeScore: undone.homeScore, awayScore: undone.awayScore },
+      });
+    }
     publishGameDay(match.gameDayId, "event-undone");
   });
 }

@@ -133,6 +133,9 @@ export const matchEventSchema = z.object({
   type: z.enum(["GOAL", "ASSIST"]),
   userId: z.string().min(1),
   teamId: z.string().min(1),
+  // Gol e assistencia viajam juntos: o gol decisivo encerra a partida e uma
+  // segunda chamada para a assistencia chegaria com ela ja FINISHED.
+  assistUserId: z.string().min(1).nullish(),
 });
 
 // "quem sai e quem entra sao a mesma pessoa" e as demais regras da troca ficam em
