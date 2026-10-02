@@ -38,12 +38,13 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
     snapshot.lastFinished.id !== dismissedFinish &&
     (!match || match.status === "SCHEDULED");
 
-  async function call(url: string, init: RequestInit, successMessage?: string) {
+  async function call(url: string, init: RequestInit, successMessage?: string, onOk?: () => void) {
     setBusy(true);
     try {
       const response = await fetch(url, init);
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Não deu certo.");
+      onOk?.();
       if (successMessage) toast.show({ message: successMessage, tone: "success" });
       await refresh();
       router.refresh();
@@ -100,15 +101,20 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
     const outName = team.players.find((player) => player.userId === choice.outUserId)?.name ?? "?";
     const inName = match.bench.find((player) => player.userId === choice.inUserId)?.name ?? "?";
 
-    const body = await call(`/api/matches/${matchId}/substitutions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ teamId: team.id, ...choice }),
-    });
-    // Em caso de erro o toast ja avisou e o modal continua aberto para ajustar a troca.
+    // O modal fecha assim que o servidor aceita, antes do refresh do snapshot, para
+    // nao piscar com a selecao ja invalida. Em caso de erro ele continua aberto.
+    const body = await call(
+      `/api/matches/${matchId}/substitutions`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId: team.id, ...choice }),
+      },
+      undefined,
+      () => setSubstitutionOf(null),
+    );
     if (!body?.substitutionId) return;
 
-    setSubstitutionOf(null);
     toast.show({
       message: `Entrou ${inName}, saiu ${outName}`,
       tone: "success",

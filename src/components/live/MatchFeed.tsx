@@ -39,7 +39,7 @@ export function MatchFeed({
               {matchMinute(entry.item.elapsedMs)}&apos;
             </span>
             <span>🔁</span>
-            <span className="truncate">
+            <span className="min-w-0 leading-snug">
               <span className="text-pitch-300">Entra {entry.item.inName}</span>,{" "}
               <span className="text-rose-300">sai {entry.item.outName}</span>
             </span>

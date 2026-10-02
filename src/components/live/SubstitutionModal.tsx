@@ -89,7 +89,7 @@ export function SubstitutionModal({
       aria-label={`Substituição do Time ${team.name}`}
       className="fixed inset-0 z-50 grid place-items-end bg-black/70 p-4 sm:place-items-center"
     >
-      <Card className="flex max-h-[calc(100dvh-2rem)] w-full max-w-sm flex-col gap-3 border-white/15">
+      <Card className="flex max-h-[calc(100dvh-2rem)] w-full max-w-sm flex-col gap-3 border-white/15 bg-night-900">
         <div className="flex items-center justify-between gap-2">
           <p className="font-semibold text-slate-100">Substituição</p>
           <span className={cn("flex items-center gap-2 text-sm font-semibold", palette.text)}>
