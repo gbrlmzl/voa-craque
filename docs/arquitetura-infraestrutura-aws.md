@@ -148,6 +148,29 @@ existia para o driver local. Agora os dois drivers passam pela mesma rota autent
 `@aws-sdk/s3-request-presigner`) válida por 60 segundos, só depois de confirmar que quem
 pediu pode ver aquele arquivo.
 
+**Foto de perfil (`fotos/`)** — ao contrário do comprovante, não usa a URL assinada:
+
+- **Gravação**: toda foto passa por `sharp` no servidor (`src/lib/profile-photo.ts`) antes de ir
+  para o bucket: confere que é imagem de verdade (não confia no `file.type`), gira pelo EXIF,
+  recorta o quadrado central e grava **WebP 512×512, qualidade 82, sem metadados** (o EXIF de
+  celular traz GPS), com chave `fotos/<uuid>.webp`. Entram até 20 MB (`MAX_PHOTO_UPLOAD_MB`; o
+  comprovante segue com 5 MB) e o resultado fica em torno de 25–60 KB. Uma normalização por vez e
+  `limitInputPixels` de 100 MP protegem os 2 GiB da instância.
+- **Leitura**: `/api/files` lê o objeto (`GetObject`) e responde os bytes com
+  `Cache-Control: private, max-age=31536000, immutable`. A URL nunca muda e o arquivo nunca é
+  reescrito (o UUID é novo a cada upload), então o navegador guarda a foto e nem pergunta de
+  novo. Um cache LRU em memória (32 MB, `src/lib/photo-cache.ts`) evita voltar ao S3 para fotos
+  lidas há pouco. `private` impede a Cloudflare de guardar uma foto que exige login: depois do
+  deploy, o `cf-cache-status` da foto deve vir `DYNAMIC` ou `BYPASS`, nunca `HIT`.
+- **Comprovante**: continua com a checagem de dono e o redirect para a URL assinada, agora com
+  `Cache-Control: no-store`.
+- **IAM**: a role só tem `GetObject`/`PutObject`, sem `ListBucket`. Sem essa permissão o S3 responde
+  `403` (e não `NoSuchKey`) para uma chave que não existe, então uma foto apagada do bucket vira
+  erro 500 na rota, nunca cache imutável.
+- **Fotos antigas** (JPEG/PNG grandes de antes da normalização): `npx tsx scripts/reprocess-photos.ts`
+  simula, e com `--apply` grava os WebP novos e troca o `photoUrl`. Os originais ficam no bucket
+  e o script lista as chaves sem uso; apagá-las é decisão manual.
+
 ## 7. Computação (EC2)
 
 - **Tipo**: `t4g.small` (Graviton/ARM64, 2 vCPU, 2 GiB RAM) — mesma família que o Cronos já

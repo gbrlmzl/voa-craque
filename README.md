@@ -128,8 +128,9 @@ Estão todas em `.env.example`, com valores que funcionam sem edição.
 | `SUPERADMIN_EMAIL` / `_PASSWORD` / `_NAME` | Superadmin criado pelo seed |
 | `SEED_SAMPLE_DATA` | `false` cria só o superadmin |
 | `STORAGE_DRIVER` | `local` (volume do container) ou `s3` |
-| `UPLOAD_DIR`, `MAX_UPLOAD_MB` | Pasta e limite dos arquivos no driver local |
-| `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Usados só quando `STORAGE_DRIVER=s3`. O bucket fica privado; os arquivos são sempre servidos por `/api/files` (que confere sessão e dono) via URL assinada de 60s, nunca por link direto do bucket. Sem as duas credenciais, o SDK usa a IAM role da instância |
+| `UPLOAD_DIR` | Pasta dos arquivos no driver local |
+| `MAX_UPLOAD_MB`, `MAX_PHOTO_UPLOAD_MB` | Limite do comprovante (padrão 5 MB) e da foto de perfil (padrão 20 MB; a foto é reduzida no servidor para WebP 512×512) |
+| `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Usados só quando `STORAGE_DRIVER=s3`. O bucket fica privado; os arquivos são sempre servidos por `/api/files` (que confere sessão e dono), nunca por link direto do bucket: o comprovante via URL assinada de 60s, a foto de perfil (WebP 512×512, cache imutável no navegador) lida pelo próprio servidor. Sem as duas credenciais, o SDK usa a IAM role da instância |
 | `MAIL_DRIVER` | `console` (padrão: imprime a mensagem no log do servidor, fora de produção) ou `smtp` (envia de verdade) |
 | `MAIL_FROM` | Remetente dos e-mails de recuperação de senha e avisos de segurança |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` | Usados só quando `MAIL_DRIVER=smtp`. `SMTP_SECURE=true` para a porta 465 (TLS direto); `false` para 587 (STARTTLS) |
