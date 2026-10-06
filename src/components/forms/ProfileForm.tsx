@@ -79,7 +79,7 @@ export function ProfileForm({
             onClick={() => fileInput.current?.click()}
             disabled={uploading || saving}
             aria-label={values.photoUrl ? "Trocar foto" : "Adicionar foto"}
-            title="JPEG, PNG ou WebP, até 5 MB"
+            title="JPEG, PNG ou WebP, até 20 MB"
             className="group relative rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pitch-400"
           >
             <Avatar
