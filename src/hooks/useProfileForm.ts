@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useUpdateCurrentUser } from "@/components/providers/UserProvider";
+import { shrinkBeforeUpload } from "@/lib/client-image";
 import type { ProfileValues } from "@/lib/profile-defaults";
 
 export function useProfileForm(initial: ProfileValues, mode: "onboarding" | "edit") {
@@ -34,7 +35,8 @@ export function useProfileForm(initial: ProfileValues, mode: "onboarding" | "edi
     setMessage(null);
     try {
       const form = new FormData();
-      form.set("file", file);
+      // Reduz antes de enviar so para poupar dados; o servidor normaliza de novo.
+      form.set("file", await shrinkBeforeUpload(file));
       form.set("tipo", "foto");
       const response = await fetch("/api/uploads", { method: "POST", body: form });
       const body = await response.json();
