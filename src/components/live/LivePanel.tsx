@@ -4,11 +4,12 @@ import { useEffect, useRef } from "react";
 import { ArrowLeftRight, ChevronRight, Pause, Play, Square } from "lucide-react";
 import { Avatar } from "@/components/Player";
 import { Button, Card, EmptyState, SectionTitle, cn } from "@/components/ui";
-import { MATCH_END_REASON_LABEL, teamColor } from "@/lib/labels";
+import { teamColor } from "@/lib/labels";
 import type { LiveMatch, LivePlayer, LiveSnapshot, LiveTeam } from "@/services/live";
 import { FinishGameDayButton } from "@/components/gameday/FinishGameDayButton";
 import { GoalAssistModal } from "@/components/live/GoalAssistModal";
 import { MatchFeed } from "@/components/live/MatchFeed";
+import { MatchResultCard } from "@/components/live/MatchResultCard";
 import { QueueBadges } from "@/components/live/QueueBadges";
 import { Scoreboard } from "@/components/live/Scoreboard";
 import { SubstitutionModal } from "@/components/live/SubstitutionModal";
@@ -42,8 +43,6 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
     dismissFinish,
   } = useLivePanel(gameDayId, initial);
 
-  const teamName = useTeamName();
-
   // Com um modal aberto, o resto do painel nao aceita toque.
   const modalOpen = !!pendingGoal || !!pendingSubstitution || !!viewedTeam;
 
@@ -60,7 +59,8 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
         <div aria-hidden onClick={dismissResumeHint} className="fade-in fixed inset-0 z-45 bg-black/60" />
       ) : null}
 
-      {match ? (
+      {/* Com o resultado da partida anterior na tela, o placar da proxima espera: o cartao do resultado e a tela. */}
+      {match && !showResult ? (
         // Acima do escurecido (z-45) so enquanto o destaque vale; o toast (z-60) fica acima de tudo.
         <div
           className={cn(
@@ -136,30 +136,22 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
       ) : null}
 
       {showResult && snapshot.lastFinished ? (
-        <Card className="border-pitch-500/40 bg-pitch-500/10">
-          <p className="text-xs tracking-wide text-pitch-300 uppercase">
-            {snapshot.lastFinished.endReason
-              ? MATCH_END_REASON_LABEL[snapshot.lastFinished.endReason]
-              : "Resultado"}
-          </p>
-          <p className="mt-1 text-xl font-bold">
-            {snapshot.lastFinished.result === "DRAW"
-              ? "Empate — os dois saem"
-              : `${teamName(snapshot.lastFinished.winnerName ?? "?")} venceu`}
-          </p>
-          <p className="mt-0.5 text-sm text-slate-300">
-            {teamName(snapshot.lastFinished.homeName)} {snapshot.lastFinished.homeScore} x{" "}
-            {snapshot.lastFinished.awayScore} {teamName(snapshot.lastFinished.awayName)}
-          </p>
-
+        <MatchResultCard
+          result={snapshot.lastFinished}
+          next={
+            match && match.status === "SCHEDULED"
+              ? { homeName: match.home.name, awayName: match.away.name }
+              : null
+          }
+        >
           {match && match.status === "SCHEDULED" ? (
-            <Button size="lg" className="mt-3 w-full" onClick={dismissFinish}>
+            <Button size="lg" className="w-full" onClick={dismissFinish}>
               Próxima partida <ChevronRight size={18} />
             </Button>
           ) : (
-            <p className="mt-3 text-sm text-slate-300">Não há próxima partida montada.</p>
+            <p className="text-sm text-slate-300">Não há próxima partida montada.</p>
           )}
-        </Card>
+        </MatchResultCard>
       ) : null}
 
       {finished ? (

@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { PlayerChip } from "@/components/Player";
 import { Card, EmptyState, SectionTitle, cn } from "@/components/ui";
-import { MATCH_END_REASON_LABEL, teamColor } from "@/lib/labels";
+import { teamColor } from "@/lib/labels";
 import type { LiveSnapshot, LiveTeam } from "@/services/live";
 import { MatchFeed } from "@/components/live/MatchFeed";
+import { MatchResultCard } from "@/components/live/MatchResultCard";
 import { QueueBadges } from "@/components/live/QueueBadges";
 import { Scoreboard } from "@/components/live/Scoreboard";
 import { TeamSummaryModal } from "@/components/live/TeamSummaryModal";
@@ -16,7 +17,6 @@ import { useCountdown, useLive } from "@/hooks/useLive";
 export function LiveBoard({ gameDayId, initial }: { gameDayId: string; initial: LiveSnapshot }) {
   const { snapshot, receivedAt, streaming } = useLive(gameDayId, initial);
   const remainingMs = useCountdown(snapshot.match, receivedAt);
-  const teamName = useTeamName();
   const [viewedTeamId, setViewedTeamId] = useState<string | null>(null);
   const match = snapshot.match;
   const viewed = viewedTeamId ? snapshot.standings.find((row) => row.teamId === viewedTeamId) : null;
@@ -46,31 +46,20 @@ export function LiveBoard({ gameDayId, initial }: { gameDayId: string; initial: 
 
   return (
     <div className="grid gap-4">
-      <Scoreboard
-        match={match}
-        remainingMs={remainingMs}
-        goalsToWin={snapshot.gameDay.goalsToWin}
-        streaming={streaming}
-      />
-
+      {/* Entre uma partida e outra o resultado ocupa o lugar do placar; volta o placar quando a proxima comeca. */}
       {snapshot.lastFinished && match.status === "SCHEDULED" ? (
-        <Card className="border-white/15">
-          <p className="text-xs tracking-wide text-slate-400 uppercase">
-            {snapshot.lastFinished.endReason
-              ? MATCH_END_REASON_LABEL[snapshot.lastFinished.endReason]
-              : "Resultado"}
-          </p>
-          <p className="mt-1 font-semibold">
-            {snapshot.lastFinished.result === "DRAW"
-              ? "Empate — os dois saíram"
-              : `${teamName(snapshot.lastFinished.winnerName ?? "?")} venceu`}
-          </p>
-          <p className="text-sm text-slate-400">
-            {teamName(snapshot.lastFinished.homeName)} {snapshot.lastFinished.homeScore} x{" "}
-            {snapshot.lastFinished.awayScore} {teamName(snapshot.lastFinished.awayName)}
-          </p>
-        </Card>
-      ) : null}
+        <MatchResultCard
+          result={snapshot.lastFinished}
+          next={{ homeName: match.home.name, awayName: match.away.name }}
+        />
+      ) : (
+        <Scoreboard
+          match={match}
+          remainingMs={remainingMs}
+          goalsToWin={snapshot.gameDay.goalsToWin}
+          streaming={streaming}
+        />
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <TeamCard team={match.home} />

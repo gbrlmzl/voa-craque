@@ -2,6 +2,7 @@ import type { GameDayStatus, MatchEndReason, MatchEventType, MatchStatus } from 
 import { prisma } from "@/lib/prisma";
 import { notFound } from "@/lib/http";
 import { remainingAt } from "@/lib/match-engine";
+import { pairGoalsWithAssists } from "@/lib/match-event";
 import { buildBench, type BenchPlayer } from "@/lib/substitution";
 import { summarizeTeam, type FinishedMatchRow } from "@/lib/team-record";
 import { syncMatchClock } from "@/services/match";
@@ -70,6 +71,15 @@ export type LiveMatch = {
   bench: LiveBenchPlayer[];
 };
 
+/** Um gol da partida encerrada, com quem deu a assistencia (null no gol individual). */
+export type FinishedGoal = {
+  id: string;
+  teamName: string;
+  playerName: string;
+  assistName: string | null;
+  elapsedMs: number;
+};
+
 export type FinishedMatch = {
   id: string;
   orderIndex: number;
@@ -80,6 +90,10 @@ export type FinishedMatch = {
   result: "HOME" | "AWAY" | "DRAW" | null;
   endReason: MatchEndReason | null;
   winnerName: string | null;
+  /** Tempo jogado, do apito inicial ao fim (pode ser menor que a duracao). */
+  playedMs: number;
+  /** Gols em ordem, so da ultima partida encerrada: nao incha o snapshot do SSE. */
+  goals: FinishedGoal[];
 };
 
 export type LiveStanding = {
@@ -143,7 +157,7 @@ export async function buildLiveSnapshot(gameDayId: string): Promise<LiveSnapshot
           events: {
             orderBy: { createdAt: "desc" },
             include: {
-              user: { select: { username: true, profile: { select: { name: true } } } },
+              user: { select: { username: true, profile: { select: { name: true, nickname: true } } } },
               team: { select: { name: true } },
             },
           },
@@ -317,6 +331,25 @@ export async function buildLiveSnapshot(gameDayId: string): Promise<LiveSnapshot
           result: lastFinishedRow.result,
           endReason: lastFinishedRow.endReason,
           winnerName: lastFinishedRow.winnerTeam?.name ?? null,
+          playedMs: Math.max(0, lastFinishedRow.durationMs - lastFinishedRow.remainingMs),
+          // Mesmo nome exibido do painel e do toast (apelido primeiro), nao o do feed de lances.
+          goals: pairGoalsWithAssists(
+            lastFinishedRow.events.map((event) => ({
+              id: event.id,
+              type: event.type,
+              teamId: event.teamId,
+              teamName: event.team.name,
+              elapsedMs: event.elapsedMs,
+              createdAt: event.createdAt.toISOString(),
+              playerName: event.user.profile?.nickname || event.user.profile?.name || event.user.username,
+            })),
+          ).map(({ goal, assist }) => ({
+            id: goal.id,
+            teamName: goal.teamName,
+            playerName: goal.playerName,
+            assistName: assist?.playerName ?? null,
+            elapsedMs: goal.elapsedMs,
+          })),
         }
       : null,
     queue: gameDay.teams
