@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { PlayerChip } from "@/components/Player";
-import { Badge, Card, EmptyState, SectionTitle, cn } from "@/components/ui";
+import { Card, EmptyState, SectionTitle, cn } from "@/components/ui";
 import { MATCH_END_REASON_LABEL, teamColor } from "@/lib/labels";
 import type { LiveSnapshot, LiveTeam } from "@/services/live";
 import { MatchFeed } from "@/components/live/MatchFeed";
+import { QueueBadges } from "@/components/live/QueueBadges";
 import { Scoreboard } from "@/components/live/Scoreboard";
+import { TeamSummaryModal } from "@/components/live/TeamSummaryModal";
 import { useTeamName } from "@/components/providers/PreferencesProvider";
 import { useCountdown, useLive } from "@/hooks/useLive";
 
@@ -14,7 +17,9 @@ export function LiveBoard({ gameDayId, initial }: { gameDayId: string; initial: 
   const { snapshot, receivedAt, streaming } = useLive(gameDayId, initial);
   const remainingMs = useCountdown(snapshot.match, receivedAt);
   const teamName = useTeamName();
+  const [viewedTeamId, setViewedTeamId] = useState<string | null>(null);
   const match = snapshot.match;
+  const viewed = viewedTeamId ? snapshot.standings.find((row) => row.teamId === viewedTeamId) : null;
 
   if (snapshot.gameDay.status === "FINISHED") {
     return (
@@ -77,13 +82,7 @@ export function LiveBoard({ gameDayId, initial }: { gameDayId: string; initial: 
         {snapshot.queue.length === 0 ? (
           <EmptyState title="Ninguém na fila" />
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {snapshot.queue.map((team, index) => (
-              <Badge key={team.id} className={cn("text-sm", teamColor(team.name).text)}>
-                {index + 1}º · {teamName(team.name)}
-              </Badge>
-            ))}
-          </div>
+          <QueueBadges queue={snapshot.queue} onSelect={setViewedTeamId} />
         )}
       </section>
 
@@ -97,6 +96,15 @@ export function LiveBoard({ gameDayId, initial }: { gameDayId: string; initial: 
       </section>
 
       <Standings snapshot={snapshot} />
+
+      {viewed ? (
+        <TeamSummaryModal
+          gameDayId={gameDayId}
+          team={{ id: viewed.teamId, name: viewed.name }}
+          refreshKey={snapshot.lastFinished?.id ?? null}
+          onClose={() => setViewedTeamId(null)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -21,6 +21,7 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
   const [dismissedFinish, setDismissedFinish] = useState<string | null>(null);
   const [pendingGoal, setPendingGoal] = useState<PendingGoal | null>(null);
   const [substitutionOf, setSubstitutionOf] = useState<{ matchId: string; teamId: string } | null>(null);
+  const [viewedTeamId, setViewedTeamId] = useState<string | null>(null);
   // Qual pausa pediu o destaque do "Retomar". Alem da partida, guarda o relogio
   // congelado: se outro aparelho retomar e pausar de novo, o relogio e outro e o
   // destaque antigo nao volta.
@@ -36,6 +37,11 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
   const pendingSubstitution: PendingSubstitution | null = substitutionTeam
     ? { team: substitutionTeam }
     : null;
+  // O nome vem das standings (todos os times da pelada): o modal continua aberto
+  // mesmo se o time sair da fila e entrar em quadra com ele aberto.
+  const standing = viewedTeamId ? snapshot.standings.find((row) => row.teamId === viewedTeamId) : null;
+  const viewedTeam = standing ? { id: standing.teamId, name: standing.name } : null;
+
   // Derivado, sem efeito: some sozinho se a partida retomar (neste ou em outro
   // aparelho), acabar, mudar para a proxima ou se um modal abrir.
   const showResumeHint =
@@ -220,6 +226,9 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
     showResult,
     showResumeHint,
     dismissResumeHint,
+    viewedTeam,
+    viewTeam: setViewedTeamId,
+    closeTeamView: () => setViewedTeamId(null),
     pendingGoal,
     startGoal,
     confirmGoal,

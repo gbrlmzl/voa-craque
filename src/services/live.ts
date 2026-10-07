@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "@/lib/http";
 import { remainingAt } from "@/lib/match-engine";
 import { buildBench, type BenchPlayer } from "@/lib/substitution";
+import { summarizeTeam, type FinishedMatchRow } from "@/lib/team-record";
 import { syncMatchClock } from "@/services/match";
 
 export type LivePlayer = {
@@ -278,42 +279,21 @@ export async function buildLiveSnapshot(gameDayId: string): Promise<LiveSnapshot
       }
     : null;
 
-  const standings = new Map<string, LiveStanding>();
-  for (const team of gameDay.teams) {
-    standings.set(team.id, {
-      teamId: team.id,
-      name: team.name,
-      played: 0,
-      won: 0,
-      drawn: 0,
-      lost: 0,
-      goalsFor: 0,
-      goalsAgainst: 0,
-    });
-  }
-  for (const finished of finishedMatches) {
-    const home = standings.get(finished.homeTeamId);
-    const away = standings.get(finished.awayTeamId);
-    if (!home || !away) continue;
-
-    home.played += 1;
-    away.played += 1;
-    home.goalsFor += finished.homeScore;
-    home.goalsAgainst += finished.awayScore;
-    away.goalsFor += finished.awayScore;
-    away.goalsAgainst += finished.homeScore;
-
-    if (finished.result === "HOME") {
-      home.won += 1;
-      away.lost += 1;
-    } else if (finished.result === "AWAY") {
-      away.won += 1;
-      home.lost += 1;
-    } else {
-      home.drawn += 1;
-      away.drawn += 1;
-    }
-  }
+  // Mesma regra do modal do time (lib/team-record.ts), para as duas telas nunca divergirem.
+  const finishedRows: FinishedMatchRow[] = finishedMatches.map((finished) => ({
+    id: finished.id,
+    orderIndex: finished.orderIndex,
+    homeTeamId: finished.homeTeamId,
+    awayTeamId: finished.awayTeamId,
+    homeScore: finished.homeScore,
+    awayScore: finished.awayScore,
+    result: finished.result,
+  }));
+  const standings: LiveStanding[] = gameDay.teams.map((team) => ({
+    teamId: team.id,
+    name: team.name,
+    ...summarizeTeam(team.id, finishedRows).record,
+  }));
 
   return {
     gameDay: {
@@ -343,7 +323,7 @@ export async function buildLiveSnapshot(gameDayId: string): Promise<LiveSnapshot
       .filter((team) => team.queuePosition !== null)
       .sort((a, b) => (a.queuePosition ?? 0) - (b.queuePosition ?? 0))
       .map((team) => ({ id: team.id, name: team.name })),
-    standings: [...standings.values()].sort(
+    standings: standings.sort(
       (a, b) => b.won - a.won || b.goalsFor - b.goalsAgainst - (a.goalsFor - a.goalsAgainst),
     ),
     serverTime: now,

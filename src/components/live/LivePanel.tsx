@@ -3,14 +3,16 @@
 import { useEffect, useRef } from "react";
 import { ArrowLeftRight, ChevronRight, Pause, Play, Square } from "lucide-react";
 import { Avatar } from "@/components/Player";
-import { Badge, Button, Card, EmptyState, SectionTitle, cn } from "@/components/ui";
+import { Button, Card, EmptyState, SectionTitle, cn } from "@/components/ui";
 import { MATCH_END_REASON_LABEL, teamColor } from "@/lib/labels";
 import type { LiveMatch, LivePlayer, LiveSnapshot, LiveTeam } from "@/services/live";
 import { FinishGameDayButton } from "@/components/gameday/FinishGameDayButton";
 import { GoalAssistModal } from "@/components/live/GoalAssistModal";
 import { MatchFeed } from "@/components/live/MatchFeed";
+import { QueueBadges } from "@/components/live/QueueBadges";
 import { Scoreboard } from "@/components/live/Scoreboard";
 import { SubstitutionModal } from "@/components/live/SubstitutionModal";
+import { TeamSummaryModal } from "@/components/live/TeamSummaryModal";
 import { useTeamName } from "@/components/providers/PreferencesProvider";
 import { useLivePanel } from "@/hooks/useLivePanel";
 
@@ -25,6 +27,9 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
     showResult,
     showResumeHint,
     dismissResumeHint,
+    viewedTeam,
+    viewTeam,
+    closeTeamView,
     pendingGoal,
     startGoal,
     confirmGoal,
@@ -40,7 +45,7 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
   const teamName = useTeamName();
 
   // Com um modal aberto, o resto do painel nao aceita toque.
-  const modalOpen = !!pendingGoal || !!pendingSubstitution;
+  const modalOpen = !!pendingGoal || !!pendingSubstitution || !!viewedTeam;
 
   // O teclado e o leitor de tela vao direto para o botao que o organizador precisa tocar.
   const resumeButton = useRef<HTMLButtonElement>(null);
@@ -199,16 +204,7 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
         {snapshot.queue.length === 0 ? (
           <EmptyState title="Ninguém na fila" />
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {snapshot.queue.map((team, index) => {
-              const palette = teamColor(team.name);
-              return (
-                <Badge key={team.id} tone="neutral" className={cn("text-sm", palette.text)}>
-                  {index + 1}º · {teamName(team.name)}
-                </Badge>
-              );
-            })}
-          </div>
+          <QueueBadges queue={snapshot.queue} disabled={busy || modalOpen} onSelect={viewTeam} />
         )}
       </section>
 
@@ -233,6 +229,15 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
           busy={busy}
           onConfirm={confirmGoal}
           onCancel={cancelGoal}
+        />
+      ) : null}
+
+      {viewedTeam ? (
+        <TeamSummaryModal
+          gameDayId={gameDayId}
+          team={viewedTeam}
+          refreshKey={snapshot.lastFinished?.id ?? null}
+          onClose={closeTeamView}
         />
       ) : null}
 
