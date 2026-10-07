@@ -1,6 +1,7 @@
 "use client";
 
 import { Avatar } from "@/components/Player";
+import { SkeletonBlock, SkeletonTeamSummary } from "@/components/Skeleton";
 import { Badge, Modal, cn } from "@/components/ui";
 import { TeamName } from "@/components/TeamName";
 import { useTeamName } from "@/components/providers/PreferencesProvider";
@@ -17,12 +18,15 @@ export function TeamSummaryModal({
   gameDayId,
   team,
   refreshKey,
+  expectedPlayers = 5,
   onClose,
 }: {
   gameDayId: string;
   team: { id: string; name: string };
   /** Muda quando uma partida termina: o historico e buscado de novo. */
   refreshKey: string | null;
+  /** Tamanho do time, para o skeleton ter o mesmo numero de linhas (o da pelada, se ja se sabe). */
+  expectedPlayers?: number;
   onClose: () => void;
 }) {
   const { summary, error, loading } = useTeamSummary(gameDayId, team.id, refreshKey);
@@ -34,14 +38,19 @@ export function TeamSummaryModal({
       <span className={palette.text}>
         <TeamName name={team.name} />
       </span>
-      {summary?.team.queuePosition ? <Badge>{summary.team.queuePosition}º na fila</Badge> : null}
+      {loading ? (
+        // Reserva o lugar do selo (22px: text-xs de 1rem + py-0.5 + borda) para o titulo nao pular.
+        <SkeletonBlock className="h-[22px] w-16 rounded-full" />
+      ) : summary?.team.queuePosition ? (
+        <Badge>{summary.team.queuePosition}º na fila</Badge>
+      ) : null}
     </span>
   );
 
   return (
     // `my-auto` centraliza no celular, onde o Modal padrao encosta no rodape.
     <Modal title={title} onClose={onClose} className="my-auto flex max-h-[85dvh] flex-col">
-      {loading ? <p className="py-8 text-center text-sm text-slate-500">Carregando...</p> : null}
+      {loading ? <SkeletonTeamSummary players={Math.min(Math.max(expectedPlayers, 1), 8)} /> : null}
       {error ? <p className="py-8 text-center text-sm text-rose-400">{error}</p> : null}
       {summary ? <Body summary={summary} /> : null}
     </Modal>

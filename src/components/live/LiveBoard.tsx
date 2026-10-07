@@ -91,6 +91,7 @@ export function LiveBoard({ gameDayId, initial }: { gameDayId: string; initial: 
           gameDayId={gameDayId}
           team={{ id: viewed.teamId, name: viewed.name }}
           refreshKey={snapshot.lastFinished?.id ?? null}
+          expectedPlayers={match.home.roster.length}
           onClose={() => setViewedTeamId(null)}
         />
       ) : null}

@@ -128,3 +128,55 @@ export function SkeletonForm({ fields }: { fields: number }) {
     </SkeletonCard>
   );
 }
+
+/**
+ * O corpo do modal do time (TeamSummaryModal): resumo J/V/E/D e gols, a lista de
+ * jogadores e o historico. Cada linha tem a altura da real: bloco de numero
+ * text-xl (1.75rem) com legenda de 1rem, rotulo text-sm (1.25rem), jogador com
+ * avatar h-9 e p-2, partida text-sm (1.25rem). `players` e o tamanho do time;
+ * o historico nao se sabe antes de buscar, entao mostra `history` linhas.
+ */
+export function SkeletonTeamSummary({ players = 5, history = 2 }: { players?: number; history?: number }) {
+  return (
+    <SkeletonScreen className="-mx-1 grid min-h-0 content-start gap-4 px-1">
+      <section className="grid gap-2">
+        <div className="grid grid-cols-4 gap-2 rounded-2xl bg-night-800 p-3">
+          {[0, 1, 2, 3].map((slot) => (
+            <div key={slot} className="grid justify-items-center">
+              <SkeletonBlock className="h-7 w-7 rounded-md" />
+              <div className="flex h-4 items-center">
+                <SkeletonBlock className="h-2.5 w-2.5 rounded-sm" />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex h-4 items-center justify-center">
+          <SkeletonBlock className="h-3 w-32 rounded-sm" />
+        </div>
+      </section>
+
+      <section className="grid gap-1.5">
+        <div className="flex h-5 items-center">
+          <SkeletonBlock className="h-3.5 w-20 rounded-md" />
+        </div>
+        {Array.from({ length: players }, (_, index) => (
+          <div key={index} className="flex items-center gap-2.5 rounded-xl bg-night-800/60 p-2">
+            <SkeletonBlock className="h-9 w-9 rounded-full" />
+            <SkeletonText className="w-32" />
+          </div>
+        ))}
+      </section>
+
+      <section className="grid gap-1.5">
+        <div className="flex h-5 items-center">
+          <SkeletonBlock className="h-3.5 w-28 rounded-md" />
+        </div>
+        {Array.from({ length: history }, (_, index) => (
+          <div key={index} className="flex h-5 items-center">
+            <SkeletonBlock className="h-3.5 w-64 max-w-full rounded-md" />
+          </div>
+        ))}
+      </section>
+    </SkeletonScreen>
+  );
+}

@@ -229,6 +229,7 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
           gameDayId={gameDayId}
           team={viewedTeam}
           refreshKey={snapshot.lastFinished?.id ?? null}
+          expectedPlayers={match?.home.roster.length}
           onClose={closeTeamView}
         />
       ) : null}
