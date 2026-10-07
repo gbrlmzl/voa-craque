@@ -5,6 +5,7 @@ import { Check, Copy, Loader2, Receipt } from "lucide-react";
 import { Badge, Button, Card, SectionTitle } from "@/components/ui";
 import { PAYMENT_METHOD_LABEL, PAYMENT_STATUS_LABEL } from "@/lib/labels";
 import { type Registration, useRegistrationPanel } from "@/hooks/useRegistrationPanel";
+import { ReceiptModal } from "@/components/gameday/ReceiptModal";
 
 export type { Registration } from "@/hooks/useRegistrationPanel";
 
@@ -26,8 +27,20 @@ export function RegistrationPanel({
   full: boolean;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
-  const { method, setMethod, receiptUrl, uploading, uploadReceipt, saving, message, subscribe, cancel, copyPixKey } =
-    useRegistrationPanel(gameDayId);
+  const {
+    method,
+    setMethod,
+    receiptUrl,
+    uploading,
+    uploadReceipt,
+    saving,
+    message,
+    viewingReceipt,
+    setViewingReceipt,
+    subscribe,
+    cancel,
+    copyPixKey,
+  } = useRegistrationPanel(gameDayId);
 
   if (registration) {
     return (
@@ -50,14 +63,13 @@ export function RegistrationPanel({
           ) : null}
 
           {registration.receiptUrl ? (
-            <a
-              href={registration.receiptUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 text-sm text-pitch-400 underline underline-offset-4"
+            <button
+              type="button"
+              onClick={() => setViewingReceipt(true)}
+              className="inline-flex items-center gap-2 justify-self-start text-sm text-pitch-400 underline underline-offset-4"
             >
               <Receipt size={15} /> Ver meu comprovante
-            </a>
+            </button>
           ) : null}
 
           {open ? (
@@ -72,6 +84,14 @@ export function RegistrationPanel({
 
           {message ? <p className="text-sm text-rose-300">{message}</p> : null}
         </Card>
+
+        {viewingReceipt && registration.receiptUrl ? (
+          <ReceiptModal
+            url={registration.receiptUrl}
+            title="Meu comprovante"
+            onClose={() => setViewingReceipt(false)}
+          />
+        ) : null}
       </section>
     );
   }

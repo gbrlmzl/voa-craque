@@ -18,14 +18,10 @@ export function usePaymentList(gameDayId: string) {
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<PaymentRow | null>(null);
+  const [rejecting, setRejecting] = useState<PaymentRow | null>(null);
 
-  async function decide(row: PaymentRow, status: PaymentRow["paymentStatus"]) {
-    let rejectedReason = "";
-    if (status === "REJECTED") {
-      rejectedReason = window.prompt("Motivo da recusa:")?.trim() ?? "";
-      if (!rejectedReason) return;
-    }
-
+  async function decide(row: PaymentRow, status: PaymentRow["paymentStatus"], rejectedReason = "") {
     setBusy(row.id);
     try {
       const response = await fetch(`/api/game-days/${gameDayId}/registrations/${row.id}`, {
@@ -44,6 +40,8 @@ export function usePaymentList(gameDayId: string) {
               : `Pagamento de ${row.name} voltou para pendente.`,
         tone: status === "CONFIRMED" ? "success" : "neutral",
       });
+      setViewing(null);
+      setRejecting(null);
       router.refresh();
     } catch (error) {
       toast.show({ message: (error as Error).message, tone: "error" });
@@ -52,5 +50,5 @@ export function usePaymentList(gameDayId: string) {
     }
   }
 
-  return { busy, decide };
+  return { busy, decide, viewing, setViewing, rejecting, setRejecting };
 }

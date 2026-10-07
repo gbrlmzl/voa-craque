@@ -21,6 +21,7 @@ export function useRegistrationPanel(gameDayId: string) {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [viewingReceipt, setViewingReceipt] = useState(false);
 
   async function uploadReceipt(file: File) {
     setUploading(true);
@@ -89,6 +90,8 @@ export function useRegistrationPanel(gameDayId: string) {
     uploadReceipt,
     saving,
     message,
+    viewingReceipt,
+    setViewingReceipt,
     subscribe,
     cancel,
     copyPixKey,

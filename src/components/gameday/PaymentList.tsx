@@ -5,6 +5,8 @@ import { PlayerChip } from "@/components/Player";
 import { Badge, Button, Card, EmptyState, SectionTitle } from "@/components/ui";
 import { PAYMENT_METHOD_LABEL, PAYMENT_STATUS_LABEL } from "@/lib/labels";
 import { type PaymentRow, usePaymentList } from "@/hooks/usePaymentList";
+import { ReceiptModal } from "@/components/gameday/ReceiptModal";
+import { RejectReasonModal } from "@/components/gameday/RejectReasonModal";
 
 export type { PaymentRow } from "@/hooks/usePaymentList";
 
@@ -12,7 +14,7 @@ const STATUS_TONE = { PENDING: "warn", CONFIRMED: "good", REJECTED: "bad" } as c
 
 /** Confirmacao manual: o organizador olha o comprovante e decide. */
 export function PaymentList({ gameDayId, rows }: { gameDayId: string; rows: PaymentRow[] }) {
-  const { busy, decide } = usePaymentList(gameDayId);
+  const { busy, decide, viewing, setViewing, rejecting, setRejecting } = usePaymentList(gameDayId);
   const pending = rows.filter((row) => row.paymentStatus === "PENDING").length;
 
   return (
@@ -43,15 +45,14 @@ export function PaymentList({ gameDayId, rows }: { gameDayId: string; rows: Paym
               </Badge>
 
               {row.receiptUrl ? (
-                <a
-                  href={row.receiptUrl}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={() => setViewing(row)}
                   className="touch-target grid place-items-center rounded-xl text-slate-400 hover:bg-white/5"
                   aria-label={`Comprovante de ${row.name}`}
                 >
                   <Receipt size={18} />
-                </a>
+                </button>
               ) : null}
 
               <div className="flex items-center gap-1">
@@ -80,7 +81,7 @@ export function PaymentList({ gameDayId, rows }: { gameDayId: string; rows: Paym
                       variant="ghost"
                       size="sm"
                       disabled={busy === row.id}
-                      onClick={() => decide(row, "REJECTED")}
+                      onClick={() => setRejecting(row)}
                       aria-label={`Recusar pagamento de ${row.name}`}
                     >
                       <X size={16} />
@@ -92,6 +93,35 @@ export function PaymentList({ gameDayId, rows }: { gameDayId: string; rows: Paym
           ))}
         </Card>
       )}
+
+      {viewing?.receiptUrl ? (
+        <ReceiptModal
+          url={viewing.receiptUrl}
+          title={`Comprovante de ${viewing.name}`}
+          decision={
+            viewing.paymentStatus === "CONFIRMED"
+              ? undefined
+              : {
+                  busy: busy === viewing.id,
+                  onReject: () => {
+                    setViewing(null);
+                    setRejecting(viewing);
+                  },
+                  onApprove: () => decide(viewing, "CONFIRMED"),
+                }
+          }
+          onClose={() => setViewing(null)}
+        />
+      ) : null}
+
+      {rejecting ? (
+        <RejectReasonModal
+          name={rejecting.name}
+          busy={busy === rejecting.id}
+          onConfirm={(reason) => decide(rejecting, "REJECTED", reason)}
+          onCancel={() => setRejecting(null)}
+        />
+      ) : null}
     </section>
   );
 }
