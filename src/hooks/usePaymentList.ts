@@ -17,6 +17,7 @@ export type PaymentRow = {
 export function usePaymentList(gameDayId: string) {
   const router = useRouter();
   const toast = useToast();
+  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [viewing, setViewing] = useState<PaymentRow | null>(null);
   const [rejecting, setRejecting] = useState<PaymentRow | null>(null);
@@ -50,5 +51,15 @@ export function usePaymentList(gameDayId: string) {
     }
   }
 
-  return { busy, decide, viewing, setViewing, rejecting, setRejecting };
+  return {
+    open,
+    openModal: () => setOpen(true),
+    closeModal: () => setOpen(false),
+    busy,
+    decide,
+    viewing,
+    setViewing,
+    rejecting,
+    setRejecting,
+  };
 }
