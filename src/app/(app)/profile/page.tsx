@@ -3,6 +3,7 @@ import { pageUserWithProfile } from "@/lib/session";
 import { ROLE_LABEL } from "@/lib/labels";
 import { Badge, SectionTitle } from "@/components/ui";
 import { ChangePasswordModal } from "@/components/forms/ChangePasswordModal";
+import { PreferencesForm } from "@/components/forms/PreferencesForm";
 import { ProfileForm } from "@/components/forms/ProfileForm";
 import { EMPTY_PROFILE, type ProfileValues } from "@/lib/profile-defaults";
 
@@ -39,6 +40,11 @@ export default async function ProfilePage() {
       <section>
         <SectionTitle>Seus dados</SectionTitle>
         <ProfileForm initial={initial} mode="edit" />
+      </section>
+
+      <section>
+        <SectionTitle>Preferências</SectionTitle>
+        <PreferencesForm />
       </section>
 
       {user.hasPassword ? (

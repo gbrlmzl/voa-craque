@@ -6,12 +6,14 @@ import { MATCH_END_REASON_LABEL, teamColor } from "@/lib/labels";
 import type { LiveSnapshot, LiveTeam } from "@/services/live";
 import { MatchFeed } from "@/components/live/MatchFeed";
 import { Scoreboard } from "@/components/live/Scoreboard";
+import { useTeamName } from "@/components/providers/PreferencesProvider";
 import { useCountdown, useLive } from "@/hooks/useLive";
 
 /** Tela de quem espera na fila: leitura pura, sem nenhum botao de acao. */
 export function LiveBoard({ gameDayId, initial }: { gameDayId: string; initial: LiveSnapshot }) {
   const { snapshot, receivedAt, streaming } = useLive(gameDayId, initial);
   const remainingMs = useCountdown(snapshot.match, receivedAt);
+  const teamName = useTeamName();
   const match = snapshot.match;
 
   if (snapshot.gameDay.status === "FINISHED") {
@@ -56,11 +58,11 @@ export function LiveBoard({ gameDayId, initial }: { gameDayId: string; initial: 
           <p className="mt-1 font-semibold">
             {snapshot.lastFinished.result === "DRAW"
               ? "Empate — os dois saíram"
-              : `Time ${snapshot.lastFinished.winnerName} venceu`}
+              : `${teamName(snapshot.lastFinished.winnerName ?? "?")} venceu`}
           </p>
           <p className="text-sm text-slate-400">
-            Time {snapshot.lastFinished.homeName} {snapshot.lastFinished.homeScore} x{" "}
-            {snapshot.lastFinished.awayScore} Time {snapshot.lastFinished.awayName}
+            {teamName(snapshot.lastFinished.homeName)} {snapshot.lastFinished.homeScore} x{" "}
+            {snapshot.lastFinished.awayScore} {teamName(snapshot.lastFinished.awayName)}
           </p>
         </Card>
       ) : null}
@@ -78,7 +80,7 @@ export function LiveBoard({ gameDayId, initial }: { gameDayId: string; initial: 
           <div className="flex flex-wrap gap-2">
             {snapshot.queue.map((team, index) => (
               <Badge key={team.id} className={cn("text-sm", teamColor(team.name).text)}>
-                {index + 1}º · Time {team.name}
+                {index + 1}º · {teamName(team.name)}
               </Badge>
             ))}
           </div>
@@ -100,11 +102,12 @@ export function LiveBoard({ gameDayId, initial }: { gameDayId: string; initial: 
 }
 
 function TeamCard({ team }: { team: LiveTeam }) {
+  const teamName = useTeamName();
   const palette = teamColor(team.name);
   return (
     <Card className={cn("border", palette.border)}>
       <p className={cn("mb-2 flex items-center gap-2 font-semibold", palette.text)}>
-        <span className={cn("h-2.5 w-2.5 rounded-full", palette.dot)} /> Time {team.name}
+        <span className={cn("h-2.5 w-2.5 rounded-full", palette.dot)} /> {teamName(team.name)}
       </p>
       <div className="grid gap-0.5">
         {team.players.map((player) => (
@@ -124,6 +127,7 @@ function TeamCard({ team }: { team: LiveTeam }) {
 }
 
 function Standings({ snapshot }: { snapshot: LiveSnapshot }) {
+  const teamName = useTeamName();
   const rows = snapshot.standings.filter((row) => row.played > 0);
   if (rows.length === 0) return null;
 
@@ -145,7 +149,7 @@ function Standings({ snapshot }: { snapshot: LiveSnapshot }) {
           <tbody>
             {rows.map((row) => (
               <tr key={row.teamId} className="border-b border-white/5 last:border-0">
-                <td className={cn("px-3 py-2 font-medium", teamColor(row.name).text)}>Time {row.name}</td>
+                <td className={cn("px-3 py-2 font-medium", teamColor(row.name).text)}>{teamName(row.name)}</td>
                 <td className="px-2 py-2 text-center tabular-nums">{row.played}</td>
                 <td className="px-2 py-2 text-center tabular-nums">{row.won}</td>
                 <td className="px-2 py-2 text-center tabular-nums">{row.drawn}</td>

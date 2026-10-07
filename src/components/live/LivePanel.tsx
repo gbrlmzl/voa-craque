@@ -11,6 +11,7 @@ import { GoalAssistModal } from "@/components/live/GoalAssistModal";
 import { MatchFeed } from "@/components/live/MatchFeed";
 import { Scoreboard } from "@/components/live/Scoreboard";
 import { SubstitutionModal } from "@/components/live/SubstitutionModal";
+import { useTeamName } from "@/components/providers/PreferencesProvider";
 import { useLivePanel } from "@/hooks/useLivePanel";
 
 export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: LiveSnapshot }) {
@@ -35,6 +36,8 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
     changeState,
     dismissFinish,
   } = useLivePanel(gameDayId, initial);
+
+  const teamName = useTeamName();
 
   // Com um modal aberto, o resto do painel nao aceita toque.
   const modalOpen = !!pendingGoal || !!pendingSubstitution;
@@ -137,11 +140,11 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
           <p className="mt-1 text-xl font-bold">
             {snapshot.lastFinished.result === "DRAW"
               ? "Empate — os dois saem"
-              : `Time ${snapshot.lastFinished.winnerName} venceu`}
+              : `${teamName(snapshot.lastFinished.winnerName ?? "?")} venceu`}
           </p>
           <p className="mt-0.5 text-sm text-slate-300">
-            Time {snapshot.lastFinished.homeName} {snapshot.lastFinished.homeScore} x{" "}
-            {snapshot.lastFinished.awayScore} Time {snapshot.lastFinished.awayName}
+            {teamName(snapshot.lastFinished.homeName)} {snapshot.lastFinished.homeScore} x{" "}
+            {snapshot.lastFinished.awayScore} {teamName(snapshot.lastFinished.awayName)}
           </p>
 
           {match && match.status === "SCHEDULED" ? (
@@ -201,7 +204,7 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
               const palette = teamColor(team.name);
               return (
                 <Badge key={team.id} tone="neutral" className={cn("text-sm", palette.text)}>
-                  {index + 1}º · Time {team.name}
+                  {index + 1}º · {teamName(team.name)}
                 </Badge>
               );
             })}
@@ -262,6 +265,7 @@ function TeamPanel({
   onGoal: (team: LiveTeam, player: LivePlayer) => void;
   onSubstitution: (team: LiveTeam) => void;
 }) {
+  const teamName = useTeamName();
   const palette = teamColor(team.name);
   const score = team.id === match.home.id ? match.homeScore : match.awayScore;
 
@@ -269,7 +273,7 @@ function TeamPanel({
     <Card className={cn("border p-3", palette.border)}>
       <div className="mb-2 flex items-center gap-2">
         <span className={cn("flex items-center gap-2 font-semibold", palette.text)}>
-          <span className={cn("h-2.5 w-2.5 rounded-full", palette.dot)} /> Time {team.name}
+          <span className={cn("h-2.5 w-2.5 rounded-full", palette.dot)} /> {teamName(team.name)}
         </span>
         <Button
           variant="secondary"

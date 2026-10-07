@@ -5,6 +5,7 @@ import { AlertTriangle, LayoutDashboard, Save, Shuffle } from "lucide-react";
 import { PlayerChip, Stars } from "@/components/Player";
 import { Badge, Button, Card, SectionTitle, Select } from "@/components/ui";
 import { PAYMENT_STATUS_LABEL, teamColor } from "@/lib/labels";
+import { useTeamName, useTeamTag } from "@/components/providers/PreferencesProvider";
 import { type BuilderPlayer, type BuilderTeam, useTeamBuilder } from "@/hooks/useTeamBuilder";
 
 export type { BuilderPlayer, BuilderTeam } from "@/hooks/useTeamBuilder";
@@ -26,6 +27,8 @@ export function TeamBuilder({
 }) {
   const { assignment, assign, busy, slots, unrated, dirty, countFor, overflow, draw, save, RESERVE } =
     useTeamBuilder({ gameDayId, teamSize, pool, teams, reserveIds });
+  const teamName = useTeamName();
+  const teamTag = useTeamTag();
 
   if (locked) {
     return (
@@ -84,7 +87,7 @@ export function TeamBuilder({
               const palette = teamColor(team.name);
               return (
                 <div key={team.name} className={`rounded-xl border p-3 ${palette.border}`}>
-                  <p className={`text-sm font-semibold ${palette.text}`}>Time {team.name}</p>
+                  <p className={`text-sm font-semibold ${palette.text}`}>{teamName(team.name)}</p>
                   <p className="text-2xl font-bold">{team.averageStrength}</p>
                   <p className="text-xs text-slate-500">{team.playerIds.length} jogadores</p>
                 </div>
@@ -103,7 +106,7 @@ export function TeamBuilder({
             const palette = teamColor(name);
             return (
               <Badge key={name} tone={count > teamSize ? "bad" : "neutral"} className={palette.text}>
-                {name}: {count}/{teamSize}
+                {teamTag(name)}: {count}/{teamSize}
               </Badge>
             );
           })}
@@ -140,7 +143,7 @@ export function TeamBuilder({
               >
                 {slots.map((name) => (
                   <option key={name} value={name}>
-                    Time {name}
+                    {teamName(name)}
                   </option>
                 ))}
                 <option value={RESERVE}>Reserva</option>
@@ -151,7 +154,7 @@ export function TeamBuilder({
 
         {overflow.length > 0 ? (
           <p className="mt-2 text-sm text-rose-300">
-            {overflow.map((name) => `Time ${name}`).join(", ")} passou de {teamSize} jogadores.
+            {overflow.map(teamName).join(", ")} passou de {teamSize} jogadores.
           </p>
         ) : null}
 

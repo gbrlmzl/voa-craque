@@ -12,6 +12,7 @@ import {
 } from "@/lib/labels";
 import { Badge, Button, Card, EmptyState, SectionTitle } from "@/components/ui";
 import { PlayerChip, Stars } from "@/components/Player";
+import { TeamName } from "@/components/TeamName";
 import { RegistrationPanel } from "@/components/gameday/RegistrationPanel";
 import { PaymentList, type PaymentRow } from "@/components/gameday/PaymentList";
 import { FinishGameDayButton } from "@/components/gameday/FinishGameDayButton";
@@ -203,7 +204,7 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
                 <Card key={team.id} className={`border ${palette.border}`}>
                   <div className="mb-2 flex items-center justify-between">
                     <span className={`flex items-center gap-2 font-semibold ${palette.text}`}>
-                      <span className={`h-2.5 w-2.5 rounded-full ${palette.dot}`} /> Time {team.name}
+                      <span className={`h-2.5 w-2.5 rounded-full ${palette.dot}`} /> <TeamName name={team.name} />
                     </span>
                     <span className="text-xs text-slate-500">força {team.averageStrength}</span>
                   </div>
