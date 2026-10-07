@@ -39,7 +39,8 @@ export function TeamSummaryModal({
   );
 
   return (
-    <Modal title={title} onClose={onClose} className="flex max-h-[85dvh] flex-col">
+    // `my-auto` centraliza no celular, onde o Modal padrao encosta no rodape.
+    <Modal title={title} onClose={onClose} className="my-auto flex max-h-[85dvh] flex-col">
       {loading ? <p className="py-8 text-center text-sm text-slate-500">Carregando...</p> : null}
       {error ? <p className="py-8 text-center text-sm text-rose-400">{error}</p> : null}
       {summary ? <Body summary={summary} /> : null}
