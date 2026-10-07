@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { ArrowLeftRight, ChevronRight, Pause, Play, Square } from "lucide-react";
 import { Avatar } from "@/components/Player";
 import { Badge, Button, Card, EmptyState, SectionTitle, cn } from "@/components/ui";
@@ -21,6 +22,8 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
     busy,
     finished,
     showResult,
+    showResumeHint,
+    dismissResumeHint,
     pendingGoal,
     startGoal,
     confirmGoal,
@@ -36,16 +39,41 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
   // Com um modal aberto, o resto do painel nao aceita toque.
   const modalOpen = !!pendingGoal || !!pendingSubstitution;
 
+  // O teclado e o leitor de tela vao direto para o botao que o organizador precisa tocar.
+  const resumeButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (showResumeHint) resumeButton.current?.focus();
+  }, [showResumeHint]);
+
   return (
     <div className="grid gap-4">
+      {/* Escurece o resto da tela; o toque so tira o destaque e nao aciona o que esta embaixo. */}
+      {showResumeHint ? (
+        <div aria-hidden onClick={dismissResumeHint} className="fade-in fixed inset-0 z-45 bg-black/60" />
+      ) : null}
+
       {match ? (
-        <div className="sticky top-14 z-30 -mx-4 bg-night-950/95 px-4 pt-1 pb-3 backdrop-blur">
-          <Scoreboard
-            match={match}
-            remainingMs={remainingMs}
-            goalsToWin={snapshot.gameDay.goalsToWin}
-            streaming={streaming}
-          />
+        // Acima do escurecido (z-45) so enquanto o destaque vale; o toast (z-60) fica acima de tudo.
+        <div
+          className={cn(
+            "sticky top-14 -mx-4 bg-night-950/95 px-4 pt-1 pb-3 backdrop-blur",
+            showResumeHint ? "z-46" : "z-30",
+          )}
+        >
+          <div className={cn(showResumeHint && "opacity-70")}>
+            <Scoreboard
+              match={match}
+              remainingMs={remainingMs}
+              goalsToWin={snapshot.gameDay.goalsToWin}
+              streaming={streaming}
+            />
+          </div>
+
+          {showResumeHint ? (
+            <p role="status" className="mt-2 text-center text-sm font-medium text-pitch-300">
+              Cronômetro parado. Toque em Retomar.
+            </p>
+          ) : null}
 
           {!finished ? (
             <div className="mt-2 grid grid-cols-2 gap-2">
@@ -73,7 +101,9 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
 
               {match.status === "PAUSED" ? (
                 <Button
+                  ref={resumeButton}
                   size="lg"
+                  className={cn(showResumeHint && "resume-attention")}
                   onClick={() => changeState("RESUME")}
                   disabled={busy || remainingMs <= 0 || modalOpen}
                 >
@@ -85,6 +115,7 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
                 <Button
                   variant="secondary"
                   size="lg"
+                  className={cn(showResumeHint && "pointer-events-none opacity-30")}
                   onClick={() => changeState("END")}
                   disabled={busy || modalOpen}
                 >

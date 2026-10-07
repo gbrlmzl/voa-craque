@@ -21,6 +21,10 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
   const [dismissedFinish, setDismissedFinish] = useState<string | null>(null);
   const [pendingGoal, setPendingGoal] = useState<PendingGoal | null>(null);
   const [substitutionOf, setSubstitutionOf] = useState<{ matchId: string; teamId: string } | null>(null);
+  // Qual pausa pediu o destaque do "Retomar". Alem da partida, guarda o relogio
+  // congelado: se outro aparelho retomar e pausar de novo, o relogio e outro e o
+  // destaque antigo nao volta.
+  const [resumeHintFor, setResumeHintFor] = useState<{ matchId: string; remainingMs: number } | null>(null);
 
   const match = snapshot.match;
   // Guarda so os ids e relê o time do snapshot: o modal acompanha a partida ao
@@ -32,6 +36,16 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
   const pendingSubstitution: PendingSubstitution | null = substitutionTeam
     ? { team: substitutionTeam }
     : null;
+  // Derivado, sem efeito: some sozinho se a partida retomar (neste ou em outro
+  // aparelho), acabar, mudar para a proxima ou se um modal abrir.
+  const showResumeHint =
+    !!match &&
+    resumeHintFor?.matchId === match.id &&
+    resumeHintFor.remainingMs === match.remainingMs &&
+    match.status === "PAUSED" &&
+    remainingMs > 0 &&
+    !pendingGoal &&
+    !pendingSubstitution;
   const finished = snapshot.gameDay.status === "FINISHED";
   const showResult =
     !!snapshot.lastFinished &&
@@ -106,6 +120,7 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
 
   /** A troca nao pausa a partida: no futsal ela e volante, com a bola rolando. */
   function startSubstitution(team: LiveTeam) {
+    setResumeHintFor(null);
     if (match) setSubstitutionOf({ matchId: match.id, teamId: team.id });
   }
 
@@ -143,8 +158,9 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
     setSubstitutionOf(null);
   }
 
-  const changeState = (action: "START" | "PAUSE" | "RESUME" | "END") =>
-    call(
+  const changeState = (action: "START" | "PAUSE" | "RESUME" | "END") => {
+    setResumeHintFor(null);
+    return call(
       `/api/matches/${match?.id}/state`,
       {
         method: "POST",
@@ -153,6 +169,7 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
       },
       action === "START" ? "Partida iniciada." : action === "END" ? "Partida encerrada." : undefined,
     );
+  };
 
   /**
    * Gol sempre para o jogo: primeiro pausa (se estiver rolando) e so entao
@@ -160,6 +177,7 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
    */
   async function startGoal(team: LiveTeam, player: LivePlayer) {
     if (!match) return;
+    setResumeHintFor(null);
     if (match.status === "RUNNING") {
       const body = await changeState("PAUSE");
       if (!body) return;
@@ -168,14 +186,24 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
   }
 
   async function confirmGoal(assist: LivePlayer | null) {
-    if (!pendingGoal) return;
+    if (!pendingGoal || !match) return;
     const { team, player } = pendingGoal;
+    const hint = { matchId: match.id, remainingMs: match.remainingMs };
     setPendingGoal(null);
     await recordGoal(team, player, assist);
+    // Mesmo se o POST falhar a partida segue pausada. Marca so depois do await:
+    // no gol decisivo o snapshot ja traz a proxima partida e nada e destacado.
+    setResumeHintFor(hint);
   }
 
+  /** Cancelar a assistencia nao retoma o jogo: a partida continua pausada. */
   function cancelGoal() {
     setPendingGoal(null);
+    if (match) setResumeHintFor({ matchId: match.id, remainingMs: match.remainingMs });
+  }
+
+  function dismissResumeHint() {
+    setResumeHintFor(null);
   }
 
   function dismissFinish() {
@@ -190,6 +218,8 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
     busy,
     finished,
     showResult,
+    showResumeHint,
+    dismissResumeHint,
     pendingGoal,
     startGoal,
     confirmGoal,
