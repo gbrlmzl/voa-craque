@@ -3,6 +3,7 @@
 import { formatClock } from "@/lib/match-engine";
 import { MATCH_STATUS_LABEL, teamColor } from "@/lib/labels";
 import { cn } from "@/components/ui";
+import { useTeamName } from "@/components/providers/PreferencesProvider";
 import type { LiveMatch } from "@/services/live";
 
 export function Scoreboard({
@@ -16,6 +17,7 @@ export function Scoreboard({
   goalsToWin: number;
   streaming: boolean;
 }) {
+  const teamName = useTeamName();
   const home = teamColor(match.home.name);
   const away = teamColor(match.away.name);
   const lowTime = remainingMs <= 60_000 && match.status === "RUNNING";
@@ -37,7 +39,7 @@ export function Scoreboard({
 
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         <div className="text-center">
-          <p className={cn("text-sm font-semibold", home.text)}>Time {match.home.name}</p>
+          <p className={cn("text-sm font-semibold", home.text)}>{teamName(match.home.name)}</p>
           <p className="text-5xl font-black tabular-nums">{match.homeScore}</p>
         </div>
 
@@ -54,7 +56,7 @@ export function Scoreboard({
         </div>
 
         <div className="text-center">
-          <p className={cn("text-sm font-semibold", away.text)}>Time {match.away.name}</p>
+          <p className={cn("text-sm font-semibold", away.text)}>{teamName(match.away.name)}</p>
           <p className="text-5xl font-black tabular-nums">{match.awayScore}</p>
         </div>
       </div>

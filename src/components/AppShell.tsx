@@ -18,6 +18,7 @@ import type { Role } from "@/generated/prisma/client";
 import { logoutAction } from "@/actions/auth";
 import { ROLE_LABEL } from "@/lib/labels";
 import { BrandIcon } from "@/components/BrandIcon";
+import { LiveNowBanner } from "@/components/LiveNowBanner";
 import { Avatar } from "@/components/Player";
 import { SkeletonBlock, SkeletonText } from "@/components/Skeleton";
 import { Button, cn } from "@/components/ui";
@@ -112,7 +113,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 pt-4 pb-28 sm:pb-10">{children}</main>
+      <main className="mx-auto max-w-5xl px-4 pt-4 pb-28 sm:pb-10">
+        {children}
+        {/* Dentro do <main>: o espacador do atalho precisa ficar no fim do conteudo. */}
+        <Suspense fallback={null}>
+          <LiveNowBanner />
+        </Suspense>
+      </main>
 
       <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-night-950/95 backdrop-blur sm:hidden">
         <div className="mx-auto flex max-w-lg items-stretch">

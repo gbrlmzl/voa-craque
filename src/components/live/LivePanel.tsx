@@ -1,15 +1,20 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { ArrowLeftRight, ChevronRight, Pause, Play, Square } from "lucide-react";
 import { Avatar } from "@/components/Player";
-import { Badge, Button, Card, EmptyState, SectionTitle, cn } from "@/components/ui";
-import { MATCH_END_REASON_LABEL, teamColor } from "@/lib/labels";
+import { Button, Card, EmptyState, SectionTitle, cn } from "@/components/ui";
+import { teamColor } from "@/lib/labels";
 import type { LiveMatch, LivePlayer, LiveSnapshot, LiveTeam } from "@/services/live";
 import { FinishGameDayButton } from "@/components/gameday/FinishGameDayButton";
 import { GoalAssistModal } from "@/components/live/GoalAssistModal";
 import { MatchFeed } from "@/components/live/MatchFeed";
+import { MatchResultCard } from "@/components/live/MatchResultCard";
+import { QueueBadges } from "@/components/live/QueueBadges";
 import { Scoreboard } from "@/components/live/Scoreboard";
 import { SubstitutionModal } from "@/components/live/SubstitutionModal";
+import { TeamSummaryModal } from "@/components/live/TeamSummaryModal";
+import { useTeamName } from "@/components/providers/PreferencesProvider";
 import { useLivePanel } from "@/hooks/useLivePanel";
 
 export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: LiveSnapshot }) {
@@ -21,6 +26,11 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
     busy,
     finished,
     showResult,
+    showResumeHint,
+    dismissResumeHint,
+    viewedTeam,
+    viewTeam,
+    closeTeamView,
     pendingGoal,
     startGoal,
     confirmGoal,
@@ -34,18 +44,44 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
   } = useLivePanel(gameDayId, initial);
 
   // Com um modal aberto, o resto do painel nao aceita toque.
-  const modalOpen = !!pendingGoal || !!pendingSubstitution;
+  const modalOpen = !!pendingGoal || !!pendingSubstitution || !!viewedTeam;
+
+  // O teclado e o leitor de tela vao direto para o botao que o organizador precisa tocar.
+  const resumeButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (showResumeHint) resumeButton.current?.focus();
+  }, [showResumeHint]);
 
   return (
     <div className="grid gap-4">
-      {match ? (
-        <div className="sticky top-14 z-30 -mx-4 bg-night-950/95 px-4 pt-1 pb-3 backdrop-blur">
-          <Scoreboard
-            match={match}
-            remainingMs={remainingMs}
-            goalsToWin={snapshot.gameDay.goalsToWin}
-            streaming={streaming}
-          />
+      {/* Escurece o resto da tela; o toque so tira o destaque e nao aciona o que esta embaixo. */}
+      {showResumeHint ? (
+        <div aria-hidden onClick={dismissResumeHint} className="fade-in fixed inset-0 z-45 bg-black/60" />
+      ) : null}
+
+      {/* Com o resultado da partida anterior na tela, o placar da proxima espera: o cartao do resultado e a tela. */}
+      {match && !showResult ? (
+        // Acima do escurecido (z-45) so enquanto o destaque vale; o toast (z-60) fica acima de tudo.
+        <div
+          className={cn(
+            "sticky top-14 -mx-4 bg-night-950/95 px-4 pt-1 pb-3 backdrop-blur",
+            showResumeHint ? "z-46" : "z-30",
+          )}
+        >
+          <div className={cn(showResumeHint && "opacity-70")}>
+            <Scoreboard
+              match={match}
+              remainingMs={remainingMs}
+              goalsToWin={snapshot.gameDay.goalsToWin}
+              streaming={streaming}
+            />
+          </div>
+
+          {showResumeHint ? (
+            <p role="status" className="mt-2 text-center text-sm font-medium text-pitch-300">
+              Cronômetro parado. Toque em Retomar.
+            </p>
+          ) : null}
 
           {!finished ? (
             <div className="mt-2 grid grid-cols-2 gap-2">
@@ -73,7 +109,9 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
 
               {match.status === "PAUSED" ? (
                 <Button
+                  ref={resumeButton}
                   size="lg"
+                  className={cn(showResumeHint && "resume-attention")}
                   onClick={() => changeState("RESUME")}
                   disabled={busy || remainingMs <= 0 || modalOpen}
                 >
@@ -85,6 +123,7 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
                 <Button
                   variant="secondary"
                   size="lg"
+                  className={cn(showResumeHint && "pointer-events-none opacity-30")}
                   onClick={() => changeState("END")}
                   disabled={busy || modalOpen}
                 >
@@ -97,30 +136,22 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
       ) : null}
 
       {showResult && snapshot.lastFinished ? (
-        <Card className="border-pitch-500/40 bg-pitch-500/10">
-          <p className="text-xs tracking-wide text-pitch-300 uppercase">
-            {snapshot.lastFinished.endReason
-              ? MATCH_END_REASON_LABEL[snapshot.lastFinished.endReason]
-              : "Resultado"}
-          </p>
-          <p className="mt-1 text-xl font-bold">
-            {snapshot.lastFinished.result === "DRAW"
-              ? "Empate — os dois saem"
-              : `Time ${snapshot.lastFinished.winnerName} venceu`}
-          </p>
-          <p className="mt-0.5 text-sm text-slate-300">
-            Time {snapshot.lastFinished.homeName} {snapshot.lastFinished.homeScore} x{" "}
-            {snapshot.lastFinished.awayScore} Time {snapshot.lastFinished.awayName}
-          </p>
-
+        <MatchResultCard
+          result={snapshot.lastFinished}
+          next={
+            match && match.status === "SCHEDULED"
+              ? { homeName: match.home.name, awayName: match.away.name }
+              : null
+          }
+        >
           {match && match.status === "SCHEDULED" ? (
-            <Button size="lg" className="mt-3 w-full" onClick={dismissFinish}>
+            <Button size="lg" className="w-full" onClick={dismissFinish}>
               Próxima partida <ChevronRight size={18} />
             </Button>
           ) : (
-            <p className="mt-3 text-sm text-slate-300">Não há próxima partida montada.</p>
+            <p className="text-sm text-slate-300">Não há próxima partida montada.</p>
           )}
-        </Card>
+        </MatchResultCard>
       ) : null}
 
       {finished ? (
@@ -165,16 +196,7 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
         {snapshot.queue.length === 0 ? (
           <EmptyState title="Ninguém na fila" />
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {snapshot.queue.map((team, index) => {
-              const palette = teamColor(team.name);
-              return (
-                <Badge key={team.id} tone="neutral" className={cn("text-sm", palette.text)}>
-                  {index + 1}º · Time {team.name}
-                </Badge>
-              );
-            })}
-          </div>
+          <QueueBadges queue={snapshot.queue} disabled={busy || modalOpen} onSelect={viewTeam} />
         )}
       </section>
 
@@ -199,6 +221,16 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
           busy={busy}
           onConfirm={confirmGoal}
           onCancel={cancelGoal}
+        />
+      ) : null}
+
+      {viewedTeam ? (
+        <TeamSummaryModal
+          gameDayId={gameDayId}
+          team={viewedTeam}
+          refreshKey={snapshot.lastFinished?.id ?? null}
+          expectedPlayers={match?.home.roster.length}
+          onClose={closeTeamView}
         />
       ) : null}
 
@@ -231,6 +263,7 @@ function TeamPanel({
   onGoal: (team: LiveTeam, player: LivePlayer) => void;
   onSubstitution: (team: LiveTeam) => void;
 }) {
+  const teamName = useTeamName();
   const palette = teamColor(team.name);
   const score = team.id === match.home.id ? match.homeScore : match.awayScore;
 
@@ -238,7 +271,7 @@ function TeamPanel({
     <Card className={cn("border p-3", palette.border)}>
       <div className="mb-2 flex items-center gap-2">
         <span className={cn("flex items-center gap-2 font-semibold", palette.text)}>
-          <span className={cn("h-2.5 w-2.5 rounded-full", palette.dot)} /> Time {team.name}
+          <span className={cn("h-2.5 w-2.5 rounded-full", palette.dot)} /> {teamName(team.name)}
         </span>
         <Button
           variant="secondary"

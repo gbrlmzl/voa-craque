@@ -1,6 +1,7 @@
 "use client";
 
 import { Card } from "@/components/ui";
+import { useTeamName } from "@/components/providers/PreferencesProvider";
 import { matchMinute } from "@/lib/match-engine";
 import { buildMatchFeed } from "@/lib/substitution";
 import type { LiveEvent, LiveSubstitution } from "@/services/live";
@@ -18,6 +19,7 @@ export function MatchFeed({
   substitutions: LiveSubstitution[];
   limit?: number;
 }) {
+  const teamName = useTeamName();
   const feed = buildMatchFeed(events, substitutions);
   const shown = limit ? feed.slice(0, limit) : feed;
 
@@ -31,7 +33,7 @@ export function MatchFeed({
             </span>
             <span>{entry.item.type === "GOAL" ? "⚽" : "👟"}</span>
             <span className="truncate">{entry.item.playerName}</span>
-            <span className="ml-auto shrink-0 text-xs text-slate-500">Time {entry.item.teamName}</span>
+            <span className="ml-auto shrink-0 text-xs text-slate-500">{teamName(entry.item.teamName)}</span>
           </p>
         ) : (
           <p key={`sub-${entry.item.id}`} className="flex items-center gap-2 text-sm text-slate-300">
@@ -43,7 +45,7 @@ export function MatchFeed({
               <span className="text-pitch-300">Entra {entry.item.inName}</span>,{" "}
               <span className="text-rose-300">sai {entry.item.outName}</span>
             </span>
-            <span className="ml-auto shrink-0 text-xs text-slate-500">Time {entry.item.teamName}</span>
+            <span className="ml-auto shrink-0 text-xs text-slate-500">{teamName(entry.item.teamName)}</span>
           </p>
         ),
       )}

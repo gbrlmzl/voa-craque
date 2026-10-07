@@ -12,6 +12,7 @@ import {
 } from "@/lib/labels";
 import { Badge, Button, Card, EmptyState, SectionTitle } from "@/components/ui";
 import { PlayerChip, Stars } from "@/components/Player";
+import { TeamName } from "@/components/TeamName";
 import { RegistrationPanel } from "@/components/gameday/RegistrationPanel";
 import { PaymentList, type PaymentRow } from "@/components/gameday/PaymentList";
 import { FinishGameDayButton } from "@/components/gameday/FinishGameDayButton";
@@ -63,6 +64,8 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
           },
         },
       },
+      // So interessa saber se existe alguma partida alem da inicial: mesma regra de assertTeamsEditable.
+      matches: { where: { status: { not: "SCHEDULED" } }, select: { id: true }, take: 1 },
     },
   });
 
@@ -85,6 +88,7 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
   }));
 
   const hasTeams = gameDay.teams.length > 0;
+  const teamsLocked = gameDay.status === "FINISHED" || gameDay.matches.length > 0;
   const liveHref = admin ? `/game-days/${id}/panel` : `/game-days/${id}/live`;
 
   return (
@@ -149,11 +153,18 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
 
       {admin ? (
         <div className="grid gap-2 sm:grid-cols-2">
-          <Link href={`/game-days/${id}/teams`}>
-            <Button variant="secondary" size="lg" className="w-full">
+          {teamsLocked ? (
+            // Sem o Link: um botao desabilitado dentro de <a> ainda navega.
+            <Button variant="secondary" size="lg" className="w-full" disabled aria-disabled="true">
               <Shuffle size={18} /> {hasTeams ? "Refazer times" : "Montar times"}
             </Button>
-          </Link>
+          ) : (
+            <Link href={`/game-days/${id}/teams`}>
+              <Button variant="secondary" size="lg" className="w-full">
+                <Shuffle size={18} /> {hasTeams ? "Refazer times" : "Montar times"}
+              </Button>
+            </Link>
+          )}
           <Link href={`/game-days/${id}/edit`}>
             <Button variant="secondary" size="lg" className="w-full">
               <Pencil size={18} /> Editar pelada
@@ -193,7 +204,7 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
                 <Card key={team.id} className={`border ${palette.border}`}>
                   <div className="mb-2 flex items-center justify-between">
                     <span className={`flex items-center gap-2 font-semibold ${palette.text}`}>
-                      <span className={`h-2.5 w-2.5 rounded-full ${palette.dot}`} /> Time {team.name}
+                      <span className={`h-2.5 w-2.5 rounded-full ${palette.dot}`} /> <TeamName name={team.name} />
                     </span>
                     <span className="text-xs text-slate-500">força {team.averageStrength}</span>
                   </div>

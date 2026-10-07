@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, Check } from "lucide-react";
 import { Avatar } from "@/components/Player";
 import { Button, Card, cn } from "@/components/ui";
 import { teamColor } from "@/lib/labels";
+import { useTeamName } from "@/components/providers/PreferencesProvider";
 import {
   evaluateSubstitution,
   groupBench,
@@ -36,6 +37,7 @@ export function SubstitutionModal({
   onConfirm: (selection: SubstitutionSelection) => void;
   onCancel: () => void;
 }) {
+  const teamName = useTeamName();
   const [outId, setOutId] = useState<string | null>(null);
   const [inId, setInId] = useState<string | null>(null);
   const [wantsPermanent, setWantsPermanent] = useState(false);
@@ -86,14 +88,14 @@ export function SubstitutionModal({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Substituição do Time ${team.name}`}
+      aria-label={`Substituição do ${teamName(team.name)}`}
       className="fixed inset-0 z-50 grid place-items-end bg-black/70 p-4 sm:place-items-center"
     >
       <Card className="flex max-h-[calc(100dvh-2rem)] w-full max-w-sm flex-col gap-3 border-white/15 bg-night-900">
         <div className="flex items-center justify-between gap-2">
           <p className="font-semibold text-slate-100">Substituição</p>
           <span className={cn("flex items-center gap-2 text-sm font-semibold", palette.text)}>
-            <span className={cn("h-2.5 w-2.5 rounded-full", palette.dot)} /> Time {team.name}
+            <span className={cn("h-2.5 w-2.5 rounded-full", palette.dot)} /> {teamName(team.name)}
           </span>
         </div>
 
@@ -156,7 +158,7 @@ export function SubstitutionModal({
               return (
                 <BenchGroup
                   key={group.teamId}
-                  title={`Time ${name}`}
+                  title={teamName(name)}
                   dot={queuePalette.dot}
                   titleClassName={queuePalette.text}
                 >

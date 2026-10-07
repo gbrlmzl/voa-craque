@@ -2,7 +2,9 @@ import type { GameDayStatus, MatchEndReason, MatchEventType, MatchStatus } from 
 import { prisma } from "@/lib/prisma";
 import { notFound } from "@/lib/http";
 import { remainingAt } from "@/lib/match-engine";
+import { pairGoalsWithAssists } from "@/lib/match-event";
 import { buildBench, type BenchPlayer } from "@/lib/substitution";
+import { summarizeTeam, type FinishedMatchRow } from "@/lib/team-record";
 import { syncMatchClock } from "@/services/match";
 
 export type LivePlayer = {
@@ -69,6 +71,15 @@ export type LiveMatch = {
   bench: LiveBenchPlayer[];
 };
 
+/** Um gol da partida encerrada, com quem deu a assistencia (null no gol individual). */
+export type FinishedGoal = {
+  id: string;
+  teamName: string;
+  playerName: string;
+  assistName: string | null;
+  elapsedMs: number;
+};
+
 export type FinishedMatch = {
   id: string;
   orderIndex: number;
@@ -79,6 +90,10 @@ export type FinishedMatch = {
   result: "HOME" | "AWAY" | "DRAW" | null;
   endReason: MatchEndReason | null;
   winnerName: string | null;
+  /** Tempo jogado, do apito inicial ao fim (pode ser menor que a duracao). */
+  playedMs: number;
+  /** Gols em ordem, so da ultima partida encerrada: nao incha o snapshot do SSE. */
+  goals: FinishedGoal[];
 };
 
 export type LiveStanding = {
@@ -142,7 +157,7 @@ export async function buildLiveSnapshot(gameDayId: string): Promise<LiveSnapshot
           events: {
             orderBy: { createdAt: "desc" },
             include: {
-              user: { select: { username: true, profile: { select: { name: true } } } },
+              user: { select: { username: true, profile: { select: { name: true, nickname: true } } } },
               team: { select: { name: true } },
             },
           },
@@ -278,42 +293,21 @@ export async function buildLiveSnapshot(gameDayId: string): Promise<LiveSnapshot
       }
     : null;
 
-  const standings = new Map<string, LiveStanding>();
-  for (const team of gameDay.teams) {
-    standings.set(team.id, {
-      teamId: team.id,
-      name: team.name,
-      played: 0,
-      won: 0,
-      drawn: 0,
-      lost: 0,
-      goalsFor: 0,
-      goalsAgainst: 0,
-    });
-  }
-  for (const finished of finishedMatches) {
-    const home = standings.get(finished.homeTeamId);
-    const away = standings.get(finished.awayTeamId);
-    if (!home || !away) continue;
-
-    home.played += 1;
-    away.played += 1;
-    home.goalsFor += finished.homeScore;
-    home.goalsAgainst += finished.awayScore;
-    away.goalsFor += finished.awayScore;
-    away.goalsAgainst += finished.homeScore;
-
-    if (finished.result === "HOME") {
-      home.won += 1;
-      away.lost += 1;
-    } else if (finished.result === "AWAY") {
-      away.won += 1;
-      home.lost += 1;
-    } else {
-      home.drawn += 1;
-      away.drawn += 1;
-    }
-  }
+  // Mesma regra do modal do time (lib/team-record.ts), para as duas telas nunca divergirem.
+  const finishedRows: FinishedMatchRow[] = finishedMatches.map((finished) => ({
+    id: finished.id,
+    orderIndex: finished.orderIndex,
+    homeTeamId: finished.homeTeamId,
+    awayTeamId: finished.awayTeamId,
+    homeScore: finished.homeScore,
+    awayScore: finished.awayScore,
+    result: finished.result,
+  }));
+  const standings: LiveStanding[] = gameDay.teams.map((team) => ({
+    teamId: team.id,
+    name: team.name,
+    ...summarizeTeam(team.id, finishedRows).record,
+  }));
 
   return {
     gameDay: {
@@ -337,13 +331,32 @@ export async function buildLiveSnapshot(gameDayId: string): Promise<LiveSnapshot
           result: lastFinishedRow.result,
           endReason: lastFinishedRow.endReason,
           winnerName: lastFinishedRow.winnerTeam?.name ?? null,
+          playedMs: Math.max(0, lastFinishedRow.durationMs - lastFinishedRow.remainingMs),
+          // Mesmo nome exibido do painel e do toast (apelido primeiro), nao o do feed de lances.
+          goals: pairGoalsWithAssists(
+            lastFinishedRow.events.map((event) => ({
+              id: event.id,
+              type: event.type,
+              teamId: event.teamId,
+              teamName: event.team.name,
+              elapsedMs: event.elapsedMs,
+              createdAt: event.createdAt.toISOString(),
+              playerName: event.user.profile?.nickname || event.user.profile?.name || event.user.username,
+            })),
+          ).map(({ goal, assist }) => ({
+            id: goal.id,
+            teamName: goal.teamName,
+            playerName: goal.playerName,
+            assistName: assist?.playerName ?? null,
+            elapsedMs: goal.elapsedMs,
+          })),
         }
       : null,
     queue: gameDay.teams
       .filter((team) => team.queuePosition !== null)
       .sort((a, b) => (a.queuePosition ?? 0) - (b.queuePosition ?? 0))
       .map((team) => ({ id: team.id, name: team.name })),
-    standings: [...standings.values()].sort(
+    standings: standings.sort(
       (a, b) => b.won - a.won || b.goalsFor - b.goalsAgainst - (a.goalsFor - a.goalsAgainst),
     ),
     serverTime: now,
