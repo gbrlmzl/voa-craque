@@ -1,6 +1,7 @@
 export { cn } from "@/lib/cn";
 export { Button } from "@/components/ui/Button";
 export { Card } from "@/components/ui/Card";
+export { Modal } from "@/components/ui/Modal";
 export { SectionTitle } from "@/components/ui/SectionTitle";
 export { Badge } from "@/components/ui/Badge";
 export { Field } from "@/components/ui/Field";

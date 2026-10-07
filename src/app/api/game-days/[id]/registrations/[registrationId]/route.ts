@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { badRequest, notFound, route } from "@/lib/http";
+import { notFound, route } from "@/lib/http";
 import { requireAdmin } from "@/lib/session";
 import { paymentDecisionSchema } from "@/lib/validation";
 import { AUDIT_ACTIONS, recordAudit } from "@/lib/audit";
@@ -29,9 +29,6 @@ export async function PATCH(
       include: { user: { select: { username: true, profile: { select: { name: true } } } } },
     });
     if (!before || before.gameDayId !== id) throw notFound("Inscrição não encontrada.");
-    if (input.paymentStatus === "REJECTED" && !input.rejectedReason) {
-      throw badRequest("Diga o motivo da recusa.");
-    }
 
     const registration = await prisma.registration.update({
       where: { id: registrationId },
