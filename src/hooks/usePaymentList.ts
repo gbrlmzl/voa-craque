@@ -21,6 +21,7 @@ export function usePaymentList(gameDayId: string) {
   const [busy, setBusy] = useState<string | null>(null);
   const [viewing, setViewing] = useState<PaymentRow | null>(null);
   const [rejecting, setRejecting] = useState<PaymentRow | null>(null);
+  const [removing, setRemoving] = useState<PaymentRow | null>(null);
 
   async function decide(row: PaymentRow, status: PaymentRow["paymentStatus"], rejectedReason = "") {
     setBusy(row.id);
@@ -49,6 +50,24 @@ export function usePaymentList(gameDayId: string) {
     } finally {
       setBusy(null);
     }
+
+  }
+
+  async function remove(row: PaymentRow) {
+    setBusy(row.id);
+    try {
+      const response = await fetch(`/api/game-days/${gameDayId}/registrations/${row.id}`, { method: "DELETE" });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Não foi possível remover.");
+      setRemoving(null);
+      setOpen(false);
+      toast.show({ message: `Inscrição de ${row.name} removida.`, tone: "neutral" });
+      router.refresh();
+    } catch (error) {
+      toast.show({ message: (error as Error).message, tone: "error" });
+    } finally {
+      setBusy(null);
+    }
   }
 
   return {
@@ -61,5 +80,8 @@ export function usePaymentList(gameDayId: string) {
     setViewing,
     rejecting,
     setRejecting,
+    removing,
+    setRemoving,
+    remove,
   };
 }

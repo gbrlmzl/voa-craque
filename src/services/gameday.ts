@@ -73,3 +73,34 @@ export async function finishGameDay(gameDayId: string, actor: CurrentUser): Prom
   });
   publishGameDay(gameDayId, "gameday-finished");
 }
+
+export async function restoreGameDay(gameDayId: string, actor: CurrentUser): Promise<void> {
+  const gameDay = await prisma.gameDay.findUnique({
+    where: { id: gameDayId },
+    include: { matches: { where: { status: { not: "SCHEDULED" } }, select: { id: true } } },
+  });
+  if (!gameDay) throw notFound("Pelada não encontrada.");
+  if (gameDay.status !== "TEAMS_SET") {
+    throw conflict("Só é possível restaurar uma pelada com times definidos.");
+  }
+  if (gameDay.matches.length > 0) {
+    throw conflict("A pelada já começou. Não dá para restaurá-la agora.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.match.deleteMany({ where: { gameDayId } });
+    await tx.gameDayReserve.deleteMany({ where: { gameDayId } });
+    await tx.team.deleteMany({ where: { gameDayId } });
+    await tx.gameDay.update({ where: { id: gameDayId }, data: { status: "OPEN" } });
+  });
+
+  await recordAudit(actor, {
+    action: AUDIT_ACTIONS.GAMEDAY_RESTORED,
+    entity: "GameDay",
+    entityId: gameDayId,
+    summary: `${gameDay.title} restaurada para inscrições`,
+    before: { status: gameDay.status },
+    after: { status: "OPEN" },
+  });
+  publishGameDay(gameDayId, "gameday-restored");
+}
