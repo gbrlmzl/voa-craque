@@ -1,12 +1,13 @@
 "use client";
 
-import { Check, Receipt, RotateCcw, Wallet, X } from "lucide-react";
+import { Check, Receipt, RotateCcw, Trash2, Wallet, X } from "lucide-react";
 import { PlayerChip } from "@/components/Player";
 import { Badge, Button, EmptyState, Modal } from "@/components/ui";
 import { PAYMENT_METHOD_LABEL, PAYMENT_STATUS_LABEL } from "@/lib/labels";
 import { type PaymentRow, usePaymentList } from "@/hooks/usePaymentList";
 import { ReceiptModal } from "@/components/gameday/ReceiptModal";
 import { RejectReasonModal } from "@/components/gameday/RejectReasonModal";
+import { RemoveRegistrationModal } from "@/components/gameday/RemoveRegistrationModal";
 
 export type { PaymentRow } from "@/hooks/usePaymentList";
 
@@ -17,7 +18,20 @@ const STATUS_TONE = { PENDING: "warn", CONFIRMED: "good", REJECTED: "bad" } as c
  * num modal para nao ocupar a pagina; o botao resume o que falta conferir.
  */
 export function PaymentList({ gameDayId, rows }: { gameDayId: string; rows: PaymentRow[] }) {
-  const { open, openModal, closeModal, busy, decide, viewing, setViewing, rejecting, setRejecting } =
+  const {
+    open,
+    openModal,
+    closeModal,
+    busy,
+    decide,
+    viewing,
+    setViewing,
+    rejecting,
+    setRejecting,
+    removing,
+    setRemoving,
+    remove,
+  } =
     usePaymentList(gameDayId);
   const pending = rows.filter((row) => row.paymentStatus === "PENDING").length;
   const summary: { tone: "neutral" | "warn" | "good"; label: string } =
@@ -41,7 +55,7 @@ export function PaymentList({ gameDayId, rows }: { gameDayId: string; rows: Paym
       <Modal
         open={open}
         onClose={() => {
-          if (!viewing && !rejecting) closeModal();
+          if (!viewing && !rejecting && !removing) closeModal();
         }}
         title="Pagamentos"
         className="flex max-h-[85dvh] max-w-md flex-col"
@@ -113,6 +127,15 @@ export function PaymentList({ gameDayId, rows }: { gameDayId: string; rows: Paym
                       </Button>
                     </>
                   )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy === row.id}
+                    onClick={() => setRemoving(row)}
+                    aria-label={`Remover inscrição de ${row.name}`}
+                  >
+                    <Trash2 size={16} />
+                  </Button>
                 </div>
               </div>
             ))}
@@ -147,6 +170,15 @@ export function PaymentList({ gameDayId, rows }: { gameDayId: string; rows: Paym
           busy={busy === rejecting.id}
           onConfirm={(reason) => decide(rejecting, "REJECTED", reason)}
           onCancel={() => setRejecting(null)}
+        />
+      ) : null}
+
+      {removing ? (
+        <RemoveRegistrationModal
+          name={removing.name}
+          busy={busy === removing.id}
+          onConfirm={() => void remove(removing)}
+          onCancel={() => setRemoving(null)}
         />
       ) : null}
     </>
