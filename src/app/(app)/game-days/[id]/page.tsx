@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, MapPin, Pencil, Radio, Shuffle, Trophy, Users } from "lucide-react";
+import { CalendarDays, MapPin, Radio, Settings, Shuffle, Trophy, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { isAdmin, pageUserWithProfile } from "@/lib/session";
 import {
@@ -88,7 +88,6 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
   }));
 
   const hasTeams = gameDay.teams.length > 0;
-  const teamsLocked = gameDay.status === "FINISHED" || gameDay.matches.length > 0;
   const liveHref = admin ? `/game-days/${id}/panel` : `/game-days/${id}/live`;
 
   return (
@@ -97,6 +96,12 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="truncate text-2xl font-bold tracking-tight">{gameDay.title}</h1>
+
+            <p className="mt-1.5 mb-1.5 flex items-center gap-1.5 text-sm text-slate-400">
+              <Badge tone={gameDay.status === "LIVE" ? "good" : "info"}>
+                {GAMEDAY_STATUS_LABEL[gameDay.status]}
+              </Badge>
+            </p>
             <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-400">
               <CalendarDays size={15} /> {formatDateTime(gameDay.scheduledAt)}
             </p>
@@ -104,9 +109,18 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
               <MapPin size={15} /> {gameDay.location}
             </p>
           </div>
-          <Badge tone={gameDay.status === "LIVE" ? "good" : "info"}>
-            {GAMEDAY_STATUS_LABEL[gameDay.status]}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {admin ? (
+              <Link
+                href={`/game-days/${id}/settings`}
+                aria-label="Configurações da pelada"
+                title="Configurações da pelada"
+                className="touch-target inline-flex items-center justify-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white"
+              >
+                <Settings size={24} />
+              </Link>
+            ) : null}
+          </div>
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
@@ -151,26 +165,12 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
         </Link>
       ) : null}
 
-      {admin ? (
-        <div className="grid gap-2 sm:grid-cols-2">
-          {teamsLocked ? (
-            // Sem o Link: um botao desabilitado dentro de <a> ainda navega.
-            <Button variant="secondary" size="lg" className="w-full" disabled aria-disabled="true">
-              <Shuffle size={18} /> {hasTeams ? "Refazer times" : "Montar times"}
-            </Button>
-          ) : (
-            <Link href={`/game-days/${id}/teams`}>
-              <Button variant="secondary" size="lg" className="w-full">
-                <Shuffle size={18} /> {hasTeams ? "Refazer times" : "Montar times"}
-              </Button>
-            </Link>
-          )}
-          <Link href={`/game-days/${id}/edit`}>
-            <Button variant="secondary" size="lg" className="w-full">
-              <Pencil size={18} /> Editar pelada
-            </Button>
-          </Link>
-        </div>
+      {admin && gameDay.status === "OPEN" ? (
+        <Link href={`/game-days/${id}/teams`}>
+          <Button variant="secondary" size="lg" className="w-full">
+            <Shuffle size={18} /> Montar times
+          </Button>
+        </Link>
       ) : null}
 
       {gameDay.status !== "FINISHED" ? (
@@ -245,7 +245,9 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
       ) : null}
 
       {admin ? (
-        <PaymentList gameDayId={gameDay.id} rows={paymentRows} />
+        <div className="grid gap-2">
+          <PaymentList gameDayId={gameDay.id} rows={paymentRows} />
+        </div>
       ) : gameDay.status !== "FINISHED" ? (
         <section>
           <SectionTitle hint={`${gameDay.registrations.length}/${gameDay.maxPlayers}`}>
