@@ -89,6 +89,12 @@ export const registrationSchema = z.object({
   receiptUrl: z.string().trim().max(500).optional().or(z.literal("")),
 });
 
+export const adminRegistrationSchema = z.object({
+  userIds: z.array(z.string().min(1)).min(1, "Escolha pelo menos um jogador.").max(50),
+  paymentMethod: z.enum(["PIX", "ON_SITE"], { message: "Escolha a forma de pagamento." }),
+  alreadyPaid: z.boolean().default(false),
+});
+
 export const paymentDecisionSchema = z.object({
   paymentStatus: z.enum(["PENDING", "CONFIRMED", "REJECTED"]),
   rejectedReason: z.string().trim().max(200).optional().or(z.literal("")),

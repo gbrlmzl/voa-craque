@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/session";
 import { paymentDecisionSchema } from "@/lib/validation";
 import { AUDIT_ACTIONS, recordAudit } from "@/lib/audit";
 import { publishGameDay } from "@/lib/realtime";
+import { removeRegistrationByAdmin } from "@/services/registrations";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,18 @@ export async function PATCH(
     });
     publishGameDay(id, "payment-updated");
 
+    return { ok: true };
+  });
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  ctx: { params: Promise<{ id: string; registrationId: string }> },
+) {
+  return route(async () => {
+    const admin = await requireAdmin();
+    const { id, registrationId } = await ctx.params;
+    await removeRegistrationByAdmin(id, registrationId, admin);
     return { ok: true };
   });
 }
