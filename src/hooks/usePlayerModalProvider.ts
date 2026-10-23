@@ -2,6 +2,34 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+export type RatingHistoryEntry = {
+  gameDayId: string;
+  gameDayTitle: string;
+  date: string;
+  delta: number;
+  mmrAfter: number;
+  resultDelta: number;
+  attackDelta: number;
+  defenseDelta: number;
+  normalizeDelta: number;
+  stakeFactor: number;
+  /** Estrela do perfil que valeu no fator de aposta daquela pelada; nula se nao havia. */
+  starsUsed: number | null;
+  capped: boolean;
+  goals: number;
+  assists: number;
+  matches: number;
+};
+
+/** `mmr`, `peak` e `history` so chegam para o organizador (D11 = C); a posicao e para todos. */
+export type PlayerRatingDetail = {
+  rank: number;
+  gameDays: number;
+  mmr: number | null;
+  peak: number | null;
+  history: RatingHistoryEntry[] | null;
+};
+
 export type PlayerDetail = {
   userId: string;
   name: string;
@@ -14,6 +42,7 @@ export type PlayerDetail = {
   heightCm: number;
   weightKg: number;
   stars: number | null;
+  rating: PlayerRatingDetail | null;
   stats: { goals: number; assists: number; played: number; won: number; winRate: number };
 };
 

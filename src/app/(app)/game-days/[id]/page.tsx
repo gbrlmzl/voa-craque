@@ -73,7 +73,7 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
 
   const myStats =
     gameDay.status === "FINISHED"
-      ? (await buildGameDayStats(gameDay.id)).find((row) => row.userId === user.id)
+      ? (await buildGameDayStats(gameDay.id, { canSeeMmr: false })).find((row) => row.userId === user.id)
       : undefined;
 
   const myRegistration = gameDay.registrations.find((row) => row.userId === user.id) ?? null;

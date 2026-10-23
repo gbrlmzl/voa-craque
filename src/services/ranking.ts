@@ -30,6 +30,27 @@ export type RankingRow = {
   mmrDelta: number | null;
 };
 
+/** Ordem do ranking geral: MMR do maior para o menor; empate no numero desempata pelo nome. */
+function compareMmr(a: { mmr: number; name: string }, b: { mmr: number; name: string }): number {
+  return b.mmr - a.mmr || a.name.localeCompare(b.name, "pt-BR");
+}
+
+/**
+ * Posicao do jogador no ranking geral, a mesma que a tabela de /ranking mostra.
+ * Nula se ele nao esta no ranking (inativo, sem perfil completo ou sem MMR).
+ */
+export async function mmrRankOf(userId: string): Promise<number | null> {
+  const ratings = await prisma.playerRating.findMany({
+    where: { user: { active: true, profile: { completed: true } } },
+    select: { userId: true, mmr: true, user: { select: { username: true, profile: { select: { name: true } } } } },
+  });
+  const ranked = ratings
+    .map((rating) => ({ userId: rating.userId, mmr: rating.mmr, name: rating.user.profile?.name ?? rating.user.username }))
+    .sort(compareMmr);
+  const index = ranked.findIndex((entry) => entry.userId === userId);
+  return index === -1 ? null : index + 1;
+}
+
 /**
  * Ranking a partir das partidas ja encerradas. Partida em andamento so entra na
  * conta depois que acaba, igual ao que o painel ao vivo mostra.
@@ -127,7 +148,7 @@ export async function buildRanking(options: { showMmrDelta: boolean }): Promise<
 
   // Ranking geral: so o MMR ordena. Empate no numero desempata pelo nome.
   const byMmr = (a: { userId: string; mmr: number }, b: { userId: string; mmr: number }) =>
-    b.mmr - a.mmr || rows.get(a.userId)!.name.localeCompare(rows.get(b.userId)!.name, "pt-BR");
+    compareMmr({ mmr: a.mmr, name: rows.get(a.userId)!.name }, { mmr: b.mmr, name: rows.get(b.userId)!.name });
   const rated = ratings.filter((rating) => rows.has(rating.userId));
   const ranked = [...rated].sort(byMmr);
 

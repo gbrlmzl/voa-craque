@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
-import { Flame, Trophy } from "lucide-react";
+import { Award, Flame, Trophy } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { formatDateTime, formatPercent } from "@/lib/labels";
+import { formatDateTime, formatMmrDelta, formatPercent } from "@/lib/labels";
+import { getCurrentUser, isAdmin } from "@/lib/session";
 import { Avatar } from "@/components/Player";
 import { Card, EmptyState, SectionTitle } from "@/components/ui";
 import { buildGameDayStats } from "@/services/gameday-stats";
@@ -23,7 +24,9 @@ export default async function GameDayStatsPage({ params }: { params: Promise<{ i
 
   if (!gameDay || gameDay.status !== "FINISHED") notFound();
 
-  const stats = await buildGameDayStats(gameDay.id);
+  // A pagina e publica; o numero do movimento de MMR so aparece para o organizador logado.
+  const canSeeMmr = isAdmin(await getCurrentUser());
+  const stats = await buildGameDayStats(gameDay.id, { canSeeMmr });
   const sorted = [...stats].sort(
     (a, b) => b.goals - a.goals || b.assists - a.assists || b.winRate - a.winRate || a.name.localeCompare(b.name, "pt-BR"),
   );
@@ -51,9 +54,10 @@ export default async function GameDayStatsPage({ params }: { params: Promise<{ i
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5 truncate font-medium text-slate-100">
                   <span className="truncate">{row.nickname || row.name}</span>
-                  {row.topScorer ? <Flame size={14} className="shrink-0 text-amber-400" /> : null}
+                  {row.topScorer ? <Flame size={14} className="shrink-0 text-amber-400" aria-label="Artilheiro" /> : null}
+                  {row.mvp ? <Award size={14} className="shrink-0 text-pitch-400" aria-label="MVP da pelada" /> : null}
                 </span>
-                <span className="block truncate text-xs text-slate-500">
+                <span className="block text-xs text-slate-500">
                   {row.played} {row.played === 1 ? "jogo" : "jogos"} · {row.won}{" "}
                   {row.won === 1 ? "vitória" : "vitórias"} · {formatPercent(row.winRate)}
                 </span>
@@ -62,6 +66,19 @@ export default async function GameDayStatsPage({ params }: { params: Promise<{ i
                 <span>{row.goals} gols</span>
                 <span>{row.assists} assist.</span>
               </span>
+              {row.mmrDelta !== null ? (
+                <span
+                  className={`w-9 shrink-0 text-right text-sm font-semibold tabular-nums ${
+                    Math.round(row.mmrDelta) > 0
+                      ? "text-pitch-400"
+                      : Math.round(row.mmrDelta) < 0
+                        ? "text-rose-400"
+                        : "text-slate-500"
+                  }`}
+                >
+                  {formatMmrDelta(row.mmrDelta)}
+                </span>
+              ) : null}
             </div>
           ))}
         </Card>

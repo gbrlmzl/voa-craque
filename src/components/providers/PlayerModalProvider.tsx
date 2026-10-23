@@ -4,6 +4,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Avatar, Stars } from "@/components/Player";
+import { PlayerRatingCard } from "@/components/PlayerRatingCard";
 import { type ModalApi, usePlayerModalProvider } from "@/hooks/usePlayerModalProvider";
 
 export type { PlayerDetail } from "@/hooks/usePlayerModalProvider";
@@ -30,7 +31,7 @@ export function PlayerModalProvider({ children }: { children: ReactNode }) {
           onClick={close}
         >
           <div
-            className="snack-in w-full max-w-md rounded-t-3xl border border-white/10 bg-night-900 p-5 sm:rounded-3xl"
+            className="snack-in max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-white/10 bg-night-900 p-5 sm:rounded-3xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-start justify-between">
@@ -59,6 +60,8 @@ export function PlayerModalProvider({ children }: { children: ReactNode }) {
                     </div>
                   </div>
                 </div>
+
+                {player.rating ? <PlayerRatingCard rating={player.rating} /> : null}
 
                 <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                   <Detail label="Posição" value={player.positionLabel} />

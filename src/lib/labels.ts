@@ -159,9 +159,15 @@ export function formatMmrDelta(delta: number): string {
   return "0";
 }
 
-/** Estrelas com virgula: "3,5". */
+/** Estrelas com virgula e sem casa inutil: "3,5" e "4". */
 export function formatStars(stars: number): string {
-  return stars.toFixed(1).replace(".", ",");
+  return Number.isInteger(stars) ? String(stars) : stars.toFixed(1).replace(".", ",");
+}
+
+/** Fator de aposta com duas casas e a terceira so quando existe (meia estrela): "1,30", "1,075". */
+export function formatStakeFactor(factor: number): string {
+  const text = factor.toFixed(3);
+  return (text.endsWith("0") ? text.slice(0, -1) : text).replace(".", ",");
 }
 
 /** Pontos de MMR com uma casa e o sinal certo: "+10,2", "−2,4". Para a decomposicao. */
