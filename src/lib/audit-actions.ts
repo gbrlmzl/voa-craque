@@ -35,6 +35,10 @@ export const AUDIT_ACTIONS = {
   MATCH_SUBSTITUTION: "MATCH_SUBSTITUTION",
   MATCH_SUBSTITUTION_UNDONE: "MATCH_SUBSTITUTION_UNDONE",
   SYSTEM_SETTINGS_UPDATED: "SYSTEM_SETTINGS_UPDATED",
+  RATING_APPLIED: "RATING_APPLIED",
+  RATING_SKIPPED: "RATING_SKIPPED",
+  RATING_RECOMPUTED: "RATING_RECOMPUTED",
+  RATING_ADJUSTED: "RATING_ADJUSTED",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
@@ -71,6 +75,10 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   MATCH_SUBSTITUTION: "Substituição registrada",
   MATCH_SUBSTITUTION_UNDONE: "Substituição desfeita",
   SYSTEM_SETTINGS_UPDATED: "Configuração do sistema alterada",
+  RATING_APPLIED: "MMR da pelada aplicado",
+  RATING_SKIPPED: "MMR da pelada não aplicado",
+  RATING_RECOMPUTED: "MMR recomputado",
+  RATING_ADJUSTED: "MMR ajustado na mão",
 };
 
 export const AUDIT_ENTITIES = [
@@ -83,6 +91,7 @@ export const AUDIT_ENTITIES = [
   "MatchEvent",
   "MatchSubstitution",
   "SystemSetting",
+  "PlayerRating",
 ] as const;
 
 export type AuditEntity = (typeof AUDIT_ENTITIES)[number];
