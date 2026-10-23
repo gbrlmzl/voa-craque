@@ -3,6 +3,7 @@
 import { ChevronDown, Search } from "lucide-react";
 import { Avatar, Stars } from "@/components/Player";
 import { Button, Card, EmptyState, Input, cn } from "@/components/ui";
+import { formatDate, formatMmr } from "@/lib/labels";
 import { type EvaluationPlayer, usePlayerEvaluation } from "@/hooks/usePlayerEvaluation";
 import { usePlayerEvaluationRow } from "@/hooks/usePlayerEvaluationRow";
 
@@ -68,7 +69,17 @@ function PlayerRow({
           <p className="truncate text-xs text-slate-500">{player.positionLabel}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <Stars value={player.stars} size={13} />
+            {player.stars !== null ? (
+              <span className="text-xs text-slate-500">
+                {player.starsUpdatedAt ? `avaliado em ${formatDate(player.starsUpdatedAt)}` : "sem data de avaliação"}
+              </span>
+            ) : null}
           </div>
+          {player.mmr !== null && player.mmrRank !== null ? (
+            <p className="mt-0.5 text-xs text-slate-600">
+              {player.mmrRank}º no ranking · MMR {formatMmr(player.mmr)}
+            </p>
+          ) : null}
         </div>
         <ChevronDown size={18} className={cn("shrink-0 text-slate-500 transition-transform", expanded && "rotate-180")} />
       </button>

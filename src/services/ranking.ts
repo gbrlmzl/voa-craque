@@ -36,10 +36,10 @@ function compareMmr(a: { mmr: number; name: string }, b: { mmr: number; name: st
 }
 
 /**
- * Posicao do jogador no ranking geral, a mesma que a tabela de /ranking mostra.
- * Nula se ele nao esta no ranking (inativo, sem perfil completo ou sem MMR).
+ * Posicao de cada jogador no ranking geral, a mesma que a tabela de /ranking mostra.
+ * Quem nao esta no mapa nao esta no ranking (inativo, sem perfil completo ou sem MMR).
  */
-export async function mmrRankOf(userId: string): Promise<number | null> {
+export async function mmrRanks(): Promise<Map<string, number>> {
   const ratings = await prisma.playerRating.findMany({
     where: { user: { active: true, profile: { completed: true } } },
     select: { userId: true, mmr: true, user: { select: { username: true, profile: { select: { name: true } } } } },
@@ -47,8 +47,11 @@ export async function mmrRankOf(userId: string): Promise<number | null> {
   const ranked = ratings
     .map((rating) => ({ userId: rating.userId, mmr: rating.mmr, name: rating.user.profile?.name ?? rating.user.username }))
     .sort(compareMmr);
-  const index = ranked.findIndex((entry) => entry.userId === userId);
-  return index === -1 ? null : index + 1;
+  return new Map(ranked.map((entry, index) => [entry.userId, index + 1]));
+}
+
+export async function mmrRankOf(userId: string): Promise<number | null> {
+  return (await mmrRanks()).get(userId) ?? null;
 }
 
 /**

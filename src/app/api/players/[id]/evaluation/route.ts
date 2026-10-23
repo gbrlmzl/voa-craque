@@ -17,9 +17,17 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const profile = await prisma.playerProfile.findUnique({ where: { userId: id } });
     if (!profile) throw notFound("Este jogador ainda não preencheu o perfil.");
 
-    await prisma.playerProfile.update({ where: { id: profile.id }, data: { stars: input.stars } });
+    const changed = profile.stars !== input.stars;
+    await prisma.playerProfile.update({
+      where: { id: profile.id },
+      data: {
+        stars: input.stars,
+        // Quando o organizador avaliou pela ultima vez; tirar a nota apaga a data junto.
+        ...(changed ? { starsUpdatedAt: input.stars === null ? null : new Date() } : {}),
+      },
+    });
 
-    if (profile.stars !== input.stars) {
+    if (changed) {
       await recordAudit(admin, {
         action: AUDIT_ACTIONS.PLAYER_STARS_SET,
         entity: "PlayerProfile",
