@@ -18,14 +18,24 @@ export type RankingRow = {
   winRate: number;
   goalsPerMatch: number;
   gameDays: number;
+  /** MMR: o placar do ranking geral, aberto a todos; nulo para quem ainda nao jogou. */
+  mmr: number | null;
+  /** Posicao no ranking geral; nula para quem ainda nao tem MMR. */
+  mmrRank: number | null;
+  /** Movimento de posicao causado pela ultima pelada contabilizada, para todos. */
+  mmrTrend: "up" | "down" | "flat" | null;
+  /** Quantas posicoes subiu (positivo) ou caiu (negativo) na ultima pelada. */
+  mmrRankChange: number | null;
+  /** Pontos que o MMR andou na ultima pelada: so o organizador. */
+  mmrDelta: number | null;
 };
 
 /**
  * Ranking a partir das partidas ja encerradas. Partida em andamento so entra na
  * conta depois que acaba, igual ao que o painel ao vivo mostra.
  */
-export async function buildRanking(): Promise<RankingRow[]> {
-  const [players, lineups, events] = await Promise.all([
+export async function buildRanking(options: { showMmrDelta: boolean }): Promise<RankingRow[]> {
+  const [players, lineups, events, ratings, lastRatedGameDay] = await Promise.all([
     prisma.user.findMany({
       where: { active: true, profile: { completed: true } },
       select: {
@@ -46,6 +56,13 @@ export async function buildRanking(): Promise<RankingRow[]> {
       by: ["userId", "type"],
       where: { match: { status: "FINISHED" } },
       _count: { _all: true },
+    }),
+    prisma.playerRating.findMany({ select: { userId: true, mmr: true, lastDelta: true } }),
+    // A ultima pelada contabilizada: o MMR de antes dela diz onde cada um estava no ranking.
+    prisma.gameDay.findFirst({
+      where: { ratingChanges: { some: {} } },
+      orderBy: [{ finishedAt: "desc" }, { scheduledAt: "desc" }, { id: "desc" }],
+      select: { ratingChanges: { select: { userId: true, mmrBefore: true } } },
     }),
   ]);
 
@@ -68,6 +85,11 @@ export async function buildRanking(): Promise<RankingRow[]> {
       winRate: 0,
       goalsPerMatch: 0,
       gameDays: 0,
+      mmr: null,
+      mmrRank: null,
+      mmrTrend: null,
+      mmrRankChange: null,
+      mmrDelta: null,
     });
   }
 
@@ -102,6 +124,32 @@ export async function buildRanking(): Promise<RankingRow[]> {
     row.goalsPerMatch = row.played > 0 ? Math.round((row.goals / row.played) * 100) / 100 : 0;
     row.gameDays = gameDaysByPlayer.get(row.userId)?.size ?? 0;
   }
+
+  // Ranking geral: so o MMR ordena. Empate no numero desempata pelo nome.
+  const byMmr = (a: { userId: string; mmr: number }, b: { userId: string; mmr: number }) =>
+    b.mmr - a.mmr || rows.get(a.userId)!.name.localeCompare(rows.get(b.userId)!.name, "pt-BR");
+  const rated = ratings.filter((rating) => rows.has(rating.userId));
+  const ranked = [...rated].sort(byMmr);
+
+  // Posicao antes da ultima pelada: quem jogou volta ao MMR de antes dela, quem nao jogou nao mexeu.
+  const before = new Map((lastRatedGameDay?.ratingChanges ?? []).map((change) => [change.userId, change.mmrBefore]));
+  const previousRank = new Map<string, number>();
+  [...rated]
+    .map((rating) => ({ userId: rating.userId, mmr: before.get(rating.userId) ?? rating.mmr }))
+    .sort(byMmr)
+    .forEach((entry, index) => previousRank.set(entry.userId, index + 1));
+
+  ranked.forEach((rating, index) => {
+    const row = rows.get(rating.userId)!;
+    row.mmr = rating.mmr;
+    row.mmrRank = index + 1;
+    if (lastRatedGameDay) {
+      const change = previousRank.get(rating.userId)! - row.mmrRank;
+      row.mmrRankChange = change;
+      row.mmrTrend = change > 0 ? "up" : change < 0 ? "down" : "flat";
+    }
+    if (options.showMmrDelta) row.mmrDelta = rating.lastDelta;
+  });
 
   return [...rows.values()].sort(
     (a, b) => b.goals - a.goals || b.assists - a.assists || a.name.localeCompare(b.name, "pt-BR"),

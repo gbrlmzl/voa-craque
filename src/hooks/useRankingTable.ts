@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarCheck, Handshake, Percent, Target } from "lucide-react";
-import { formatPercent } from "@/lib/labels";
+import { CalendarCheck, Handshake, Percent, Target, TrendingUp } from "lucide-react";
+import { formatMmr, formatPercent } from "@/lib/labels";
 import type { RankingRow } from "@/services/ranking";
 
-export type CategoryKey = "goals" | "assists" | "winRate" | "gameDays";
+export type CategoryKey = "mmr" | "goals" | "assists" | "winRate" | "gameDays";
 
 export type Category = {
   key: CategoryKey;
@@ -17,6 +17,20 @@ export type Category = {
 };
 
 export const CATEGORIES: Category[] = [
+  {
+    key: "mmr",
+    label: "Geral",
+    icon: TrendingUp,
+    format: (row) => (row.mmr === null ? "—" : formatMmr(row.mmr)),
+    // Soma de partidas ganhas em todas as peladas; a estrela do perfil entra na tela, antes disto.
+    secondary: (row) => `${row.won} ${row.won === 1 ? "vitória" : "vitórias"}`,
+    sort: (rows) =>
+      [...rows].sort(
+        (a, b) =>
+          (a.mmrRank ?? Number.POSITIVE_INFINITY) - (b.mmrRank ?? Number.POSITIVE_INFINITY) ||
+          a.name.localeCompare(b.name, "pt-BR"),
+      ),
+  },
   {
     key: "goals",
     label: "Artilharia",
@@ -56,7 +70,7 @@ export const CATEGORIES: Category[] = [
 ];
 
 export function useRankingTable(rows: RankingRow[]) {
-  const [categoryKey, setCategoryKey] = useState<CategoryKey>("goals");
+  const [categoryKey, setCategoryKey] = useState<CategoryKey>("mmr");
 
   const category = CATEGORIES.find((entry) => entry.key === categoryKey)!;
   const sorted = useMemo(() => category.sort(rows), [category, rows]);

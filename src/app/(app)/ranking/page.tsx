@@ -1,12 +1,12 @@
-import { pageUserWithProfile } from "@/lib/session";
+import { isAdmin, pageUserWithProfile } from "@/lib/session";
 import { buildRanking } from "@/services/ranking";
 import { RankingTable } from "@/components/RankingTable";
 
 export const dynamic = "force-dynamic";
 
 export default async function RankingPage() {
-  await pageUserWithProfile();
-  const rows = await buildRanking();
+  const user = await pageUserWithProfile();
+  const rows = await buildRanking({ showMmrDelta: isAdmin(user) });
 
   return (
     <div className="grid gap-4">

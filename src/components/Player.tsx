@@ -52,13 +52,23 @@ export function Avatar({
 
 // ---------------------------------------------------------------- estrelas
 
-export function Stars({ value, size = 16 }: { value: number | null; size?: number }) {
+/** `hideEmpty` esconde as estrelas vazias; so a ultima, se estiver pela metade, mantem a sombra. */
+export function Stars({
+  value,
+  size = 16,
+  hideEmpty = false,
+}: {
+  value: number | null;
+  size?: number;
+  hideEmpty?: boolean;
+}) {
   if (value === null) {
-    return <span className="text-xs text-slate-500">sem avaliação</span>;
+    return <span className="text-xs whitespace-nowrap text-slate-500">sem avaliação</span>;
   }
+  const slots = hideEmpty ? [1, 2, 3, 4, 5].slice(0, Math.max(1, Math.ceil(value))) : [1, 2, 3, 4, 5];
   return (
     <span className="inline-flex items-center gap-0.5" aria-label={`${value} de 5 estrelas`}>
-      {[1, 2, 3, 4, 5].map((slot) => {
+      {slots.map((slot) => {
         const fill = Math.min(1, Math.max(0, value - slot + 1));
         return (
           <span key={slot} className="relative inline-block" style={{ width: size, height: size }}>
