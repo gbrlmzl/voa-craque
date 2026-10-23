@@ -110,6 +110,12 @@ export const starsSchema = z.object({
     ),
 });
 
+export const mmrAdjustSchema = z.object({
+  // A mesma faixa do CHECK PlayerRating_mmr_range e de MMR.MIN / MMR.MAX em lib/mmr.ts.
+  mmr: z.coerce.number().min(600, "O MMR vai de 600 a 1600.").max(1600, "O MMR vai de 600 a 1600."),
+  reason: z.string().trim().min(5, "Explique o motivo em poucas palavras.").max(300),
+});
+
 export const roleSchema = z.object({
   role: z.enum(["SUPERADMIN", "ADMIN", "USER"]),
 });
