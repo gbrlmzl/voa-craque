@@ -16,6 +16,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:pelada-teste": "tsx prisma/seed-pelada-teste.ts",
     "db:seed:piloto": "tsx prisma/seed-piloto.ts",
+    "db:seed:ranking-mmr": "tsx prisma/seed-ranking-mmr.ts",
     "db:purge-tokens": "tsx scripts/purge-tokens.ts",
     "mmr:recompute": "tsx scripts/recompute-mmr.ts"
   },
