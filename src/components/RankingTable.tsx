@@ -100,7 +100,7 @@ export function RankingTable({ rows }: { rows: RankingRow[] }) {
             {categoryKey === "mmr" && <RankMovement row={row} />}
             <span className="shrink-0 text-right">
               <span className="block text-lg font-bold tabular-nums text-slate-100">{category.format(row)}</span>
-              {/* Pontos da ultima pelada: so o organizador (row.mmrDelta vem nulo para os demais). */}
+              {/* Pontos da ultima pelada: so o organizador (row.mmrDelta vem nulo para os demais). 
               {categoryKey === "mmr" && row.mmrDelta !== null ? (
                 <span
                   className={cn(
@@ -115,6 +115,7 @@ export function RankingTable({ rows }: { rows: RankingRow[] }) {
                   {formatMmrDelta(row.mmrDelta)}
                 </span>
               ) : null}
+               */} 
             </span>
           </button>
         ))}
