@@ -21,13 +21,13 @@ export type RatingHistoryEntry = {
   matches: number;
 };
 
-/** `mmr`, `peak` e `history` so chegam para o organizador (D11 = C); a posicao e para todos. */
+/** Ranking geral e as ultimas peladas do jogador: qualquer usuario cadastrado ve. */
 export type PlayerRatingDetail = {
   rank: number;
   gameDays: number;
-  mmr: number | null;
-  peak: number | null;
-  history: RatingHistoryEntry[] | null;
+  mmr: number;
+  peak: number;
+  history: RatingHistoryEntry[];
 };
 
 export type PlayerDetail = {
@@ -48,16 +48,21 @@ export type PlayerDetail = {
 
 export type ModalApi = { open: (userId: string) => void };
 
+/** A ficha do jogador ou o historico dele no ranking, na mesma janela. */
+export type PlayerModalView = "profile" | "history";
+
 /** Busca o jogador ao abrir e fecha no Escape. */
 export function usePlayerModalProvider() {
   const [userId, setUserId] = useState<string | null>(null);
   const [player, setPlayer] = useState<PlayerDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<PlayerModalView>("profile");
 
   const open = useCallback((id: string) => {
     setUserId(id);
     setPlayer(null);
     setError(null);
+    setView("profile");
   }, []);
 
   const close = useCallback(() => setUserId(null), []);
@@ -87,5 +92,5 @@ export function usePlayerModalProvider() {
 
   const api = useMemo<ModalApi>(() => ({ open }), [open]);
 
-  return { userId, player, error, close, api };
+  return { userId, player, error, view, setView, close, api };
 }

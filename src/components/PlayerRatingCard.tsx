@@ -65,31 +65,17 @@ function Line({ label, value }: { label: string; value: string }) {
 }
 
 /**
- * Ranking geral na ficha. O jogador ve a posicao; o numero do MMR, o pico e a
- * decomposicao de cada pelada so aparecem para o organizador. A estrela do
- * jogador ja esta na ficha: o MMR nao gera estrela nenhuma.
+ * Historico do jogador no ranking geral: o MMR, o pico e a decomposicao de cada
+ * pelada, para qualquer usuario cadastrado. A estrela do jogador ja esta na
+ * ficha: o MMR nao gera estrela nenhuma.
  */
 export function PlayerRatingCard({ rating }: { rating: PlayerRatingDetail }) {
   const { openGameDayId, toggle } = usePlayerRatingCard();
   const pelada = rating.gameDays === 1 ? "pelada" : "peladas";
+  const last = rating.history[0] ?? null;
 
-  if (rating.mmr === null) {
-    return (
-      <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl bg-night-800 p-3">
-        <div>
-          <p className="text-xs text-slate-500">Ranking geral</p>
-          <p className="text-lg font-semibold text-slate-100">{rating.rank}º</p>
-        </div>
-        <p className="text-right text-xs text-slate-500">
-          {rating.gameDays} {pelada}
-        </p>
-      </div>
-    );
-  }
-
-  const last = rating.history?.[0] ?? null;
   return (
-    <div className="mt-5 rounded-2xl bg-night-800 p-3">
+    <div className="rounded-2xl bg-night-800 p-3">
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="text-xs text-slate-500">MMR</p>
@@ -104,11 +90,11 @@ export function PlayerRatingCard({ rating }: { rating: PlayerRatingDetail }) {
           <p>
             {rating.rank}º · {rating.gameDays} {pelada}
           </p>
-          {rating.peak !== null ? <p>pico {formatMmr(rating.peak)}</p> : null}
+          <p>pico {formatMmr(rating.peak)}</p>
         </div>
       </div>
 
-      {rating.history && rating.history.length > 0 ? (
+      {rating.history.length > 0 ? (
         <ul className="mt-3 grid gap-1.5">
           {rating.history.map((entry) => (
             <HistoryRow

@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { notFound, route } from "@/lib/http";
-import { isAdmin, requireUser } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 import { FOOT_LABEL, POSITION_LABEL } from "@/lib/labels";
 import { mmrRankOf } from "@/services/ranking";
 
@@ -10,9 +10,7 @@ export const dynamic = "force-dynamic";
 /** Ficha publica do jogador para o modal. Nunca devolve e-mail nem papel. */
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   return route(async () => {
-    const viewer = await requireUser();
-    // D11 = C: na ficha o numero do MMR e a decomposicao so vao para o organizador; a posicao e de todos.
-    const canSeeMmr = isAdmin(viewer);
+    await requireUser();
     const { id } = await ctx.params;
 
     const user = await prisma.user.findUnique({
@@ -56,40 +54,36 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     if (ratingRow && ratingRow.gameDaysRated > 0) {
       const [rank, changes] = await Promise.all([
         mmrRankOf(id),
-        canSeeMmr
-          ? prisma.ratingChange.findMany({
-              where: { userId: id },
-              orderBy: { createdAt: "desc" },
-              take: 5,
-              include: { gameDay: { select: { id: true, title: true, scheduledAt: true } } },
-            })
-          : Promise.resolve([]),
+        prisma.ratingChange.findMany({
+          where: { userId: id },
+          orderBy: { createdAt: "desc" },
+          take: 5,
+          include: { gameDay: { select: { id: true, title: true, scheduledAt: true } } },
+        }),
       ]);
       // Fora do ranking (conta inativa) nao ha posicao para mostrar.
       if (rank !== null) rating = {
         rank,
         gameDays: ratingRow.gameDaysRated,
-        mmr: canSeeMmr ? ratingRow.mmr : null,
-        peak: canSeeMmr ? ratingRow.peakMmr : null,
-        history: canSeeMmr
-          ? changes.map((change) => ({
-              gameDayId: change.gameDay.id,
-              gameDayTitle: change.gameDay.title,
-              date: change.gameDay.scheduledAt.toISOString(),
-              delta: change.delta,
-              mmrAfter: change.mmrAfter,
-              resultDelta: change.resultDelta,
-              attackDelta: change.attackDelta,
-              defenseDelta: change.defenseDelta,
-              normalizeDelta: change.normalizeDelta,
-              stakeFactor: change.stakeFactor,
-              starsUsed: change.starsUsed,
-              capped: change.capped,
-              goals: change.goals,
-              assists: change.assists,
-              matches: change.matches,
-            }))
-          : null,
+        mmr: ratingRow.mmr,
+        peak: ratingRow.peakMmr,
+        history: changes.map((change) => ({
+          gameDayId: change.gameDay.id,
+          gameDayTitle: change.gameDay.title,
+          date: change.gameDay.scheduledAt.toISOString(),
+          delta: change.delta,
+          mmrAfter: change.mmrAfter,
+          resultDelta: change.resultDelta,
+          attackDelta: change.attackDelta,
+          defenseDelta: change.defenseDelta,
+          normalizeDelta: change.normalizeDelta,
+          stakeFactor: change.stakeFactor,
+          starsUsed: change.starsUsed,
+          capped: change.capped,
+          goals: change.goals,
+          assists: change.assists,
+          matches: change.matches,
+        })),
       };
     }
 
