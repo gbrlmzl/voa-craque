@@ -1,9 +1,10 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, History, X } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Avatar, Stars } from "@/components/Player";
+import { PlayerRatingCard } from "@/components/PlayerRatingCard";
 import { type ModalApi, usePlayerModalProvider } from "@/hooks/usePlayerModalProvider";
 
 export type { PlayerDetail } from "@/hooks/usePlayerModalProvider";
@@ -17,7 +18,8 @@ export function usePlayerModal(): ModalApi {
 }
 
 export function PlayerModalProvider({ children }: { children: ReactNode }) {
-  const { userId, player, error, close, api } = usePlayerModalProvider();
+  const { userId, player, error, view, setView, close, api } = usePlayerModalProvider();
+  const historyRating = view === "history" ? (player?.rating ?? null) : null;
 
   return (
     <PlayerModalContext.Provider value={api}>
@@ -30,11 +32,18 @@ export function PlayerModalProvider({ children }: { children: ReactNode }) {
           onClick={close}
         >
           <div
-            className="snack-in w-full max-w-md rounded-t-3xl border border-white/10 bg-night-900 p-5 sm:rounded-3xl"
+            className="snack-in max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-white/10 bg-night-900 p-5 sm:rounded-3xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-start justify-between">
-              <h2 className="text-sm font-semibold tracking-wide text-slate-400 uppercase">Jogador</h2>
+              {historyRating ? (
+                <Button variant="ghost" size="sm" onClick={() => setView("profile")} className="-ml-2">
+                  <ChevronLeft size={16} />
+                  Voltar
+                </Button>
+              ) : (
+                <h2 className="text-sm font-semibold tracking-wide text-slate-400 uppercase">Jogador</h2>
+              )}
               <Button variant="ghost" size="sm" onClick={close} aria-label="Fechar">
                 <X size={18} />
               </Button>
@@ -60,20 +69,42 @@ export function PlayerModalProvider({ children }: { children: ReactNode }) {
                   </div>
                 </div>
 
-                <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                  <Detail label="Posição" value={player.positionLabel} />
-                  <Detail label="Pé" value={player.footLabel} />
-                  <Detail label="Idade" value={`${player.age} anos`} />
-                  <Detail label="Altura" value={`${(player.heightCm / 100).toFixed(2).replace(".", ",")} m`} />
-                  <Detail label="Peso" value={`${player.weightKg} kg`} />
-                </dl>
+                {historyRating ? (
+                  <div className="mt-5">
+                    <PlayerRatingCard rating={historyRating} />
+                  </div>
+                ) : (
+                  <>
+                    {player.rating ? (
+                      <Button
+                        variant="secondary"
+                        onClick={() => setView("history")}
+                        className="mt-5 w-full justify-between"
+                      >
+                        <span className="flex items-center gap-2">
+                          <History size={16} />
+                          Histórico
+                        </span>
+                        <ChevronRight size={16} className="text-slate-500" />
+                      </Button>
+                    ) : null}
 
-                <div className="mt-5 grid grid-cols-4 gap-2 rounded-2xl bg-night-800 p-3 text-center">
-                  <Stat label="Gols" value={player.stats.goals} />
-                  <Stat label="Assist." value={player.stats.assists} />
-                  <Stat label="Jogos" value={player.stats.played} />
-                  <Stat label="Vitórias" value={player.stats.won} />
-                </div>
+                    <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                      <Detail label="Posição" value={player.positionLabel} />
+                      <Detail label="Pé" value={player.footLabel} />
+                      <Detail label="Idade" value={`${player.age} anos`} />
+                      <Detail label="Altura" value={`${(player.heightCm / 100).toFixed(2).replace(".", ",")} m`} />
+                      <Detail label="Peso" value={`${player.weightKg} kg`} />
+                    </dl>
+
+                    <div className="mt-5 grid grid-cols-4 gap-2 rounded-2xl bg-night-800 p-3 text-center">
+                      <Stat label="Gols" value={player.stats.goals} />
+                      <Stat label="Assist." value={player.stats.assists} />
+                      <Stat label="Jogos" value={player.stats.played} />
+                      <Stat label="Vitórias" value={player.stats.won} />
+                    </div>
+                  </>
+                )}
               </div>
             ) : null}
           </div>

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { nightPerformance } from "@/lib/mmr";
 
 export type GameDayPlayerStats = {
   userId: string;
@@ -13,6 +14,9 @@ export type GameDayPlayerStats = {
   goals: number;
   assists: number;
   topScorer: boolean;
+  /** Melhor desempenho da pelada antes do fator de aposta (D25). Qualquer um ve o selo; so o organizador ve o numero. */
+  mvp: boolean;
+  mmrDelta: number | null;
 };
 
 /**
@@ -21,8 +25,11 @@ export type GameDayPlayerStats = {
  * ou substituto. "Artilheiro" aqui e sempre relativo a essa pelada, nunca ao
  * acumulado geral do ranking.
  */
-export async function buildGameDayStats(gameDayId: string): Promise<GameDayPlayerStats[]> {
-  const [registrations, lineups, events] = await Promise.all([
+export async function buildGameDayStats(
+  gameDayId: string,
+  options: { canSeeMmr: boolean },
+): Promise<GameDayPlayerStats[]> {
+  const [registrations, lineups, events, changes] = await Promise.all([
     prisma.registration.findMany({
       where: { gameDayId },
       select: {
@@ -41,6 +48,17 @@ export async function buildGameDayStats(gameDayId: string): Promise<GameDayPlaye
       where: { match: { gameDayId, status: "FINISHED" } },
       _count: { _all: true },
     }),
+    prisma.ratingChange.findMany({
+      where: { gameDayId },
+      select: {
+        userId: true,
+        delta: true,
+        resultDelta: true,
+        attackDelta: true,
+        defenseDelta: true,
+        normalizeDelta: true,
+      },
+    }),
   ]);
 
   const rows = new Map<string, GameDayPlayerStats>();
@@ -58,6 +76,8 @@ export async function buildGameDayStats(gameDayId: string): Promise<GameDayPlaye
       goals: 0,
       assists: 0,
       topScorer: false,
+      mvp: false,
+      mmrDelta: null,
     });
   }
 
@@ -89,6 +109,29 @@ export async function buildGameDayStats(gameDayId: string): Promise<GameDayPlaye
     for (const row of rows.values()) {
       row.topScorer = row.goals === maxGoals;
     }
+  }
+
+  // MVP: melhor desempenho positivo da noite antes do fator de aposta, senao quem tem mais
+  // estrelas levaria o selo; no empate, o userId menor (mesma regra do calculo).
+  let best: { userId: string; performance: number } | null = null;
+  for (const change of changes) {
+    if (options.canSeeMmr) {
+      const row = rows.get(change.userId);
+      if (row) row.mmrDelta = change.delta;
+    }
+    const performance = nightPerformance(change);
+    if (performance <= 0) continue;
+    if (
+      !best ||
+      performance > best.performance ||
+      (performance === best.performance && change.userId < best.userId)
+    ) {
+      best = { userId: change.userId, performance };
+    }
+  }
+  if (best) {
+    const row = rows.get(best.userId);
+    if (row) row.mvp = true;
   }
 
   return [...rows.values()].filter((row) => row.played > 0);

@@ -62,11 +62,13 @@ export function TeamBuilder({
           </p>
         ) : null}
 
-        <Link href={`/game-days/${gameDayId}`}>
-          <Button variant="secondary" size="lg" className="w-full">
-            <LayoutDashboard size={18} /> Painel
-          </Button>
-        </Link>
+        {teams.length > 0 ? (
+          <Link href={`/game-days/${gameDayId}`}>
+            <Button variant="secondary" size="lg" className="w-full">
+              <LayoutDashboard size={18} /> Painel
+            </Button>
+          </Link>
+        ) : null}
 
         <Button size="lg" onClick={draw} disabled={busy || pool.length < teamSize * 2}>
           <Shuffle size={18} /> {teams.length > 0 ? "Sortear de novo" : "Sortear times"}

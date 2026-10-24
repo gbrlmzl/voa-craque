@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/labels";
 import { Card, SectionTitle } from "@/components/ui";
 import { SystemSettingsForm } from "@/components/admin/SystemSettingsForm";
+import { RatingRecompute } from "@/components/admin/RatingRecompute";
 
 export const dynamic = "force-dynamic";
 
@@ -10,11 +11,12 @@ export default async function SystemPage() {
   await pageSuperadmin();
   const settings = await getSystemSettings();
 
-  const [users, gameDays, matches, events] = await Promise.all([
+  const [users, gameDays, matches, events, ratedGameDays] = await Promise.all([
     prisma.user.count(),
     prisma.gameDay.count(),
     prisma.match.count({ where: { status: "FINISHED" } }),
     prisma.matchEvent.count(),
+    prisma.gameDay.count({ where: { status: "FINISHED", ratingSkippedReason: null, ratedAt: { not: null } } }),
   ]);
 
   return (
@@ -33,6 +35,11 @@ export default async function SystemPage() {
           maintenanceMessage: settings.maintenanceMessage,
         }}
       />
+
+      <section>
+        <SectionTitle>MMR</SectionTitle>
+        <RatingRecompute ratedGameDays={ratedGameDays} />
+      </section>
 
       <section>
         <SectionTitle>Números do sistema</SectionTitle>

@@ -5,6 +5,7 @@ import { publishGameDay } from "@/lib/realtime";
 import type { CurrentUser } from "@/lib/session";
 import { evaluateOutcome } from "@/lib/match-engine";
 import { deleteScheduledMatch, finalizeMatch } from "@/services/match";
+import { applyGameDayRatings, auditRatingOutcome } from "@/services/rating";
 
 /**
  * Encerra a pelada do dia: a partida em andamento e fechada pelo placar atual,
@@ -43,20 +44,29 @@ export async function finishGameDay(gameDayId: string, actor: CurrentUser): Prom
     });
   }
 
-  await prisma.$transaction(async (tx) => {
-    const scheduled = await tx.match.findMany({
-      where: { gameDayId, status: "SCHEDULED" },
-      select: { id: true },
-    });
-    for (const match of scheduled) {
-      await deleteScheduledMatch(tx, gameDayId, match.id);
-    }
-    await tx.team.updateMany({ where: { gameDayId }, data: { queuePosition: null } });
-    await tx.gameDay.update({
-      where: { id: gameDayId },
-      data: { status: "FINISHED", finishedAt: new Date(now) },
-    });
-  });
+  const rating = await prisma.$transaction(
+    async (tx) => {
+      const scheduled = await tx.match.findMany({
+        where: { gameDayId, status: "SCHEDULED" },
+        select: { id: true },
+      });
+      for (const match of scheduled) {
+        await deleteScheduledMatch(tx, gameDayId, match.id);
+      }
+      await tx.team.updateMany({ where: { gameDayId }, data: { queuePosition: null } });
+      // Condicional ao status: dois pedidos ao mesmo tempo nao encerram nem pontuam duas vezes.
+      const closed = await tx.gameDay.updateMany({
+        where: { id: gameDayId, status: { not: "FINISHED" } },
+        data: { status: "FINISHED", finishedAt: new Date(now) },
+      });
+      if (closed.count === 0) throw conflict("Esta pelada já foi encerrada.");
+
+      // Na mesma transacao de proposito: depois de FINISHED nada mais muda no historico
+      // (undoMatchEvent recusa), entao uma pelada encerrada nunca pode ficar sem MMR.
+      return applyGameDayRatings(tx, gameDayId);
+    },
+    { timeout: 30_000 },
+  );
 
   const totals = await prisma.match.aggregate({
     where: { gameDayId, status: "FINISHED" },
@@ -71,6 +81,7 @@ export async function finishGameDay(gameDayId: string, actor: CurrentUser): Prom
     before: { status: gameDay.status },
     after: { status: "FINISHED", matches: totals._count._all },
   });
+  await auditRatingOutcome(actor, gameDay, rating);
   publishGameDay(gameDayId, "gameday-finished");
 }
 

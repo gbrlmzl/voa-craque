@@ -1,10 +1,38 @@
 "use client";
 
-import { Avatar } from "@/components/Player";
+import { ArrowDown, ArrowUp, Minus } from "lucide-react";
+import { Avatar, Stars } from "@/components/Player";
 import { usePlayerModal } from "@/components/providers/PlayerModalProvider";
 import { Card, EmptyState, cn } from "@/components/ui";
+import { formatMmrDelta } from "@/lib/labels";
 import type { RankingRow } from "@/services/ranking";
 import { CATEGORIES, useRankingTable } from "@/hooks/useRankingTable";
+
+/** Quantas posicoes o jogador subiu ou caiu por causa da ultima pelada. */
+function RankMovement({ row }: { row: RankingRow }) {
+  if (row.mmrTrend === null || row.mmrRankChange === null) return null;
+  const up = row.mmrTrend === "up";
+  const down = row.mmrTrend === "down";
+  const Icon = up ? ArrowUp : down ? ArrowDown : Minus;
+  const places = Math.abs(row.mmrRankChange);
+  const label = up
+    ? `Subiu ${places} ${places === 1 ? "posição" : "posições"} na última pelada`
+    : down
+      ? `Caiu ${places} ${places === 1 ? "posição" : "posições"} na última pelada`
+      : "Manteve a posição na última pelada";
+  return (
+    <span
+      className={cn(
+        "flex min-w-6 shrink-0 items-center justify-end gap-0.5 text-xs font-semibold tabular-nums",
+        up ? "text-pitch-400" : down ? "text-rose-400" : "text-slate-500",
+      )}
+      aria-label={label}
+    >
+      <Icon size={13} aria-hidden />
+      {places > 0 ? <span>{places}</span> : null}
+    </span>
+  );
+}
 
 export function RankingTable({ rows }: { rows: RankingRow[] }) {
   const { open } = usePlayerModal();
@@ -45,7 +73,7 @@ export function RankingTable({ rows }: { rows: RankingRow[] }) {
             key={row.userId}
             type="button"
             onClick={() => open(row.userId)}
-            className="flex items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-white/5"
+            className="flex items-center gap-2.5 rounded-xl px-2 py-2 text-left hover:bg-white/5"
           >
             <span
               className={cn(
@@ -58,10 +86,36 @@ export function RankingTable({ rows }: { rows: RankingRow[] }) {
             <Avatar name={row.name} photoUrl={row.photoUrl} size="sm" />
             <span className="min-w-0 flex-1">
               <span className="block truncate font-medium text-slate-100">{row.nickname || row.name}</span>
-              <span className="block truncate text-xs text-slate-500">{category.secondary(row)}</span>
+              {categoryKey === "mmr" ? (
+                // A estrela e a do perfil (avaliacao do organizador), nao uma derivada do MMR.
+                // Sem espaco no celular, a segunda parte desce para a linha de baixo em vez de truncar.
+                <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                  <Stars value={row.stars} size={13} hideEmpty />
+                  <span className="whitespace-nowrap">· {category.secondary(row)}</span>
+                </span>
+              ) : (
+                <span className="block truncate text-xs text-slate-500">{category.secondary(row)}</span>
+              )}
             </span>
-            <span className="shrink-0 text-lg font-bold tabular-nums text-slate-100">
-              {category.format(row)}
+            {categoryKey === "mmr" && <RankMovement row={row} />}
+            <span className="shrink-0 text-right">
+              <span className="block text-lg font-bold tabular-nums text-slate-100">{category.format(row)}</span>
+              {/* Pontos da ultima pelada: so o organizador (row.mmrDelta vem nulo para os demais). 
+              {categoryKey === "mmr" && row.mmrDelta !== null ? (
+                <span
+                  className={cn(
+                    "block text-xs font-semibold tabular-nums",
+                    Math.round(row.mmrDelta) > 0
+                      ? "text-pitch-400"
+                      : Math.round(row.mmrDelta) < 0
+                        ? "text-rose-400"
+                        : "text-slate-500",
+                  )}
+                >
+                  {formatMmrDelta(row.mmrDelta)}
+                </span>
+              ) : null}
+               */} 
             </span>
           </button>
         ))}

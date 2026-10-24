@@ -106,6 +106,8 @@ model User {
   confirmedPayments     Registration[]       @relation("PaymentConfirmer")
   auditLogs             AuditLog[]
   systemSettingEdits    SystemSetting[]      @relation("SettingsEditor")
+  rating                PlayerRating?
+  ratingChanges         RatingChange[]
 
   @@index([role])
 }
@@ -173,21 +175,23 @@ model PasswordResetToken {
 }
 
 model PlayerProfile {
-  id         String   @id @default(cuid())
-  userId     String   @unique
+  id             String    @id @default(cuid())
+  userId         String    @unique
   // Nome de verdade, preenchido no primeiro acesso; a conta guarda so o username.
-  name       String
-  photoUrl   String?
-  foot       Foot
-  position   Position
-  age        Int
-  heightCm   Int
-  weightKg   Int
-  nickname   String?
-  stars      Float?
-  completed  Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  name           String
+  photoUrl       String?
+  foot           Foot
+  position       Position
+  age            Int
+  heightCm       Int
+  weightKg       Int
+  nickname       String?
+  stars          Float?
+  // Quando o organizador mudou a estrela pela ultima vez; a aba Avaliar mostra a data.
+  starsUpdatedAt DateTime?
+  completed      Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -211,12 +215,17 @@ model GameDay {
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
   finishedAt          DateTime?
+  // Quando o MMR da pelada foi aplicado (ou descartado, ver ratingSkippedReason).
+  ratedAt             DateTime?
+  ratingSkippedReason String?
 
   createdBy     User             @relation("GameDayCreator", fields: [createdById], references: [id])
   registrations Registration[]
   teams         Team[]
   matches       Match[]
   reserves      GameDayReserve[]
+  ratingChanges RatingChange[]
+  lastRatings   PlayerRating[]
 
   @@index([status, scheduledAt])
 }
@@ -397,6 +406,69 @@ model MatchEvent {
 
   @@index([matchId, createdAt])
   @@index([userId, type])
+}
+
+// ---------------------------------------------------------------- mmr
+
+// Estado atual do MMR de cada jogador. Tabela propria, e nao colunas em
+// PlayerProfile: o rating existe para qualquer User que jogou, tenha perfil
+// completo ou nao, e e dado derivado que a recomputacao apaga e refaz.
+model PlayerRating {
+  userId        String    @id
+  mmr           Float     @default(1000)
+  peakMmr       Float     @default(1000)
+  lowestMmr     Float     @default(1000)
+  gameDaysRated Int       @default(0)
+  matchesRated  Int       @default(0)
+  lastDelta     Float?
+  lastGameDayId String?
+  lastRatedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastGameDay GameDay? @relation(fields: [lastGameDayId], references: [id], onDelete: SetNull)
+
+  @@index([mmr])
+}
+
+// Extrato do MMR: uma linha por jogador por pelada. E o que explica um
+// movimento ao jogador e o que permite recomputar a historia. O unico
+// (gameDayId, userId) e tambem a garantia de idempotencia.
+model RatingChange {
+  id                String   @id @default(cuid())
+  gameDayId         String
+  userId            String
+  mmrBefore         Float
+  mmrAfter          Float
+  delta             Float
+  // Decomposicao, na ordem em que a ficha mostra.
+  resultDelta       Float
+  attackDelta       Float
+  defenseDelta      Float
+  normalizeDelta    Float
+  stakeFactor       Float
+  calibrationFactor Float
+  capped            Boolean  @default(false)
+  // Estrela do perfil que entrou no fator de aposta; nula se o jogador nao tinha estrela.
+  starsUsed         Float?
+  matches           Int
+  goals             Int
+  assists           Int
+  won               Int
+  drawn             Int
+  lost              Int
+  conceded          Int
+  cleanSheets       Int
+  // Uma entrada por partida: adversario, resultado, E, gols, assistencias e os tres blocos.
+  perMatch          Json
+  createdAt         DateTime @default(now())
+
+  gameDay GameDay @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([gameDayId, userId])
+  @@index([userId, createdAt])
 }
 
 // ---------------------------------------------------------------- sistema

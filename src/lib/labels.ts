@@ -145,3 +145,36 @@ export function formatMinutes(seconds: number): string {
   const minutes = Math.round(seconds / 60);
   return `${minutes} min`;
 }
+
+/** MMR inteiro com separador de milhar: 1.032. */
+export function formatMmr(mmr: number): string {
+  return Math.round(mmr).toLocaleString("pt-BR");
+}
+
+/** Movimento de MMR com o sinal certo: "+12", "−8" (menos de verdade) ou "0". */
+export function formatMmrDelta(delta: number): string {
+  const rounded = Math.round(delta);
+  if (rounded > 0) return `+${rounded}`;
+  if (rounded < 0) return `−${Math.abs(rounded)}`;
+  return "0";
+}
+
+/** Estrelas com virgula e sem casa inutil: "3,5" e "4". */
+export function formatStars(stars: number): string {
+  return Number.isInteger(stars) ? String(stars) : stars.toFixed(1).replace(".", ",");
+}
+
+/** Fator de aposta com duas casas e a terceira so quando existe (meia estrela): "1,30", "1,075". */
+export function formatStakeFactor(factor: number): string {
+  const text = factor.toFixed(3);
+  return (text.endsWith("0") ? text.slice(0, -1) : text).replace(".", ",");
+}
+
+/** Pontos de MMR com uma casa e o sinal certo: "+10,2", "−2,4". Para a decomposicao. */
+export function formatMmrPoints(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  const text = Math.abs(rounded).toFixed(1).replace(".", ",");
+  if (rounded > 0) return `+${text}`;
+  if (rounded < 0) return `−${text}`;
+  return text;
+}

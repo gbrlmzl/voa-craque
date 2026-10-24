@@ -9,6 +9,11 @@ export type EvaluationPlayer = {
   photoUrl: string | null;
   positionLabel: string;
   stars: number | null;
+  /** Quando o organizador avaliou pela ultima vez (ISO), ou null. */
+  starsUpdatedAt: string | null;
+  /** So como referencia: o MMR ordena o ranking e nao muda estrela nenhuma. */
+  mmr: number | null;
+  mmrRank: number | null;
 };
 
 export function usePlayerEvaluation(players: EvaluationPlayer[]) {
