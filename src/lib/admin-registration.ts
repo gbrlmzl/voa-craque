@@ -1,4 +1,4 @@
-export type GameDayPhase = "OPEN" | "TEAMS_SET" | "LIVE" | "FINISHED";
+export type GameDayPhase = "OPEN" | "TEAMS_SET" | "LIVE" | "FINISHED" | "CANCELED";
 
 export type AdminRegistrationCheck =
   | { ok: true; asReserve: boolean }
@@ -17,6 +17,7 @@ export function checkAdminRegistration(input: {
 }): AdminRegistrationCheck {
   if (input.selectedCount < 1) return { ok: false, error: "Escolha pelo menos um jogador." };
   if (input.status === "FINISHED") return { ok: false, error: "Esta pelada já foi encerrada." };
+  if (input.status === "CANCELED") return { ok: false, error: "Esta pelada foi cancelada." };
 
   if (input.registeredCount + input.selectedCount > input.maxPlayers) {
     const remaining = remainingSlots(input.registeredCount, input.maxPlayers);
@@ -45,6 +46,7 @@ export function checkAdminRemoval(input: {
   hasPlayed: boolean;
 }): RemovalCheck {
   if (input.status === "FINISHED") return { ok: false, error: "Esta pelada já foi encerrada." };
+  if (input.status === "CANCELED") return { ok: false, error: "Esta pelada foi cancelada." };
   if (input.hasPlayed) {
     return {
       ok: false,

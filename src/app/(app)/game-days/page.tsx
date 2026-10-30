@@ -12,6 +12,7 @@ const STATUS_TONE = {
   TEAMS_SET: "warn",
   LIVE: "good",
   FINISHED: "neutral",
+  CANCELED: "bad",
 } as const;
 
 export default async function GameDaysPage() {

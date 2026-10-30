@@ -62,7 +62,7 @@ export default async function GameDaySettingsPage({ params }: { params: Promise<
         ) : null}
       </Card>
 
-      {gameDay.status !== "FINISHED" ? (
+      {gameDay.status !== "FINISHED" && gameDay.status !== "CANCELED" ? (
         <AdminRegistrationModal
           gameDayId={gameDay.id}
           status={gameDay.status}
