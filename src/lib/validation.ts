@@ -80,7 +80,8 @@ export const gameDaySchema = z.object({
   goalsToWin: z.coerce.number().int().min(1).max(20),
   maxPlayers: z.coerce.number().int().min(10).max(50),
   teamSize: z.coerce.number().int().min(3).max(7),
-  pixKey: z.string().trim().max(120).optional().or(z.literal("")),
+  // Obrigatoria desde que a pelada nasce: quem escolhe PIX precisa saber para onde mandar.
+  pixKey: z.string({ message: "Informe a chave PIX." }).trim().min(1, "Informe a chave PIX.").max(120),
   notes: z.string().trim().max(500).optional().or(z.literal("")),
 });
 

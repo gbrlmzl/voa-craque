@@ -2,32 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-
-export type GameDayValues = {
-  title: string;
-  scheduledAt: string;
-  location: string;
-  price: string;
-  durationMin: string;
-  goalsToWin: string;
-  maxPlayers: string;
-  teamSize: string;
-  pixKey: string;
-  notes: string;
-};
-
-export const NEW_GAMEDAY: GameDayValues = {
-  title: "",
-  scheduledAt: "",
-  location: "",
-  price: "4,50",
-  durationMin: "8",
-  goalsToWin: "2",
-  maxPlayers: "20",
-  teamSize: "4",
-  pixKey: "",
-  notes: "",
-};
+import type { GameDayValues } from "@/lib/gameday-defaults";
 
 function toCents(value: string): number {
   const normalized = value.replace(/\./g, "").replace(",", ".").trim();

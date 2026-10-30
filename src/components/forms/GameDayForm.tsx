@@ -2,10 +2,8 @@
 
 import { Button, Card, Field, Input, Select, Textarea } from "@/components/ui";
 import { DateTimePicker } from "@/components/forms/DateTimePicker";
-import { type GameDayValues, useGameDayForm } from "@/hooks/useGameDayForm";
-
-export type { GameDayValues } from "@/hooks/useGameDayForm";
-export { NEW_GAMEDAY } from "@/hooks/useGameDayForm";
+import { useGameDayForm } from "@/hooks/useGameDayForm";
+import type { GameDayValues } from "@/lib/gameday-defaults";
 
 export function GameDayForm({
   initial,
@@ -95,8 +93,12 @@ export function GameDayForm({
           </Field>
         </div>
 
-        <Field label="Chave PIX" hint="Aparece para quem escolher pagar por PIX." error={errors.pixKey}>
-          <Input value={values.pixKey} onChange={(event) => set("pixKey", event.target.value)} />
+        <Field label="Chave PIX" hint="Obrigatória. Aparece para quem escolher pagar por PIX." error={errors.pixKey}>
+          <Input
+            value={values.pixKey}
+            onChange={(event) => set("pixKey", event.target.value)}
+            required
+          />
         </Field>
 
         <Field label="Observações" error={errors.notes}>

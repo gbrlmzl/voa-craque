@@ -38,7 +38,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         goalsToWin: input.goalsToWin,
         maxPlayers: input.maxPlayers,
         teamSize: input.teamSize,
-        pixKey: input.pixKey || null,
+        pixKey: input.pixKey,
         notes: input.notes || null,
       },
     });

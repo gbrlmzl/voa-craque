@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { pageAdmin } from "@/lib/session";
-import { GameDayForm, type GameDayValues } from "@/components/forms/GameDayForm";
+import { GameDayForm } from "@/components/forms/GameDayForm";
+import type { GameDayValues } from "@/lib/gameday-defaults";
 
 export const dynamic = "force-dynamic";
 
