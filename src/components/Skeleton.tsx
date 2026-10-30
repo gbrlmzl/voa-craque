@@ -85,11 +85,11 @@ export function SkeletonScoreboard() {
         <SkeletonText className="h-4 w-16" />
         <SkeletonText className="h-4 w-14" />
       </div>
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_7.5rem_minmax(0,1fr)] items-center gap-2">
         {[0, 1, 2].map((slot) => (
           <div key={slot} className="grid justify-items-center gap-1">
             <SkeletonText className="h-5 w-16" />
-            <SkeletonBlock className={slot === 1 ? "h-8 w-16" : "h-12 w-12"} />
+            <SkeletonBlock className={slot === 1 ? "h-9 w-20" : "h-12 w-12"} />
           </div>
         ))}
       </div>

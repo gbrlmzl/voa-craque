@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Card, cn } from "@/components/ui";
+import { FixedDigits } from "@/components/live/FixedDigits";
 import { useTeamName } from "@/components/providers/PreferencesProvider";
 import { MATCH_END_REASON_LABEL, teamColor } from "@/lib/labels";
 import { formatClock, matchMinute } from "@/lib/match-engine";
@@ -40,15 +41,16 @@ export function MatchResultCard({
         </p>
       </div>
 
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-center">
+      {/* Mesma grade do Scoreboard (o cartao ocupa o lugar dele): o resultado nao pisca de tamanho. */}
+      <div className="grid grid-cols-[minmax(0,1fr)_7.5rem_minmax(0,1fr)] items-center gap-2 text-center">
         <div>
-          <p className={cn("text-sm font-semibold", home.text)}>{teamName(result.homeName)}</p>
-          <p className="text-5xl font-black tabular-nums">{result.homeScore}</p>
+          <p className={cn("truncate text-sm font-semibold", home.text)}>{teamName(result.homeName)}</p>
+          <FixedDigits value={String(result.homeScore)} className="h-12 text-5xl leading-none font-black" />
         </div>
         <p className="text-2xl font-bold text-slate-500">x</p>
         <div>
-          <p className={cn("text-sm font-semibold", away.text)}>{teamName(result.awayName)}</p>
-          <p className="text-5xl font-black tabular-nums">{result.awayScore}</p>
+          <p className={cn("truncate text-sm font-semibold", away.text)}>{teamName(result.awayName)}</p>
+          <FixedDigits value={String(result.awayScore)} className="h-12 text-5xl leading-none font-black" />
         </div>
       </div>
 

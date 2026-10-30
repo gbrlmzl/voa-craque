@@ -11,6 +11,7 @@ import { GoalAssistModal } from "@/components/live/GoalAssistModal";
 import { MatchFeed } from "@/components/live/MatchFeed";
 import { MatchResultCard } from "@/components/live/MatchResultCard";
 import { QueueBadges } from "@/components/live/QueueBadges";
+import { FixedDigits } from "@/components/live/FixedDigits";
 import { Scoreboard } from "@/components/live/Scoreboard";
 import { SubstitutionModal } from "@/components/live/SubstitutionModal";
 import { TeamSummaryModal } from "@/components/live/TeamSummaryModal";
@@ -282,7 +283,7 @@ function TeamPanel({
         >
           <ArrowLeftRight size={16} aria-hidden /> Substituição
         </Button>
-        <span className="min-w-8 text-right text-2xl font-black tabular-nums">{score}</span>
+        <FixedDigits value={String(score)} className="w-10 shrink-0 justify-end text-2xl font-black" />
       </div>
 
       <div className="grid gap-1.5">
