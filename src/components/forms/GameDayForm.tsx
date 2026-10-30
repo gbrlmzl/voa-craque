@@ -1,6 +1,7 @@
 "use client";
 
 import { Button, Card, Field, Input, Select, Textarea } from "@/components/ui";
+import { DateTimePicker } from "@/components/forms/DateTimePicker";
 import { type GameDayValues, useGameDayForm } from "@/hooks/useGameDayForm";
 
 export type { GameDayValues } from "@/hooks/useGameDayForm";
@@ -28,11 +29,10 @@ export function GameDayForm({
         </Field>
 
         <Field label="Data e hora" error={errors.scheduledAt}>
-          <Input
-            type="datetime-local"
+          <DateTimePicker
             value={values.scheduledAt}
-            onChange={(event) => set("scheduledAt", event.target.value)}
-            required
+            onChange={(value) => set("scheduledAt", value)}
+            error={errors.scheduledAt}
           />
         </Field>
 
