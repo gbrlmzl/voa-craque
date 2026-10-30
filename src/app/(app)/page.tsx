@@ -106,7 +106,7 @@ export default async function HomePage() {
                 </Button>
               </Link>
 
-              {gameDay.status === "LIVE" || gameDay.status === "TEAMS_SET" ? (
+              {gameDay.status === "LIVE" ? (
                 <Link href={admin ? `/game-days/${gameDay.id}/panel` : `/game-days/${gameDay.id}/live`}>
                   <Button size="lg" className="w-full">
                     <Radio size={18} /> {admin ? "Abrir painel" : "Acompanhar"}

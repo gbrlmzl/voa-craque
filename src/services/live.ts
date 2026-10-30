@@ -129,6 +129,12 @@ export type LiveSnapshot = {
  * Antes de montar, encerra a partida cujo cronometro ja zerou: e aqui que o fim
  * por tempo acontece, sem depender de o admin ter a tela aberta.
  */
+/** Consulta leve do status: o painel e a tela ao vivo decidem se existem antes de montar o snapshot inteiro. */
+export async function getGameDayStatus(gameDayId: string): Promise<GameDayStatus | null> {
+  const gameDay = await prisma.gameDay.findUnique({ where: { id: gameDayId }, select: { status: true } });
+  return gameDay?.status ?? null;
+}
+
 export async function buildLiveSnapshot(gameDayId: string): Promise<LiveSnapshot> {
   await syncMatchClock(gameDayId);
 

@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { canWatchLive } from "@/lib/gameday-lifecycle";
 import { pageAdmin } from "@/lib/session";
-import { buildLiveSnapshot } from "@/services/live";
+import { buildLiveSnapshot, getGameDayStatus } from "@/services/live";
 import { Button } from "@/components/ui";
 import { LivePanel } from "@/components/live/LivePanel";
 
@@ -10,6 +12,12 @@ export const dynamic = "force-dynamic";
 export default async function LivePanelPage({ params }: { params: Promise<{ id: string }> }) {
   await pageAdmin();
   const { id } = await params;
+
+  // Antes de "Iniciar pelada" nao ha o que acompanhar: o caminho unico para iniciar e a pagina da pelada.
+  const status = await getGameDayStatus(id);
+  if (!status) notFound();
+  if (!canWatchLive(status)) redirect(`/game-days/${id}`);
+
   const snapshot = await buildLiveSnapshot(id);
 
   return (

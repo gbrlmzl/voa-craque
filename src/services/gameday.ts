@@ -3,9 +3,58 @@ import { conflict, notFound } from "@/lib/http";
 import { AUDIT_ACTIONS, recordAudit } from "@/lib/audit";
 import { publishGameDay } from "@/lib/realtime";
 import type { CurrentUser } from "@/lib/session";
+import { canStart } from "@/lib/gameday-lifecycle";
 import { evaluateOutcome } from "@/lib/match-engine";
 import { deleteScheduledMatch, finalizeMatch } from "@/services/match";
 import { applyGameDayRatings, auditRatingOutcome } from "@/services/rating";
+
+const NEEDS_TEAMS = "Monte os times antes de iniciar a pelada.";
+
+/**
+ * "Iniciar pelada": o marco de que ela comecou. Passa de TEAMS_SET para LIVE,
+ * trava os times e libera o painel ao vivo e o acompanhamento dos jogadores. O
+ * apito da primeira partida vem depois, no painel. Dois organizadores tocando
+ * juntos nao e erro: o segundo recebe `alreadyStarted` e vai para o painel.
+ */
+export async function startGameDay(
+  gameDayId: string,
+  actor: CurrentUser,
+): Promise<{ alreadyStarted: boolean }> {
+  const load = () =>
+    prisma.gameDay.findUnique({
+      where: { id: gameDayId },
+      include: { teams: { select: { id: true } }, matches: { select: { id: true }, take: 1 } },
+    });
+  const gameDay = await load();
+  if (!gameDay) throw notFound("Pelada não encontrada.");
+  if (gameDay.status === "LIVE") return { alreadyStarted: true };
+  if (gameDay.status === "FINISHED") throw conflict("Esta pelada já foi encerrada.");
+  if (!canStart(gameDay.status)) throw conflict(NEEDS_TEAMS);
+  // Nao deveria acontecer em TEAMS_SET: o sorteio ja cria os times e a partida de abertura.
+  if (gameDay.teams.length < 2 || gameDay.matches.length === 0) throw conflict(NEEDS_TEAMS);
+
+  const started = await prisma.gameDay.updateMany({
+    where: { id: gameDayId, status: "TEAMS_SET" },
+    data: { status: "LIVE" },
+  });
+  if (started.count === 0) {
+    // Outro pedido passou na frente: se virou LIVE, o resultado e o mesmo; senao, o motivo e o status atual.
+    const current = await load();
+    if (current?.status === "LIVE") return { alreadyStarted: true };
+    throw conflict(current?.status === "FINISHED" ? "Esta pelada já foi encerrada." : NEEDS_TEAMS);
+  }
+
+  await recordAudit(actor, {
+    action: AUDIT_ACTIONS.GAMEDAY_STARTED,
+    entity: "GameDay",
+    entityId: gameDayId,
+    summary: `${gameDay.title} iniciada`,
+    before: { status: gameDay.status },
+    after: { status: "LIVE" },
+  });
+  publishGameDay(gameDayId, "gameday-started");
+  return { alreadyStarted: false };
+}
 
 /**
  * Encerra a pelada do dia: a partida em andamento e fechada pelo placar atual,

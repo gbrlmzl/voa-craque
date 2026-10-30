@@ -16,6 +16,7 @@ import { TeamName } from "@/components/TeamName";
 import { RegistrationPanel } from "@/components/gameday/RegistrationPanel";
 import { PaymentList, type PaymentRow } from "@/components/gameday/PaymentList";
 import { FinishGameDayButton } from "@/components/gameday/FinishGameDayButton";
+import { StartGameDayButton } from "@/components/gameday/StartGameDayButton";
 import { ShareStoryButton } from "@/components/gameday/ShareStoryButton";
 import { buildGameDayStats } from "@/services/gameday-stats";
 
@@ -157,12 +158,24 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
         />
       ) : null}
 
-      {(hasTeams && gameDay.status !== "FINISHED") || gameDay.status === "LIVE" ? (
+      {admin && gameDay.status === "TEAMS_SET" ? <StartGameDayButton gameDayId={id} /> : null}
+
+      {gameDay.status === "LIVE" ? (
         <Link href={liveHref}>
           <Button size="lg" className="w-full">
             <Radio size={18} /> {admin ? "Abrir painel ao vivo" : "Acompanhar ao vivo"}
           </Button>
         </Link>
+      ) : null}
+
+      {!admin && gameDay.status === "TEAMS_SET" ? (
+        <div className="grid gap-1.5">
+          {/* Sem <Link> em volta: botao desabilitado dentro de um link continua navegando. */}
+          <Button size="lg" className="w-full" disabled aria-disabled="true">
+            <Radio size={18} /> Acompanhar ao vivo
+          </Button>
+          <p className="text-xs text-slate-500">Libera quando o organizador iniciar a pelada.</p>
+        </div>
       ) : null}
 
       {admin && gameDay.status === "OPEN" ? (

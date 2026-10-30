@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { teamsLocked } from "@/lib/gameday-lifecycle";
 import { pageAdmin } from "@/lib/session";
 import { POSITION_LABEL } from "@/lib/labels";
 import { loadPool } from "@/services/teams";
@@ -62,7 +63,7 @@ export default async function TeamsPage({ params }: { params: Promise<{ id: stri
         pool={pool}
         teams={teams}
         reserveIds={gameDay.reserves.map((reserve) => reserve.userId)}
-        locked={gameDay.status === "FINISHED" || gameDay.matches.length > 0}
+        locked={teamsLocked({ status: gameDay.status, matchStarted: gameDay.matches.length > 0 })}
       />
     </div>
   );

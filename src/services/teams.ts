@@ -2,6 +2,7 @@ import type { PaymentMethod, PaymentStatus, Position } from "@/generated/prisma/
 import { prisma } from "@/lib/prisma";
 import { badRequest, conflict, notFound } from "@/lib/http";
 import { AUDIT_ACTIONS, recordAudit } from "@/lib/audit";
+import { teamsLocked } from "@/lib/gameday-lifecycle";
 import { publishGameDay } from "@/lib/realtime";
 import type { CurrentUser } from "@/lib/session";
 import { balanceTeams, ratePlayers, TEAM_NAMES, type BalancerPlayer } from "@/lib/team-balancer";
@@ -67,7 +68,7 @@ async function assertTeamsEditable(gameDayId: string) {
     where: { gameDayId, status: { not: "SCHEDULED" } },
     select: { id: true },
   });
-  if (started) {
+  if (teamsLocked({ status: gameDay.status, matchStarted: started !== null })) {
     throw conflict("A pelada já começou. Não dá para remontar os times agora.");
   }
   return gameDay;
