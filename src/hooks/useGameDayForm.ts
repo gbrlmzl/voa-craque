@@ -21,10 +21,10 @@ export const NEW_GAMEDAY: GameDayValues = {
   scheduledAt: "",
   location: "",
   price: "4,50",
-  durationMin: "10",
+  durationMin: "8",
   goalsToWin: "2",
   maxPlayers: "20",
-  teamSize: "5",
+  teamSize: "4",
   pixKey: "",
   notes: "",
 };
