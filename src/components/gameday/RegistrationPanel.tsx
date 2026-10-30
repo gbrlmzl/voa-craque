@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { Check, Copy, Loader2, Receipt } from "lucide-react";
+import { Copy, Eye, Receipt, X } from "lucide-react";
 import { Badge, Button, Card, SectionTitle } from "@/components/ui";
 import { PAYMENT_METHOD_LABEL, PAYMENT_STATUS_LABEL } from "@/lib/labels";
 import { type Registration, useRegistrationPanel } from "@/hooks/useRegistrationPanel";
@@ -30,9 +30,15 @@ export function RegistrationPanel({
   const {
     method,
     setMethod,
-    receiptUrl,
+    reviewing,
+    receipt,
+    pickReceipt,
+    cancelReview,
+    confirmReview,
+    removeReceipt,
+    viewingPrepared,
+    setViewingPrepared,
     uploading,
-    uploadReceipt,
     saving,
     message,
     viewingReceipt,
@@ -41,6 +47,9 @@ export function RegistrationPanel({
     cancel,
     copyPixKey,
   } = useRegistrationPanel(gameDayId);
+
+  // Durante o envio e a inscricao nada do comprovante muda.
+  const busy = saving || uploading;
 
   if (registration) {
     return (
@@ -153,26 +162,48 @@ export function RegistrationPanel({
               className="hidden"
               onChange={(event) => {
                 const file = event.target.files?.[0];
-                if (file) void uploadReceipt(file);
+                // Zera o valor: depois de um X, o mesmo arquivo pode ser escolhido de novo.
+                event.target.value = "";
+                if (file) pickReceipt(file);
               }}
             />
 
-            <Button
-              type="button"
-              variant={receiptUrl ? "outline" : "secondary"}
-              size="lg"
-              onClick={() => fileInput.current?.click()}
-              disabled={uploading}
-            >
-              {uploading ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : receiptUrl ? (
-                <Check size={16} />
-              ) : (
-                <Receipt size={16} />
-              )}
-              {receiptUrl ? "Comprovante anexado" : "Anexar comprovante"}
-            </Button>
+            {receipt ? (
+              <div className="flex h-14 items-center gap-1 rounded-xl bg-night-800 px-3">
+                <Receipt size={18} className="shrink-0 text-pitch-400" aria-hidden />
+                <span className="ml-2 min-w-0 flex-1 truncate text-sm text-slate-200" title={receipt.file.name}>
+                  {receipt.file.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setViewingPrepared(true)}
+                  disabled={busy}
+                  aria-label="Ver comprovante"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-slate-300 transition-colors hover:bg-white/5 disabled:opacity-45"
+                >
+                  <Eye size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={removeReceipt}
+                  disabled={busy}
+                  aria-label="Remover comprovante"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-slate-300 transition-colors hover:bg-white/5 disabled:opacity-45"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                onClick={() => fileInput.current?.click()}
+                disabled={busy}
+              >
+                <Receipt size={16} /> Anexar comprovante
+              </Button>
+            )}
           </div>
         ) : (
           <p className="rounded-xl bg-white/5 px-3 py-2 text-sm text-slate-400">
@@ -190,10 +221,23 @@ export function RegistrationPanel({
           <p className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{message}</p>
         ) : null}
 
-        <Button size="lg" onClick={subscribe} disabled={saving || uploading || full}>
-          {saving ? "Inscrevendo..." : "Confirmar inscrição"}
+        <Button size="lg" onClick={subscribe} disabled={busy || full}>
+          {uploading ? "Enviando comprovante..." : saving ? "Inscrevendo..." : "Confirmar inscrição"}
         </Button>
       </Card>
+
+      {/* Irmaos do cartao, como no resto do projeto: o Modal anima com transform. */}
+      {reviewing ? (
+        <ReceiptModal
+          url={reviewing.previewUrl}
+          title="Seu comprovante"
+          confirmation={{ onCancel: cancelReview, onConfirm: confirmReview }}
+          onClose={cancelReview}
+        />
+      ) : null}
+      {viewingPrepared && receipt ? (
+        <ReceiptModal url={receipt.previewUrl} title="Seu comprovante" onClose={() => setViewingPrepared(false)} />
+      ) : null}
     </section>
   );
 }

@@ -51,17 +51,22 @@ function FullscreenReceipt({ url, title, onClose }: { url: string; title: string
 
 /**
  * Mostra o comprovante dentro do app. Com `decision`, o organizador decide ali
- * mesmo: recusar na esquerda, aprovar na direita. Sem ela e so visualizacao.
+ * mesmo: recusar na esquerda, aprovar na direita. Com `confirmation`, e a previa
+ * de quem acabou de escolher o arquivo: cancelar na esquerda, confirmar na
+ * direita, e fechar (X, Esc, fundo) vale como cancelar. Sem nenhuma das duas e
+ * so visualizacao; as duas nao se usam juntas.
  */
 export function ReceiptModal({
   url,
   title,
   decision,
+  confirmation,
   onClose,
 }: {
   url: string;
   title: string;
   decision?: { busy: boolean; onReject: () => void; onApprove: () => void };
+  confirmation?: { onCancel: () => void; onConfirm: () => void };
   onClose: () => void;
 }) {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -69,7 +74,7 @@ export function ReceiptModal({
 
   return (
     // `my-auto` centraliza no celular, onde o Modal padrao encosta no rodape.
-    <Modal title={title} onClose={onClose} className="my-auto max-w-md">
+    <Modal title={title} onClose={confirmation ? confirmation.onCancel : onClose} className="my-auto max-w-md">
       <div className="relative grid min-h-48 place-items-center overflow-hidden rounded-xl bg-night-950">
         {status === "loading" ? (
           <Loader2 size={24} className="animate-spin text-slate-400" aria-label="Carregando comprovante" />
@@ -105,6 +110,17 @@ export function ReceiptModal({
           </Button>
           <Button size="lg" onClick={decision.onApprove} disabled={decision.busy}>
             <Check size={18} /> {decision.busy ? "Aprovando..." : "Aprovar"}
+          </Button>
+        </div>
+      ) : null}
+
+      {confirmation ? (
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="secondary" size="lg" onClick={confirmation.onCancel}>
+            <X size={18} /> Cancelar
+          </Button>
+          <Button size="lg" onClick={confirmation.onConfirm}>
+            <Check size={18} /> Confirmar
           </Button>
         </div>
       ) : null}
