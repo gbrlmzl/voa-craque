@@ -63,6 +63,7 @@ async function assertTeamsEditable(gameDayId: string) {
   const gameDay = await prisma.gameDay.findUnique({ where: { id: gameDayId } });
   if (!gameDay) throw notFound("Pelada não encontrada.");
   if (gameDay.status === "FINISHED") throw conflict("A pelada já foi encerrada.");
+  if (gameDay.status === "CANCELED") throw conflict("A pelada foi cancelada.");
 
   const started = await prisma.match.findFirst({
     where: { gameDayId, status: { not: "SCHEDULED" } },

@@ -3,7 +3,7 @@ import { conflict, notFound } from "@/lib/http";
 import { AUDIT_ACTIONS, recordAudit } from "@/lib/audit";
 import { publishGameDay } from "@/lib/realtime";
 import type { CurrentUser } from "@/lib/session";
-import { canStart } from "@/lib/gameday-lifecycle";
+import { canCancel, canFinish, canStart } from "@/lib/gameday-lifecycle";
 import { evaluateOutcome } from "@/lib/match-engine";
 import { deleteScheduledMatch, finalizeMatch } from "@/services/match";
 import { applyGameDayRatings, auditRatingOutcome } from "@/services/rating";
@@ -29,6 +29,7 @@ export async function startGameDay(
   if (!gameDay) throw notFound("Pelada não encontrada.");
   if (gameDay.status === "LIVE") return { alreadyStarted: true };
   if (gameDay.status === "FINISHED") throw conflict("Esta pelada já foi encerrada.");
+  if (gameDay.status === "CANCELED") throw conflict("Esta pelada foi cancelada.");
   if (!canStart(gameDay.status)) throw conflict(NEEDS_TEAMS);
   // Nao deveria acontecer em TEAMS_SET: o sorteio ja cria os times e a partida de abertura.
   if (gameDay.teams.length < 2 || gameDay.matches.length === 0) throw conflict(NEEDS_TEAMS);
@@ -41,7 +42,13 @@ export async function startGameDay(
     // Outro pedido passou na frente: se virou LIVE, o resultado e o mesmo; senao, o motivo e o status atual.
     const current = await load();
     if (current?.status === "LIVE") return { alreadyStarted: true };
-    throw conflict(current?.status === "FINISHED" ? "Esta pelada já foi encerrada." : NEEDS_TEAMS);
+    throw conflict(
+      current?.status === "FINISHED"
+        ? "Esta pelada já foi encerrada."
+        : current?.status === "CANCELED"
+          ? "Esta pelada foi cancelada."
+          : NEEDS_TEAMS,
+    );
   }
 
   await recordAudit(actor, {
@@ -67,6 +74,12 @@ export async function finishGameDay(gameDayId: string, actor: CurrentUser): Prom
   });
   if (!gameDay) throw notFound("Pelada não encontrada.");
   if (gameDay.status === "FINISHED") throw conflict("Esta pelada já foi encerrada.");
+  if (gameDay.status === "CANCELED") throw conflict("Esta pelada foi cancelada.");
+  // Antes de fechar a partida aberta e de aplicar o MMR: encerrar o que nem comecou deixaria
+  // ranking e estatistica de uma pelada que nao existiu. Para desistir, e "Cancelar pelada".
+  if (!canFinish({ status: gameDay.status, matchStarted: gameDay.matches.some((match) => match.status !== "SCHEDULED") })) {
+    throw conflict('Nenhuma partida começou. Para desistir da pelada, use "Cancelar pelada" nas configurações.');
+  }
 
   const now = Date.now();
   const open = gameDay.matches.find((match) => match.status === "RUNNING" || match.status === "PAUSED");
@@ -105,7 +118,7 @@ export async function finishGameDay(gameDayId: string, actor: CurrentUser): Prom
       await tx.team.updateMany({ where: { gameDayId }, data: { queuePosition: null } });
       // Condicional ao status: dois pedidos ao mesmo tempo nao encerram nem pontuam duas vezes.
       const closed = await tx.gameDay.updateMany({
-        where: { id: gameDayId, status: { not: "FINISHED" } },
+        where: { id: gameDayId, status: { notIn: ["FINISHED", "CANCELED"] } },
         data: { status: "FINISHED", finishedAt: new Date(now) },
       });
       if (closed.count === 0) throw conflict("Esta pelada já foi encerrada.");
@@ -132,6 +145,55 @@ export async function finishGameDay(gameDayId: string, actor: CurrentUser): Prom
   });
   await auditRatingOutcome(actor, gameDay, rating);
   publishGameDay(gameDayId, "gameday-finished");
+}
+
+const CANCEL_TOO_LATE = 'A primeira partida já começou. Para terminar a pelada, use "Encerrar pelada".';
+
+/**
+ * Desiste da pelada antes do primeiro apito: fecha as inscricoes, apaga times,
+ * reservas e a partida agendada e deixa a pelada como CANCELED. Inscricoes e
+ * pagamentos ficam (o organizador ainda precisa saber quem pagou para devolver).
+ * Nao mexe no MMR: nao ha partida encerrada, e a recomputacao so le peladas FINISHED.
+ */
+export async function cancelGameDay(gameDayId: string, actor: CurrentUser): Promise<void> {
+  const gameDay = await prisma.gameDay.findUnique({
+    where: { id: gameDayId },
+    include: { matches: { where: { status: { not: "SCHEDULED" } }, select: { id: true }, take: 1 } },
+  });
+  if (!gameDay) throw notFound("Pelada não encontrada.");
+  if (gameDay.status === "FINISHED") throw conflict("Esta pelada já foi encerrada.");
+  if (gameDay.status === "CANCELED") throw conflict("Esta pelada já foi cancelada.");
+  if (!canCancel({ status: gameDay.status, matchStarted: gameDay.matches.length > 0 })) {
+    throw conflict(CANCEL_TOO_LATE);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // De novo dentro da transacao: o primeiro apito pode ter acontecido desde a leitura acima.
+    const started = await tx.match.findFirst({
+      where: { gameDayId, status: { not: "SCHEDULED" } },
+      select: { id: true },
+    });
+    if (started) throw conflict(CANCEL_TOO_LATE);
+
+    await tx.match.deleteMany({ where: { gameDayId } });
+    await tx.gameDayReserve.deleteMany({ where: { gameDayId } });
+    await tx.team.deleteMany({ where: { gameDayId } });
+    const canceled = await tx.gameDay.updateMany({
+      where: { id: gameDayId, status: { in: ["OPEN", "TEAMS_SET", "LIVE"] } },
+      data: { status: "CANCELED", canceledAt: new Date() },
+    });
+    if (canceled.count === 0) throw conflict("Esta pelada já foi cancelada.");
+  });
+
+  await recordAudit(actor, {
+    action: AUDIT_ACTIONS.GAMEDAY_CANCELED,
+    entity: "GameDay",
+    entityId: gameDayId,
+    summary: `${gameDay.title} cancelada`,
+    before: { status: gameDay.status },
+    after: { status: "CANCELED" },
+  });
+  publishGameDay(gameDayId, "gameday-canceled");
 }
 
 export async function restoreGameDay(gameDayId: string, actor: CurrentUser): Promise<void> {

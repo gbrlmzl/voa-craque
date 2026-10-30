@@ -13,7 +13,7 @@ export default async function HomePage() {
 
   const [gameDay, myEvents, myGameDays] = await Promise.all([
     prisma.gameDay.findFirst({
-      where: { status: { not: "FINISHED" } },
+      where: { status: { notIn: ["FINISHED", "CANCELED"] } },
       orderBy: { scheduledAt: "asc" },
       include: {
         _count: { select: { registrations: true } },

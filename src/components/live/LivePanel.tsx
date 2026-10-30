@@ -7,6 +7,7 @@ import { Button, Card, EmptyState, SectionTitle, cn } from "@/components/ui";
 import { teamColor } from "@/lib/labels";
 import type { LiveMatch, LivePlayer, LiveSnapshot, LiveTeam } from "@/services/live";
 import { FinishGameDayButton } from "@/components/gameday/FinishGameDayButton";
+import { canFinish } from "@/lib/gameday-lifecycle";
 import { GoalAssistModal } from "@/components/live/GoalAssistModal";
 import { MatchFeed } from "@/components/live/MatchFeed";
 import { MatchResultCard } from "@/components/live/MatchResultCard";
@@ -43,6 +44,10 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
     changeState,
     dismissFinish,
   } = useLivePanel(gameDayId, initial);
+
+  // Alguma partida ja saiu de "Pronta para comecar": so dai em diante a pelada se encerra (antes disso, cancela).
+  const matchStarted =
+    snapshot.lastFinished !== null || (snapshot.match !== null && snapshot.match.status !== "SCHEDULED");
 
   // Com um modal aberto, o resto do painel nao aceita toque.
   const modalOpen = !!pendingGoal || !!pendingSubstitution || !!viewedTeam;
@@ -208,7 +213,7 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
         </section>
       ) : null}
 
-      {!finished ? (
+      {!finished && canFinish({ status: snapshot.gameDay.status, matchStarted }) ? (
         <section>
           <SectionTitle>Fim de papo</SectionTitle>
           <FinishGameDayButton gameDayId={gameDayId} className="w-full" />

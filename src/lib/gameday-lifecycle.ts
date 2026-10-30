@@ -37,3 +37,17 @@ export function isClosed(status: GameDayStatusName): boolean {
 export function canWatchLive(status: GameDayStatusName): boolean {
   return status === "LIVE" || status === "FINISHED";
 }
+
+/**
+ * "Cancelar pelada": enquanto nenhuma partida comecou, inclusive com a pelada
+ * LIVE logo depois do "Iniciar pelada" (quem tocou sem querer nao fica so com
+ * "Encerrar", que e justamente o que o cancelar veio acabar).
+ */
+export function canCancel(phase: Phase): boolean {
+  return (phase.status === "OPEN" || phase.status === "TEAMS_SET" || phase.status === "LIVE") && !phase.matchStarted;
+}
+
+/** "Encerrar pelada": so depois do primeiro apito. Nunca ao mesmo tempo que canCancel. */
+export function canFinish(phase: Phase): boolean {
+  return phase.status === "LIVE" && phase.matchStarted;
+}

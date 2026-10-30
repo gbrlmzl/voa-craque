@@ -16,6 +16,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const before = await prisma.gameDay.findUnique({ where: { id } });
     if (!before) throw notFound("Pelada não encontrada.");
     if (before.status === "FINISHED") throw conflict("Pelada encerrada não pode ser editada.");
+    if (before.status === "CANCELED") throw conflict("Pelada cancelada não pode ser editada.");
 
     const input = gameDaySchema.parse(await req.json());
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarDays, MapPin, Radio, Settings, Shuffle, Trophy, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { canFinish } from "@/lib/gameday-lifecycle";
 import { isAdmin, pageUserWithProfile } from "@/lib/session";
 import {
   formatCents,
@@ -99,7 +100,7 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
             <h1 className="truncate text-2xl font-bold tracking-tight">{gameDay.title}</h1>
 
             <p className="mt-1.5 mb-1.5 flex items-center gap-1.5 text-sm text-slate-400">
-              <Badge tone={gameDay.status === "LIVE" ? "good" : "info"}>
+              <Badge tone={gameDay.status === "LIVE" ? "good" : gameDay.status === "CANCELED" ? "bad" : "info"}>
                 {GAMEDAY_STATUS_LABEL[gameDay.status]}
               </Badge>
             </p>
@@ -111,7 +112,7 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {admin ? (
+            {admin && gameDay.status !== "CANCELED" ? (
               <Link
                 href={`/game-days/${id}/settings`}
                 aria-label="Configurações da pelada"
@@ -138,6 +139,15 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
           <p className="mt-3 rounded-xl bg-white/5 px-3 py-2 text-sm text-slate-300">{gameDay.notes}</p>
         ) : null}
       </header>
+
+      {gameDay.status === "CANCELED" ? (
+        <Card className="grid gap-1 border-rose-500/30 bg-rose-500/10">
+          <p className="text-sm font-medium text-rose-200">Esta pelada foi cancelada pelo organizador.</p>
+          {!admin && myRegistration?.paymentMethod === "PIX" ? (
+            <p className="text-sm text-rose-200/80">Se você já pagou, combine a devolução com o organizador.</p>
+          ) : null}
+        </Card>
+      ) : null}
 
       {gameDay.status === "FINISHED" ? (
         <Link href={`/game-days/${id}/stats`}>
@@ -186,7 +196,7 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
         </Link>
       ) : null}
 
-      {gameDay.status !== "FINISHED" ? (
+      {gameDay.status !== "FINISHED" && gameDay.status !== "CANCELED" ? (
         <RegistrationPanel
           gameDayId={gameDay.id}
           price={formatCents(gameDay.pricePerPlayerCents)}
@@ -261,7 +271,7 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
         <div className="grid gap-2">
           <PaymentList gameDayId={gameDay.id} rows={paymentRows} />
         </div>
-      ) : gameDay.status !== "FINISHED" ? (
+      ) : gameDay.status !== "FINISHED" && gameDay.status !== "CANCELED" ? (
         <section>
           <SectionTitle hint={`${gameDay.registrations.length}/${gameDay.maxPlayers}`}>
             Quem vai
@@ -284,7 +294,7 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
         </section>
       ) : null}
 
-      {admin && gameDay.status !== "FINISHED" ? (
+      {admin && canFinish({ status: gameDay.status, matchStarted: gameDay.matches.length > 0 }) ? (
         <section>
           <SectionTitle>Fim de papo</SectionTitle>
           <FinishGameDayButton gameDayId={gameDay.id} variant="secondary" className="w-full" />

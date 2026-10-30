@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { pageAdmin } from "@/lib/session";
 import { GameDayForm } from "@/components/forms/GameDayForm";
@@ -18,6 +18,7 @@ export default async function EditGameDayPage({ params }: { params: Promise<{ id
 
   const gameDay = await prisma.gameDay.findUnique({ where: { id } });
   if (!gameDay) notFound();
+  if (gameDay.status === "CANCELED") redirect(`/game-days/${id}`);
 
   const initial: GameDayValues = {
     title: gameDay.title,
