@@ -13,7 +13,7 @@ export default async function HomePage() {
 
   const [gameDay, myEvents, myGameDays] = await Promise.all([
     prisma.gameDay.findFirst({
-      where: { status: { not: "FINISHED" } },
+      where: { status: { notIn: ["FINISHED", "CANCELED"] } },
       orderBy: { scheduledAt: "asc" },
       include: {
         _count: { select: { registrations: true } },
@@ -106,7 +106,7 @@ export default async function HomePage() {
                 </Button>
               </Link>
 
-              {gameDay.status === "LIVE" || gameDay.status === "TEAMS_SET" ? (
+              {gameDay.status === "LIVE" ? (
                 <Link href={admin ? `/game-days/${gameDay.id}/panel` : `/game-days/${gameDay.id}/live`}>
                   <Button size="lg" className="w-full">
                     <Radio size={18} /> {admin ? "Abrir painel" : "Acompanhar"}

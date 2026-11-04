@@ -3,6 +3,7 @@
 import { formatClock } from "@/lib/match-engine";
 import { MATCH_STATUS_LABEL, teamColor } from "@/lib/labels";
 import { cn } from "@/components/ui";
+import { FixedDigits } from "@/components/live/FixedDigits";
 import { useTeamName } from "@/components/providers/PreferencesProvider";
 import type { LiveMatch } from "@/services/live";
 
@@ -37,27 +38,29 @@ export function Scoreboard({
         </span>
       </div>
 
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+      {/* Coluna do meio fixa: o status muda de tamanho ("Pronta para comecar" -> "Pausada") e nao pode empurrar as laterais. */}
+      <div className="grid grid-cols-[minmax(0,1fr)_7.5rem_minmax(0,1fr)] items-center gap-2">
         <div className="text-center">
-          <p className={cn("text-sm font-semibold", home.text)}>{teamName(match.home.name)}</p>
-          <p className="text-5xl font-black tabular-nums">{match.homeScore}</p>
+          <p className={cn("truncate text-sm font-semibold", home.text)}>{teamName(match.home.name)}</p>
+          <FixedDigits value={String(match.homeScore)} className="h-12 text-5xl leading-none font-black" />
         </div>
 
         <div className="text-center">
-          <p
+          <FixedDigits
+            value={formatClock(remainingMs)}
             className={cn(
-              "text-3xl font-black tabular-nums",
+              "h-9 text-3xl leading-none font-black",
               lowTime ? "text-rose-400" : "text-slate-200",
             )}
-          >
-            {formatClock(remainingMs)}
+          />
+          <p className="mt-0.5 h-4 truncate text-[11px] leading-4 whitespace-nowrap text-slate-500">
+            {MATCH_STATUS_LABEL[match.status]}
           </p>
-          <p className="mt-0.5 text-[11px] text-slate-500">{MATCH_STATUS_LABEL[match.status]}</p>
         </div>
 
         <div className="text-center">
-          <p className={cn("text-sm font-semibold", away.text)}>{teamName(match.away.name)}</p>
-          <p className="text-5xl font-black tabular-nums">{match.awayScore}</p>
+          <p className={cn("truncate text-sm font-semibold", away.text)}>{teamName(match.away.name)}</p>
+          <FixedDigits value={String(match.awayScore)} className="h-12 text-5xl leading-none font-black" />
         </div>
       </div>
 

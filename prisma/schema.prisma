@@ -34,6 +34,7 @@ enum GameDayStatus {
   TEAMS_SET
   LIVE
   FINISHED
+  CANCELED
 }
 
 enum PaymentMethod {
@@ -215,6 +216,8 @@ model GameDay {
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
   finishedAt          DateTime?
+  // Cancelada antes do primeiro apito: nunca entra em ranking, estatistica nem MMR.
+  canceledAt          DateTime?
   // Quando o MMR da pelada foi aplicado (ou descartado, ver ratingSkippedReason).
   ratedAt             DateTime?
   ratingSkippedReason String?

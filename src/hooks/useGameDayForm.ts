@@ -2,32 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-
-export type GameDayValues = {
-  title: string;
-  scheduledAt: string;
-  location: string;
-  price: string;
-  durationMin: string;
-  goalsToWin: string;
-  maxPlayers: string;
-  teamSize: string;
-  pixKey: string;
-  notes: string;
-};
-
-export const NEW_GAMEDAY: GameDayValues = {
-  title: "",
-  scheduledAt: "",
-  location: "",
-  price: "4,50",
-  durationMin: "10",
-  goalsToWin: "2",
-  maxPlayers: "20",
-  teamSize: "5",
-  pixKey: "",
-  notes: "",
-};
+import type { GameDayValues } from "@/lib/gameday-defaults";
 
 function toCents(value: string): number {
   const normalized = value.replace(/\./g, "").replace(",", ".").trim();
@@ -47,9 +22,16 @@ export function useGameDayForm(initial: GameDayValues, gameDayId?: string) {
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    setSaving(true);
     setErrors({});
     setMessage(null);
+
+    // O seletor de data nao e um <input required>: a checagem do campo vazio e aqui.
+    if (!values.scheduledAt) {
+      setErrors({ scheduledAt: "Escolha o dia e a hora." });
+      return;
+    }
+
+    setSaving(true);
 
     const payload = {
       title: values.title,

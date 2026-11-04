@@ -26,3 +26,17 @@ export const EMPTY_PROFILE: ProfileValues = {
   weightKg: "",
   photoUrl: "",
 };
+
+/** Algum campo editavel mudou? `stars` fica de fora: o jogador nao edita. */
+export function profileChanged(a: ProfileValues, b: ProfileValues): boolean {
+  return (
+    a.name !== b.name ||
+    a.nickname !== b.nickname ||
+    a.foot !== b.foot ||
+    a.position !== b.position ||
+    a.age !== b.age ||
+    a.heightCm !== b.heightCm ||
+    a.weightKg !== b.weightKg ||
+    a.photoUrl !== b.photoUrl
+  );
+}

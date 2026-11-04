@@ -289,6 +289,10 @@ export async function changeMatchState(
   if (match.gameDay.status === "FINISHED") {
     throw conflict("A pelada já foi encerrada.");
   }
+  // O apito da primeira partida nao inicia mais a pelada: isso e o "Iniciar pelada".
+  if (action === "START" && match.gameDay.status !== "LIVE") {
+    throw conflict("Inicie a pelada antes de começar a partida.");
+  }
 
   await withLock(`clock:${match.gameDayId}`, async () => {
     const now = Date.now();
@@ -327,10 +331,6 @@ export async function changeMatchState(
         startedAt: action === "START" ? new Date(now) : match.startedAt,
       },
     });
-
-    if (action === "START" && match.gameDay.status !== "LIVE") {
-      await prisma.gameDay.update({ where: { id: match.gameDayId }, data: { status: "LIVE" } });
-    }
 
     const auditAction =
       action === "START"

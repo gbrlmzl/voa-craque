@@ -34,6 +34,7 @@ export const GAMEDAY_STATUS_LABEL: Record<GameDayStatus, string> = {
   TEAMS_SET: "Times definidos",
   LIVE: "Rolando agora",
   FINISHED: "Encerrada",
+  CANCELED: "Cancelada",
 };
 
 export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {

@@ -2,6 +2,7 @@ import type { PaymentMethod, PaymentStatus, Position } from "@/generated/prisma/
 import { prisma } from "@/lib/prisma";
 import { badRequest, conflict, notFound } from "@/lib/http";
 import { AUDIT_ACTIONS, recordAudit } from "@/lib/audit";
+import { teamsLocked } from "@/lib/gameday-lifecycle";
 import { publishGameDay } from "@/lib/realtime";
 import type { CurrentUser } from "@/lib/session";
 import { balanceTeams, ratePlayers, TEAM_NAMES, type BalancerPlayer } from "@/lib/team-balancer";
@@ -62,12 +63,13 @@ async function assertTeamsEditable(gameDayId: string) {
   const gameDay = await prisma.gameDay.findUnique({ where: { id: gameDayId } });
   if (!gameDay) throw notFound("Pelada não encontrada.");
   if (gameDay.status === "FINISHED") throw conflict("A pelada já foi encerrada.");
+  if (gameDay.status === "CANCELED") throw conflict("A pelada foi cancelada.");
 
   const started = await prisma.match.findFirst({
     where: { gameDayId, status: { not: "SCHEDULED" } },
     select: { id: true },
   });
-  if (started) {
+  if (teamsLocked({ status: gameDay.status, matchStarted: started !== null })) {
     throw conflict("A pelada já começou. Não dá para remontar os times agora.");
   }
   return gameDay;

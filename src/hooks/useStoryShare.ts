@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { canvasToBlob, drawStoryCard, type StoryCardData } from "@/lib/story-card";
 import { useToast } from "@/components/providers/ToastProvider";
 
-export function useStoryShare(data: StoryCardData) {
+export function useStoryShare(data: StoryCardData, displayFamily?: string | null) {
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [rendering, setRendering] = useState(false);
@@ -22,7 +22,7 @@ export function useStoryShare(data: StoryCardData) {
     if (!open || !canvasRef.current) return;
     let cancelled = false;
     setRendering(true);
-    drawStoryCard(canvasRef.current, data).finally(() => {
+    drawStoryCard(canvasRef.current, data, { displayFamily }).finally(() => {
       if (!cancelled) setRendering(false);
     });
     return () => {

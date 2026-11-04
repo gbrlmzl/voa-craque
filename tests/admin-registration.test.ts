@@ -22,6 +22,10 @@ describe("checkAdminRegistration", () => {
     expect(checkAdminRegistration({ status: "FINISHED", matchStarted: false, registeredCount: 1, maxPlayers: 20, selectedCount: 1 })).toEqual({ ok: false, error: "Esta pelada já foi encerrada." });
   });
 
+  it("rejects canceled games", () => {
+    expect(checkAdminRegistration({ status: "CANCELED", matchStarted: false, registeredCount: 1, maxPlayers: 20, selectedCount: 1 })).toEqual({ ok: false, error: "Esta pelada foi cancelada." });
+  });
+
   it("enforces the registration limit", () => {
     expect(errorOf(checkAdminRegistration({ status: "OPEN", matchStarted: false, registeredCount: 20, maxPlayers: 20, selectedCount: 1 }))).toContain("lotada");
     expect(errorOf(checkAdminRegistration({ status: "OPEN", matchStarted: false, registeredCount: 18, maxPlayers: 20, selectedCount: 3 }))).toContain("Só cabem mais 2 jogadores");
@@ -37,6 +41,9 @@ describe("admin registration removal", () => {
     expect(errorOf(checkAdminRemoval({ ...base, inTeam: true, hasPlayed: true }))).toContain("já jogou");
     expect(errorOf(checkAdminRemoval({ ...base, inTeam: true }))).toContain("Refazer times");
     expect(errorOf(checkAdminRemoval({ ...base, status: "FINISHED" }))).toContain("encerrada");
+  });
+  it("refuses removal on canceled games", () => {
+    expect(checkAdminRemoval({ ...base, status: "CANCELED" })).toEqual({ ok: false, error: "Esta pelada foi cancelada." });
   });
   it("never returns negative slots", () => expect(remainingSlots(22, 20)).toBe(0));
 });

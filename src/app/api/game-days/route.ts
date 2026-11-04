@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
         goalsToWin: input.goalsToWin,
         maxPlayers: input.maxPlayers,
         teamSize: input.teamSize,
-        pixKey: input.pixKey || null,
+        pixKey: input.pixKey,
         notes: input.notes || null,
         createdById: admin.id,
       },

@@ -7,10 +7,12 @@ import { Button, Card, EmptyState, SectionTitle, cn } from "@/components/ui";
 import { teamColor } from "@/lib/labels";
 import type { LiveMatch, LivePlayer, LiveSnapshot, LiveTeam } from "@/services/live";
 import { FinishGameDayButton } from "@/components/gameday/FinishGameDayButton";
+import { canFinish } from "@/lib/gameday-lifecycle";
 import { GoalAssistModal } from "@/components/live/GoalAssistModal";
 import { MatchFeed } from "@/components/live/MatchFeed";
 import { MatchResultCard } from "@/components/live/MatchResultCard";
 import { QueueBadges } from "@/components/live/QueueBadges";
+import { FixedDigits } from "@/components/live/FixedDigits";
 import { Scoreboard } from "@/components/live/Scoreboard";
 import { SubstitutionModal } from "@/components/live/SubstitutionModal";
 import { TeamSummaryModal } from "@/components/live/TeamSummaryModal";
@@ -42,6 +44,10 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
     changeState,
     dismissFinish,
   } = useLivePanel(gameDayId, initial);
+
+  // Alguma partida ja saiu de "Pronta para comecar": so dai em diante a pelada se encerra (antes disso, cancela).
+  const matchStarted =
+    snapshot.lastFinished !== null || (snapshot.match !== null && snapshot.match.status !== "SCHEDULED");
 
   // Com um modal aberto, o resto do painel nao aceita toque.
   const modalOpen = !!pendingGoal || !!pendingSubstitution || !!viewedTeam;
@@ -207,7 +213,7 @@ export function LivePanel({ gameDayId, initial }: { gameDayId: string; initial: 
         </section>
       ) : null}
 
-      {!finished ? (
+      {!finished && canFinish({ status: snapshot.gameDay.status, matchStarted }) ? (
         <section>
           <SectionTitle>Fim de papo</SectionTitle>
           <FinishGameDayButton gameDayId={gameDayId} className="w-full" />
@@ -282,7 +288,7 @@ function TeamPanel({
         >
           <ArrowLeftRight size={16} aria-hidden /> Substituição
         </Button>
-        <span className="min-w-8 text-right text-2xl font-black tabular-nums">{score}</span>
+        <FixedDigits value={String(score)} className="w-10 shrink-0 justify-end text-2xl font-black" />
       </div>
 
       <div className="grid gap-1.5">
