@@ -125,27 +125,41 @@ Rafa recebeu o link do grupo e abre `https://dominio/`. Nenhum cookie no navegad
 
 ```
 proxy(req)                                                          src/proxy.ts:27
-  route  = classifyPath("/")          → "protected-page"
-                                        ("/" não está em GUEST_ONLY nem em PUBLIC:
-                                         não existe landing pública)
+  route  = classifyPath("/")          → "browsable-page"
+                                        ("/" é página de consulta: o proxy deixa passar sem sessão)
   cookie = undefined                  → claims = null, clear = false
-  !claims && route === "protected-page"
-                                      → 307 /login
+  → NextResponse.next()
+HomePage → pageViewer("/")            src/lib/session.ts
+  decideAccess(null, settings)        src/lib/site-access.ts
+    "Site privado" ligado             → "login": redirect /login
                                         (sem ?proximo: o destino era "/", que já é o padrão)
+    "Site privado" desligado          → "allow": a página renderiza como visitante
 ```
 
-Nenhuma linha de React roda e o banco não é consultado. Se Rafa tivesse aberto o link direto da
+> **Site privado e visitantes.** A chave "Site privado" em `/admin/system` decide o que acontece
+> aqui. **Ligada**, o site é como descrito neste passo: sem sessão, qualquer página de consulta
+> vai para `/login?proximo=…`. **Desligada** (o padrão depois da migration `private_site`), o
+> visitante navega pelas páginas de consulta (`/`, `/game-days`, `/game-days/:id`, `…/live`,
+> `/ranking`, mais `…/stats`, que já era pública) e só vai ao login quando tenta algo que exige
+> conta. Na pelada, o cartão "Sua inscrição" traz o botão **"Quero jogar"**, que leva a
+> `/login?proximo=/game-days/g1`. Manutenção (`publicAccessEnabled` desligado) vence as duas
+> chaves: `/maintenance` para todos, menos o superadmin.
+
+Nenhuma linha de React roda no caso do site privado e o banco não é consultado pelo proxy
+(a guarda lê `SystemSetting`; o proxy não). Se Rafa tivesse aberto o link direto da
 pelada, o redirect seria `/login?proximo=%2Fgame-days%2Fg1`: o `LoginForm` carrega o `proximo`
 num campo oculto, e `safeNextPath` só o aceita se for caminho interno (`//evil.com` e
 `/\evil.com` viram `/`).
 
-`classifyPath` (`src/lib/auth/routes.ts:18`) divide o site em cinco tipos:
+`classifyPath` (`src/lib/auth/routes.ts`) divide o site em sete tipos:
 
 | Tipo | Caminhos | Sem sessão | Com cookie que decifra |
 | :-- | :-- | :-- | :-- |
 | `auth-endpoint` | `/api/auth/*` | Passa (o Auth.js cuida) | Passa; nunca rotaciona |
-| `guest-only` | `/login`, `/register`, `/forgot-password` | Passa | Em `GET`, confirma no banco que a sessão vive e manda para `/` |
+| `guest-only` | `/login`, `/register`, `/forgot-password` | Passa | Em `GET`, confirma no banco que a sessão vive e manda para o `proximo` (ou `/`) |
 | `public` | `/maintenance`, `/reset-password`, `/game-days/:id/stats` | Passa | Passa |
+| `browsable-page` | `/`, `/game-days`, `/game-days/:id`, `/game-days/:id/live`, `/ranking` | Passa; `pageViewer` decide (site privado → `/login`) | Passa |
+| `browsable-api` | `GET /api/players/:id`, `/api/game-days/:id/live`, `/api/game-days/:id/stream`, `/api/files/fotos/*` | Passa; `requireViewer` decide (site privado → 401) | Passa |
 | `protected-api` | Todo o resto de `/api/*` | **401** em JSON | Segue para a guarda da rota |
 | `protected-page` | Todo o resto | `/login?proximo=…` | Segue para a guarda da página |
 
@@ -168,8 +182,13 @@ As duas páginas só mostram o botão do Google se `AUTH_GOOGLE_ID` e `AUTH_GOOG
 existirem (`isGoogleAuthEnabled()`); a mesma checagem tira o provedor do Auth.js, então não
 existe um meio-termo em que o botão aparece e o provedor não.
 
-> **Detalhe:** o link "Criar conta" não leva o `proximo`. Quem chega por um link de pelada e
-> cria conta sempre termina em `/onboarding` e depois em `/`, não na pelada.
+> **O retorno à página de origem.** O `proximo` acompanha a pessoa por toda a jornada: o link
+> "Criar conta" leva `/register?proximo=…`, o `registerAction` e o botão do Google mandam para
+> `/onboarding?proximo=…`, e ao salvar o perfil o onboarding volta para a pelada. Tudo passa por
+> `safeNextPath`; no fim, `safeFinalPath` troca rota só-de-deslogado e `/onboarding` por `/`, para
+> não haver laço. As guardas de página também carregam a origem (`pageUser(from)`,
+> `pageUserWithProfile(from)`, `pageViewer(from)`), então um `redirect` delas vai para
+> `/login?proximo=<página>` e `/onboarding?proximo=<página>`.
 
 ### Passo 3 — O cadastro: `registerAction`
 
@@ -613,13 +632,15 @@ Duas checagens transversais completam o quadro:
 | Guarda | Usada em | Sem sessão | Manutenção | Sem perfil | Papel insuficiente |
 | :-- | :-- | :-- | :-- | :-- | :-- |
 | `pageUser()` | `/onboarding` | `/login` | `/maintenance` | Passa | — |
-| `pageUserWithProfile()` | `/`, `/game-days`, `/game-days/:id`, `/game-days/:id/live`, `/ranking`, `/profile` | `/login` | `/maintenance` | `/onboarding` | — |
+| `pageViewer(from)` | `/`, `/game-days`, `/game-days/:id`, `/game-days/:id/live`, `/ranking` | Site privado ligado: `/login?proximo=…`; desligado: **passa como visitante** | `/maintenance` | `/onboarding?proximo=…` (só logado) | — |
+| `pageUserWithProfile()` | `/profile` | `/login?proximo=…` | `/maintenance` | `/onboarding?proximo=…` | — |
 | `pageAdmin()` | `/game-days/new`, `/game-days/:id/edit`, `/teams`, `/panel`, `/players` | `/login` | `/maintenance` | `/onboarding` | `/` |
 | `pageSuperadmin()` | `/admin/users`, `/admin/system`, `/admin/audit` | `/login` | `/maintenance` | `/onboarding` | `/` |
-| `requireUser()` | `/api/profile`, `/api/uploads`, `/api/files/*`, `POST`/`DELETE` de inscrição, `GET /api/game-days`, `/api/players/:id`, `/api/game-days/:id/live` | 401 | 403 | **Não confere** | — |
+| `requireViewer()` | `GET /api/players/:id`, `/api/game-days/:id/live`, `/api/game-days/:id/stream`, `/api/files/fotos/*` | Site privado ligado: 401; desligado: passa | 403 | **Não confere** | — |
+| `requireUser()` | `/api/profile`, `/api/uploads`, `/api/files/comprovantes/*`, `POST`/`DELETE` de inscrição, `GET /api/game-days` | 401 | 403 | **Não confere** | — |
 | `requireAdmin()` | Pagamento, criar/editar pelada, times, sorteio, encerrar, partidas e eventos, avaliação de jogador | 401 | 403 | Não confere | 403 |
 | `requireSuperadmin()` | `/api/system`, `/api/users/:id/role` | 401 | 403 | Não confere | 403 |
-| `getCurrentUser()` direto | `/api/game-days/:id/stream`, `/maintenance`, `changePasswordAction` | 401 / `null` | **Não confere** | Não confere | — |
+| `getCurrentUser()` direto | `/maintenance`, `changePasswordAction` | 401 / `null` | **Não confere** | Não confere | — |
 | Nenhuma | `/game-days/:id/stats` (rota `public`) | Passa | Passa | — | — |
 
 ### 8.3 O que Rafa tenta, e onde é barrado
@@ -709,15 +730,12 @@ vem de o nome ser imprevisível, não do controle de acesso.
 só URLs com o prefixo `/api/files/comprovantes/<user.id>/`, e conferir o `userId` do caminho em
 `/api/files`.
 
-### 10.4 O canal ao vivo não respeita a manutenção
+### 10.4 O canal ao vivo não respeita a manutenção *(corrigido)*
 
-`/api/game-days/:id/stream` chama `getCurrentUser()` direto
-(`src/app/api/game-days/[id]/stream/route.ts:19`): confere a sessão, mas não passa por
-`assertSiteOpen`. Com o site em manutenção, uma tela ao vivo já aberta continua recebendo
-snapshots, e o tique de 1 s continua chamando `syncMatchClock`.
-
-**Correção:** `await assertSiteOpen(user)` logo depois da checagem de sessão, mantendo o 401 em
-JSON que o `EventSource` espera.
+`/api/game-days/:id/stream` chamava `getCurrentUser()` direto e não passava por `assertSiteOpen`.
+Agora usa `requireViewer()`, que aplica a regra de manutenção (403) e a do site privado (401), com
+o erro devolvido em JSON por `toErrorResponse`. Uma conexão SSE que já estava aberta quando a
+manutenção foi ligada continua até fechar; só as novas conexões são recusadas.
 
 ### 10.5 O cadastro diz quais e-mails e usernames já existem
 
