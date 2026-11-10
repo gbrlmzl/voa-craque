@@ -481,6 +481,9 @@ model SystemSetting {
   publicAccessEnabled Boolean  @default(true)
   maintenanceMessage  String   @default("Estamos em manutenção. Volte em alguns minutos.")
   registrationOpen    Boolean  @default(true)
+  // Ligado, so quem tem sessao acessa o site; desligado, visitante navega
+  // pelas paginas de consulta. Manutencao (publicAccessEnabled) vence.
+  privateSiteEnabled  Boolean  @default(false)
   updatedById         String?
   updatedAt           DateTime @updatedAt
 
