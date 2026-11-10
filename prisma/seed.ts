@@ -57,7 +57,7 @@ async function main() {
   const superEmail = (process.env.SUPERADMIN_EMAIL ?? "super@voacraque.app").toLowerCase();
   const superPassword = process.env.SUPERADMIN_PASSWORD ?? "VoaCraque123!";
   const superName = process.env.SUPERADMIN_NAME ?? "Superadmin";
-  const superUsername = process.env.SUPERADMIN_USERNAME ?? superEmail.split("@")[0];
+  const superUsername = process.env.SUPERADMIN_USERNAME || superEmail.split("@")[0];
 
   await prisma.systemSetting.upsert({
     where: { id: "global" },
