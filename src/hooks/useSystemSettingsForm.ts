@@ -6,6 +6,7 @@ import { useToast } from "@/components/providers/ToastProvider";
 
 export type SystemSettingsValues = {
   publicAccessEnabled: boolean;
+  privateSiteEnabled: boolean;
   registrationOpen: boolean;
   maintenanceMessage: string;
 };

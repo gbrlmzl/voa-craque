@@ -4,10 +4,15 @@ import { route } from "@/lib/http";
 import { requireSuperadmin } from "@/lib/session";
 import { systemSettingsSchema } from "@/lib/validation";
 import { AUDIT_ACTIONS, recordAudit } from "@/lib/audit";
+import { settingsChangeSummary } from "@/lib/site-access";
 
 export const dynamic = "force-dynamic";
 
-/** Liga e desliga o acesso publico ao site. O superadmin continua entrando. */
+/**
+ * Grava as chaves de /admin/system: site liberado (manutencao), site privado
+ * (visitante precisa de login) e inscricoes abertas. Manutencao vence o site
+ * privado, e o superadmin continua entrando.
+ */
 export async function PATCH(req: NextRequest) {
   return route(async () => {
     const superadmin = await requireSuperadmin();
@@ -24,7 +29,7 @@ export async function PATCH(req: NextRequest) {
       action: AUDIT_ACTIONS.SYSTEM_SETTINGS_UPDATED,
       entity: "SystemSetting",
       entityId: "global",
-      summary: input.publicAccessEnabled ? "Site liberado" : "Site em manutenção",
+      summary: settingsChangeSummary(before, settings),
       before: before ?? undefined,
       after: settings,
     });

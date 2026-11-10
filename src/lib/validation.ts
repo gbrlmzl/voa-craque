@@ -162,6 +162,7 @@ export const substitutionSchema = z.object({
 
 export const systemSettingsSchema = z.object({
   publicAccessEnabled: z.boolean(),
+  privateSiteEnabled: z.boolean(),
   registrationOpen: z.boolean(),
   maintenanceMessage: z.string().trim().min(3).max(240),
 });

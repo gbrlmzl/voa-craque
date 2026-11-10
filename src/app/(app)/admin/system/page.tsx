@@ -31,6 +31,7 @@ export default async function SystemPage() {
       <SystemSettingsForm
         initial={{
           publicAccessEnabled: settings.publicAccessEnabled,
+          privateSiteEnabled: settings.privateSiteEnabled,
           registrationOpen: settings.registrationOpen,
           maintenanceMessage: settings.maintenanceMessage,
         }}

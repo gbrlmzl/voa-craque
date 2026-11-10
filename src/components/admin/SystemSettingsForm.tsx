@@ -16,6 +16,19 @@ export function SystemSettingsForm({ initial }: { initial: SystemSettingsValues 
       />
 
       <Toggle
+        label="Site privado"
+        description="Ligado, só quem tem conta e está logado acessa o site. Desligado, qualquer pessoa vê as peladas, o ranking e o ao vivo; para se inscrever, precisa entrar."
+        checked={values.privateSiteEnabled}
+        onChange={(checked) => set("privateSiteEnabled", checked)}
+      />
+
+      {!values.publicAccessEnabled ? (
+        <p className="rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
+          O site está em manutenção: ninguém navega até você liberar.
+        </p>
+      ) : null}
+
+      <Toggle
         label="Inscrições abertas"
         description="Desligado, ninguém entra em pelada nenhuma até você religar."
         checked={values.registrationOpen}
