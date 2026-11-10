@@ -12,8 +12,8 @@ import { TeamBuilder, type BuilderPlayer, type BuilderTeam } from "@/components/
 export const dynamic = "force-dynamic";
 
 export default async function TeamsPage({ params }: { params: Promise<{ id: string }> }) {
-  await pageAdmin();
   const { id } = await params;
+  await pageAdmin(`/game-days/${id}/teams`);
 
   const gameDay = await prisma.gameDay.findUnique({
     where: { id },

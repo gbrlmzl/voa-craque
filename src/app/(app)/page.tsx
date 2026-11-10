@@ -1,46 +1,59 @@
 import Link from "next/link";
-import { CalendarDays, MapPin, Radio, Trophy } from "lucide-react";
+import { CalendarDays, LogIn, MapPin, Radio, Trophy } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { isAdmin, pageUserWithProfile } from "@/lib/session";
+import { isAdmin, pageViewer } from "@/lib/session";
 import { formatCents, formatDateTime, GAMEDAY_STATUS_LABEL, PAYMENT_STATUS_LABEL } from "@/lib/labels";
 import { Badge, Button, Card, EmptyState, SectionTitle } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
-  const user = await pageUserWithProfile();
-  const admin = isAdmin(user);
-
-  const [gameDay, myEvents, myGameDays] = await Promise.all([
-    prisma.gameDay.findFirst({
-      where: { status: { notIn: ["FINISHED", "CANCELED"] } },
-      orderBy: { scheduledAt: "asc" },
-      include: {
-        _count: { select: { registrations: true } },
-        registrations: { where: { userId: user.id } },
-      },
-    }),
+/** Gols, assistencias e peladas de quem esta logado. */
+async function loadMyNumbers(userId: string) {
+  const [events, gameDays] = await Promise.all([
     prisma.matchEvent.groupBy({
       by: ["type"],
-      where: { userId: user.id, match: { status: "FINISHED" } },
+      where: { userId, match: { status: "FINISHED" } },
       _count: { _all: true },
     }),
     // Peladas distintas em que jogou ao menos uma partida encerrada.
     prisma.match.groupBy({
       by: ["gameDayId"],
-      where: { status: "FINISHED", lineup: { some: { userId: user.id } } },
+      where: { status: "FINISHED", lineup: { some: { userId } } },
     }),
+  ]);
+  return {
+    goals: events.find((entry) => entry.type === "GOAL")?._count._all ?? 0,
+    assists: events.find((entry) => entry.type === "ASSIST")?._count._all ?? 0,
+    gameDays: gameDays.length,
+  };
+}
+
+export default async function HomePage() {
+  const user = await pageViewer("/");
+  const admin = isAdmin(user);
+
+  const [gameDay, myNumbers] = await Promise.all([
+    prisma.gameDay.findFirst({
+      where: { status: { notIn: ["FINISHED", "CANCELED"] } },
+      orderBy: { scheduledAt: "asc" },
+      include: {
+        _count: { select: { registrations: true } },
+        // Visitante nao tem inscricao: take 0 evita a leitura sem mudar o formato.
+        registrations: user ? { where: { userId: user.id } } : { take: 0 },
+      },
+    }),
+    user ? loadMyNumbers(user.id) : Promise.resolve(null),
   ]);
 
   const myRegistration = gameDay?.registrations[0] ?? null;
-  const goals = myEvents.find((entry) => entry.type === "GOAL")?._count._all ?? 0;
-  const assists = myEvents.find((entry) => entry.type === "ASSIST")?._count._all ?? 0;
 
   return (
     <div className="grid gap-6">
       <div>
         <p className="text-sm text-slate-400">Salve,</p>
-        <h1 className="text-2xl font-bold tracking-tight">{(user.name ?? user.username).split(" ")[0]}</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          {user ? (user.name ?? user.username).split(" ")[0] : "craque"}
+        </h1>
       </div>
 
       <section>
@@ -119,22 +132,33 @@ export default async function HomePage() {
       </section>
 
       <section>
-        <SectionTitle>Seus números</SectionTitle>
+        {myNumbers ? <SectionTitle>Seus números</SectionTitle> : null}
         <Card>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div>
-              <p className="text-2xl font-bold">{goals}</p>
-              <p className="text-xs text-slate-500">Gols</p>
+          {myNumbers ? (
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-2xl font-bold">{myNumbers.goals}</p>
+                <p className="text-xs text-slate-500">Gols</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{myNumbers.assists}</p>
+                <p className="text-xs text-slate-500">Assistências</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{myNumbers.gameDays}</p>
+                <p className="text-xs text-slate-500">Peladas</p>
+              </div>
             </div>
-            <div>
-              <p className="text-2xl font-bold">{assists}</p>
-              <p className="text-xs text-slate-500">Assistências</p>
+          ) : (
+            <div className="grid gap-3">
+              <p className="text-sm text-slate-300">Entre para acompanhar seus gols, assistências e peladas.</p>
+              <Link href="/login">
+                <Button size="lg" className="w-full">
+                  <LogIn size={18} /> Entrar
+                </Button>
+              </Link>
             </div>
-            <div>
-              <p className="text-2xl font-bold">{myGameDays.length}</p>
-              <p className="text-xs text-slate-500">Peladas</p>
-            </div>
-          </div>
+          )}
           <Link href="/ranking" className="mt-4 block">
             <Button variant="ghost" className="w-full">
               <Trophy size={16} /> Ver o ranking completo

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CalendarDays, MapPin, Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { isAdmin, pageUserWithProfile } from "@/lib/session";
+import { isAdmin, pageViewer } from "@/lib/session";
 import { formatCents, formatDateTime, GAMEDAY_STATUS_LABEL } from "@/lib/labels";
 import { Badge, Button, Card, EmptyState } from "@/components/ui";
 
@@ -16,14 +16,15 @@ const STATUS_TONE = {
 } as const;
 
 export default async function GameDaysPage() {
-  const user = await pageUserWithProfile();
+  const user = await pageViewer("/game-days");
   const admin = isAdmin(user);
 
   const gameDays = await prisma.gameDay.findMany({
     orderBy: [{ status: "asc" }, { scheduledAt: "desc" }],
     include: {
       _count: { select: { registrations: true, matches: true } },
-      registrations: { where: { userId: user.id }, select: { id: true } },
+      // Visitante nao tem inscricao: take 0 evita a leitura sem mudar o formato.
+      registrations: user ? { where: { userId: user.id }, select: { id: true } } : { select: { id: true }, take: 0 },
     },
   });
 

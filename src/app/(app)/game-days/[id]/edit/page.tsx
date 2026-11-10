@@ -13,8 +13,8 @@ function toLocalInput(date: Date): string {
 }
 
 export default async function EditGameDayPage({ params }: { params: Promise<{ id: string }> }) {
-  await pageAdmin();
   const { id } = await params;
+  await pageAdmin(`/game-days/${id}/edit`);
 
   const gameDay = await prisma.gameDay.findUnique({ where: { id } });
   if (!gameDay) notFound();

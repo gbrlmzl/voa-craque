@@ -10,7 +10,7 @@ import { EMPTY_PROFILE, type ProfileValues } from "@/lib/profile-defaults";
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
-  const user = await pageUserWithProfile();
+  const user = await pageUserWithProfile("/profile");
 
   const profile = await prisma.playerProfile.findUnique({ where: { userId: user.id } });
 

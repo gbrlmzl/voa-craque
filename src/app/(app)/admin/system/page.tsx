@@ -8,7 +8,7 @@ import { RatingRecompute } from "@/components/admin/RatingRecompute";
 export const dynamic = "force-dynamic";
 
 export default async function SystemPage() {
-  await pageSuperadmin();
+  await pageSuperadmin("/admin/system");
   const settings = await getSystemSettings();
 
   const [users, gameDays, matches, events, ratedGameDays] = await Promise.all([

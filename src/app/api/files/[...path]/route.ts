@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { forbidden, notFound, toErrorResponse } from "@/lib/http";
 import { photoCache } from "@/lib/photo-cache";
-import { isAdmin, requireUser } from "@/lib/session";
+import { isAdmin, requireUser, requireViewer } from "@/lib/session";
 import { contentTypeFor, localFilePath, readStoredFile, signedS3Url } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
@@ -18,14 +18,16 @@ export const runtime = "nodejs";
  * impedia o navegador de guardar a foto, e ela so tem ~40 KB. Servida daqui, a URL
  * nunca muda e o arquivo nunca e reescrito (a chave e um UUID novo por upload), entao
  * pode ser imutavel por um ano. `private` impede a Cloudflare de guardar uma foto
- * que exige login.
+ * que exige login (ou que so o site aberto a visitantes libera).
  */
 export async function GET(_req: Request, ctx: { params: Promise<{ path: string[] }> }) {
   try {
-    const user = await requireUser();
     const { path: segments } = await ctx.params;
 
+    // Foto de perfil e de consulta (aparece em listas e fichas): visitante pode ver com o
+    // site aberto a visitantes. Todo o resto (comprovantes) exige login sempre.
     if (segments[0] === "fotos") {
+      await requireViewer();
       const key = segments.join("/");
       let photo = photoCache.get(key);
       if (!photo) {
@@ -43,6 +45,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ path: string[]
         },
       });
     }
+
+    const user = await requireUser();
 
     if (segments[0] === "comprovantes" && !isAdmin(user)) {
       const url = `/api/files/${segments.join("/")}`;

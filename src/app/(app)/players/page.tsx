@@ -7,7 +7,7 @@ import { mmrRanks } from "@/services/ranking";
 export const dynamic = "force-dynamic";
 
 export default async function PlayersPage() {
-  await pageAdmin();
+  await pageAdmin("/players");
 
   const [users, ranks] = await Promise.all([
     prisma.user.findMany({

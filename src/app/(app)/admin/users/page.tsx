@@ -5,7 +5,7 @@ import { RoleManager, type ManagedUser } from "@/components/admin/RoleManager";
 export const dynamic = "force-dynamic";
 
 export default async function UsersPage() {
-  const superadmin = await pageSuperadmin();
+  const superadmin = await pageSuperadmin("/admin/users");
 
   const rows = await prisma.user.findMany({
     orderBy: [{ role: "asc" }, { username: "asc" }],

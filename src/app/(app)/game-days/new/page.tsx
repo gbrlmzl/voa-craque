@@ -6,7 +6,7 @@ import { NEW_GAMEDAY } from "@/lib/gameday-defaults";
 export const dynamic = "force-dynamic";
 
 export default async function NewGameDayPage() {
-  const admin = await pageAdmin();
+  const admin = await pageAdmin("/game-days/new");
 
   // A chave e obrigatoria: a nova pelada ja vem com a da ultima que este organizador criou.
   const last = await prisma.gameDay.findFirst({

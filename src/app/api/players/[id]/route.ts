@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { notFound, route } from "@/lib/http";
-import { requireUser } from "@/lib/session";
+import { requireViewer } from "@/lib/session";
 import { FOOT_LABEL, POSITION_LABEL } from "@/lib/labels";
 import { mmrRankOf } from "@/services/ranking";
 
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 /** Ficha publica do jogador para o modal. Nunca devolve e-mail nem papel. */
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   return route(async () => {
-    await requireUser();
+    await requireViewer();
     const { id } = await ctx.params;
 
     const user = await prisma.user.findUnique({
