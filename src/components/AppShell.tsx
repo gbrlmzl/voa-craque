@@ -6,6 +6,7 @@ import {
   CalendarDays,
   ClipboardList,
   Home,
+  LogIn,
   LogOut,
   ScrollText,
   Settings,
@@ -24,15 +25,18 @@ import { SkeletonBlock, SkeletonText } from "@/components/Skeleton";
 import { Button, cn } from "@/components/ui";
 import { useCurrentUser } from "@/components/providers/UserProvider";
 import { useAppShell } from "@/hooks/useAppShell";
+import { useLoginRedirect } from "@/hooks/useLoginRedirect";
 
 type NavItem = { href: string; label: string; icon: typeof Home; roles?: Role[] };
 
+// O ultimo item da navegacao depende da sessao: "Perfil" para quem entrou,
+// "Entrar" para o visitante (ver ProfileOrLoginItem).
 const MAIN_NAV: NavItem[] = [
   { href: "/", label: "Início", icon: Home },
   { href: "/game-days", label: "Peladas", icon: CalendarDays },
   { href: "/ranking", label: "Ranking", icon: Trophy },
-  { href: "/profile", label: "Perfil", icon: UserRound },
 ];
+const PROFILE_ITEM: NavItem = { href: "/profile", label: "Perfil", icon: UserRound };
 
 const EXTRA_NAV: NavItem[] = [
   { href: "/players", label: "Avaliar jogadores", icon: ClipboardList, roles: ["ADMIN", "SUPERADMIN"] },
@@ -78,6 +82,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const tabLink = (item: NavItem) => {
+    const Icon = item.icon;
+    return (
+      <Link
+        key={item.label}
+        href={item.href}
+        className={cn(
+          "touch-target flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[11px]",
+          isActive(item.href) ? "text-pitch-400" : "text-slate-500",
+        )}
+      >
+        <Icon size={22} />
+        {item.label}
+      </Link>
+    );
+  };
+
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-night-950/90 backdrop-blur">
@@ -89,27 +110,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <nav className="ml-auto hidden items-center gap-1 sm:flex">
             {MAIN_NAV.map(desktopLink)}
+            <Suspense fallback={desktopLink(PROFILE_ITEM)}>
+              <ProfileOrLoginItem render={desktopLink} />
+            </Suspense>
             <Suspense fallback={null}>
               <ExtraNav render={desktopLink} />
             </Suspense>
           </nav>
 
-          <button
-            type="button"
-            onClick={openMenu}
-            className="ml-auto rounded-full sm:ml-0 sm:hidden"
-            aria-label="Abrir menu"
-          >
-            <Suspense fallback={<SkeletonBlock className="h-9 w-9 rounded-full" />}>
-              <UserAvatar size="sm" />
-            </Suspense>
-          </button>
+          <Suspense fallback={<SkeletonBlock className="ml-auto h-9 w-9 rounded-full sm:hidden" />}>
+            <MobileAccount onOpenMenu={openMenu} />
+          </Suspense>
 
-          <form action={logoutAction} className="hidden sm:block">
-            <Button variant="ghost" size="sm" type="submit" aria-label="Sair">
-              <LogOut size={18} />
-            </Button>
-          </form>
+          <Suspense fallback={<LogoutButton />}>
+            <LogoutOrLogin />
+          </Suspense>
         </div>
       </header>
 
@@ -123,23 +138,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-night-950/95 backdrop-blur sm:hidden">
         <div className="mx-auto flex max-w-lg items-stretch">
-          {MAIN_NAV.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "touch-target flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[11px]",
-                  active ? "text-pitch-400" : "text-slate-500",
-                )}
-              >
-                <Icon size={22} />
-                {item.label}
-              </Link>
-            );
-          })}
+          {MAIN_NAV.map(tabLink)}
+          <Suspense fallback={tabLink(PROFILE_ITEM)}>
+            <ProfileOrLoginItem render={tabLink} />
+          </Suspense>
         </div>
       </nav>
 
@@ -160,6 +162,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             <div className="grid gap-1">
               {MAIN_NAV.map(drawerLink)}
+              {drawerLink(PROFILE_ITEM)}
               <Suspense fallback={null}>
                 <ExtraNav render={drawerLink} />
               </Suspense>
@@ -180,6 +183,60 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 function UserAvatar({ size }: { size: "sm" | "md" }) {
   const user = useCurrentUser();
   return <Avatar name={user?.name ?? user?.username ?? ""} photoUrl={user?.photoUrl} size={size} />;
+}
+
+/** "Perfil" para quem entrou; "Entrar" (volta para esta pagina depois) para o visitante. */
+function ProfileOrLoginItem({ render }: { render: (item: NavItem) => React.ReactNode }) {
+  const user = useCurrentUser();
+  const { loginHref } = useLoginRedirect();
+  return <>{render(user ? PROFILE_ITEM : { href: loginHref, label: "Entrar", icon: LogIn })}</>;
+}
+
+/** Celular: o avatar abre a gaveta; o visitante nao tem gaveta, so o botao "Entrar". */
+function MobileAccount({ onOpenMenu }: { onOpenMenu: () => void }) {
+  const user = useCurrentUser();
+  const { loginHref } = useLoginRedirect();
+
+  if (!user) {
+    return (
+      <Link
+        href={loginHref}
+        className="touch-target ml-auto inline-flex items-center gap-1.5 rounded-full px-3 text-sm font-medium text-pitch-400 sm:hidden"
+      >
+        <LogIn size={18} /> Entrar
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onOpenMenu} className="ml-auto rounded-full sm:ml-0 sm:hidden" aria-label="Abrir menu">
+      <UserAvatar size="sm" />
+    </button>
+  );
+}
+
+function LogoutButton() {
+  return (
+    <form action={logoutAction} className="hidden sm:block">
+      <Button variant="ghost" size="sm" type="submit" aria-label="Sair">
+        <LogOut size={18} />
+      </Button>
+    </form>
+  );
+}
+
+/** Desktop: "Sair" para quem entrou, "Entrar" para o visitante. */
+function LogoutOrLogin() {
+  const user = useCurrentUser();
+  const { loginHref } = useLoginRedirect();
+  if (user) return <LogoutButton />;
+  return (
+    <Link href={loginHref} className="hidden sm:block">
+      <Button variant="secondary" size="sm" type="button">
+        <LogIn size={18} /> Entrar
+      </Button>
+    </Link>
+  );
 }
 
 function ExtraNav({ render }: { render: (item: NavItem) => React.ReactNode }) {
