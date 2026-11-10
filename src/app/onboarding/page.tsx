@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { onboardingHref, safeFinalPath } from "@/lib/auth/routes";
 import { pageUser } from "@/lib/session";
 import { ProfileForm } from "@/components/forms/ProfileForm";
 import { EMPTY_PROFILE, type ProfileValues } from "@/lib/profile-defaults";
@@ -7,9 +8,15 @@ import { EMPTY_PROFILE, type ProfileValues } from "@/lib/profile-defaults";
 export const dynamic = "force-dynamic";
 
 /** Primeiro acesso: sem perfil de jogador, ninguem circula pelo resto do site. */
-export default async function OnboardingPage() {
-  const user = await pageUser();
-  if (user.profileCompleted) redirect("/");
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ proximo?: string }>;
+}) {
+  // Destino final (a pagina de onde a pessoa veio); nunca outro /onboarding nem /login.
+  const next = safeFinalPath((await searchParams).proximo);
+  const user = await pageUser(onboardingHref(next));
+  if (user.profileCompleted) redirect(next);
 
   const profile = await prisma.playerProfile.findUnique({ where: { userId: user.id } });
 
@@ -34,7 +41,7 @@ export default async function OnboardingPage() {
         <h1 className="mt-1 text-2xl font-bold tracking-tight">Monte seu perfil de jogador</h1>
       </div>
 
-      <ProfileForm initial={initial} mode="onboarding" />
+      <ProfileForm initial={initial} mode="onboarding" next={next} />
     </div>
   );
 }

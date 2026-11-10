@@ -14,9 +14,12 @@ import type { ProfileValues } from "@/lib/profile-defaults";
 export function ProfileForm({
   initial,
   mode,
+  next,
 }: {
   initial: ProfileValues;
   mode: "onboarding" | "edit";
+  /** So no onboarding: para onde ir depois de salvar. */
+  next?: string;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const card = useRef<HTMLDivElement>(null);
@@ -37,7 +40,7 @@ export function ProfileForm({
     pickPhoto,
     undoPhoto,
     submit,
-  } = useProfileForm(initial, mode);
+  } = useProfileForm(initial, mode, next);
 
   const [zoomed, setZoomed] = useState(false);
   // O onboarding e um passo obrigatorio: nao ha para onde sair, entao nao ha aviso.

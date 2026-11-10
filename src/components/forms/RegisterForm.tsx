@@ -6,7 +6,7 @@ import { Button, Card, Field, Input } from "@/components/ui";
 
 const EMPTY: FormState = {};
 
-export function RegisterForm() {
+export function RegisterForm({ next }: { next?: string }) {
   const [state, action, pending] = useActionState(registerAction, EMPTY);
 
   return (
@@ -28,6 +28,7 @@ export function RegisterForm() {
           <Input name="passwordConfirm" type="password" autoComplete="new-password" required />
         </Field>
 
+        <input type="hidden" name="proximo" value={next ?? "/"} />
         {state.message ? (
           <p className="rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-300">{state.message}</p>
         ) : null}
