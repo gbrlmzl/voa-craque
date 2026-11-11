@@ -52,7 +52,7 @@ export default async (): Promise<Config> => ({
       testMatch: ["<rootDir>/tests/integration/**/*.test.ts"],
       globalSetup: "<rootDir>/tests/setup/db-global.ts",
       setupFiles: [...(shared.setupFiles as string[]), "<rootDir>/tests/setup/db-worker.ts"],
-      setupFilesAfterEnv: ["<rootDir>/tests/setup/db-reset.ts"],
+      setupFilesAfterEnv: ["<rootDir>/tests/setup/next-mocks.ts", "<rootDir>/tests/setup/db-reset.ts"],
     }),
   ],
   collectCoverageFrom: [
