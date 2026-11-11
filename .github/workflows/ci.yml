@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  pull_request:
+  # Em push na main quem roda a suite e o deploy.yml (workflow_call), para nao
+  # executar tudo duas vezes; o deploy so segue se todos os jobs passarem.
+  workflow_call:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    name: static
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # prisma.config.ts exige DATABASE_URL so pra carregar (o generate nao acessa banco).
+      DATABASE_URL: "postgresql://user:pass@localhost:5432/db?schema=public"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run typecheck
+
+  jest:
+    name: jest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: voacraque
+          POSTGRES_PASSWORD: voacraque
+          POSTGRES_DB: voacraque_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U voacraque -d voacraque_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # Sobrescreve a porta do .env.test (db-test local) pelo service container.
+      DATABASE_URL: "postgresql://voacraque:voacraque@localhost:5432/voacraque_test?schema=public"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      # Segredo efemero: nunca o AUTH_SECRET de producao.
+      - name: Gera AUTH_SECRET efemero
+        run: echo "AUTH_SECRET=$(openssl rand -base64 48)" >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npm run db:generate
+      - name: Jest (unit + component + integration) com cobertura
+        run: npm run test:ci
+      - name: Resumo de cobertura
+        if: always()
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            node scripts/coverage-summary.mjs >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: ignore
