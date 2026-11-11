@@ -17,6 +17,27 @@ services:
       timeout: 5s
       retries: 20
 
+  # Banco so dos testes automatizados: descartavel (tmpfs), porta propria, nunca
+  # o banco de desenvolvimento. Sobe com `npm run test:db:up`.
+  db-test:
+    image: postgres:17-alpine
+    container_name: voacraque-db-test
+    environment:
+      POSTGRES_USER: voacraque
+      POSTGRES_PASSWORD: voacraque
+      POSTGRES_DB: postgres
+    ports:
+      - "55433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./docker/db-test-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voacraque -d voacraque_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
   app:
     build:
       context: .
