@@ -1,0 +1,105 @@
+/*
+ * Checkbox no estilo do Checkbox + FormControlLabel do MUI: quadrado de 18px
+ * (icone de 24px), cinza quando vazio, preenchido com a cor primaria e check
+ * vazado quando marcado; ao redor, um circulo de 42px que acende no hover, no
+ * foco do teclado e ao pressionar.
+ */
+
+.root {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  cursor: pointer;
+  user-select: none;
+  /* Como o FormControlLabel: o quadrado encosta na borda esquerda do conteudo. */
+  margin-left: -11px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rootDisabled {
+  cursor: not-allowed;
+}
+
+.control {
+  --icon: 1.5rem;
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 9px;
+  border-radius: 50%;
+  color: var(--color-slate-400, #94a3b8);
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sm {
+  --icon: 1.25rem;
+}
+
+.input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.icon {
+  display: block;
+  width: var(--icon);
+  height: var(--icon);
+  fill: currentColor;
+  transition: fill 200ms ease;
+}
+
+.checkedIcon {
+  display: none;
+}
+
+.input:checked ~ .emptyIcon {
+  display: none;
+}
+
+.input:checked ~ .checkedIcon {
+  display: block;
+}
+
+.control:has(.input:checked) {
+  color: var(--color-pitch-500);
+}
+
+.control:hover:not(.controlDisabled),
+.control:has(.input:focus-visible) {
+  background-color: rgb(22 184 115 / 0.08);
+}
+
+.control:active:not(.controlDisabled) {
+  background-color: rgb(22 184 115 / 0.18);
+}
+
+.controlDisabled {
+  color: var(--color-slate-600, #475569);
+}
+
+.control.controlDisabled:has(.input:checked) {
+  color: var(--color-slate-600, #475569);
+}
+
+.label {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--color-slate-100, #f1f5f9);
+}
+
+.labelSm {
+  font-size: 0.875rem;
+}
+
+.labelDisabled {
+  color: var(--color-slate-500, #64748b);
+}
