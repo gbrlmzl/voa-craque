@@ -63,9 +63,18 @@ export default async (): Promise<Config> => ({
     "!src/**/loading.tsx",
     "!src/**/*.d.ts",
   ],
+  // Limites por pasta (secao 5.3 do plano). O Jest tira do "global" o que casa com um limite de
+  // pasta, entao o total do projeto (meta de D4: 70% de linhas e statements, 65% de functions,
+  // 60% de branches) e conferido por scripts/check-coverage.mjs, que o test:ci roda em seguida.
   coverageThreshold: {
-    // Catraca: sobe a cada fase ate chegar na meta de D4 (70/65/60) e nos limites por pasta.
-    global: { statements: 56, lines: 55, functions: 49, branches: 47 },
+    global: { statements: 70, lines: 70, functions: 65, branches: 60 },
+    "./src/lib/": { lines: 85, branches: 75 },
+    "./src/lib/auth/": { lines: 90, branches: 80 },
+    "./src/services/": { lines: 75, branches: 60 },
+    "./src/app/api/": { lines: 75, branches: 60 },
+    "./src/actions/": { lines: 80, branches: 70 },
+    "./src/hooks/": { lines: 70, branches: 55 },
+    "./src/components/": { lines: 55, branches: 45 },
   },
   coverageReporters: ["text-summary", "lcov", "json-summary"],
 });

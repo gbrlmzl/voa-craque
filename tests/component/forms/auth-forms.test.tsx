@@ -119,7 +119,7 @@ describe("LoginForm", () => {
 });
 
 describe("RegisterForm", () => {
-  async function fill({ password = "Senha@123", confirm = password } = {}) {
+  async function fill({ password = "Senha@123", confirm = "Senha@123" }: { password?: string; confirm?: string } = {}) {
     await userEvent.type(screen.getByLabelText("Nome de usuário"), "novo.jogador");
     await userEvent.type(screen.getByLabelText("E-mail"), "novo@teste.com");
     await userEvent.type(screen.getByLabelText("Senha"), password);
