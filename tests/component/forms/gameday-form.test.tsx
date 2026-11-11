@@ -144,6 +144,37 @@ describe("GameDayForm", () => {
     expect(router.refresh).toHaveBeenCalled();
   });
 
+  it("cada campo editavel entra no pedido (nome, local, preco, duracao, gols, vagas, time, PIX e observacoes)", async () => {
+    mockFetch({ "POST /api/game-days": { body: { id: "n" } } });
+    render(<GameDayForm initial={{ ...initial, notes: "" }} />);
+    const type = async (selector: () => HTMLElement, text: string) => {
+      await userEvent.clear(selector());
+      await userEvent.type(selector(), text);
+    };
+    await type(() => screen.getByPlaceholderText("Pelada de quinta"), "Pelada de sexta");
+    await type(() => screen.getByPlaceholderText("Ginásio do Sesi"), "Quadra Nova");
+    await type(() => screen.getByLabelText(/Preço por jogador/), "7,25");
+    await type(() => screen.getByLabelText(/Duração da partida/), "12");
+    await type(() => screen.getByLabelText(/Gols p\/ vencer/), "3");
+    await type(() => screen.getByLabelText(/Máx. jogadores/), "24");
+    await userEvent.selectOptions(screen.getByRole("combobox"), "6");
+    await type(() => screen.getByLabelText(/^Chave PIX/), "nova@pix.com");
+    await userEvent.type(screen.getByPlaceholderText("Se possível, chegar 5 minutos antes."), "Traga colete");
+    await userEvent.click(screen.getByRole("button", { name: "Criar pelada" }));
+    await waitFor(() => expect(fetchCallsTo("POST", "/api/game-days")).toHaveLength(1));
+    expect(fetchCallsTo("POST", "/api/game-days")[0].body).toMatchObject({
+      title: "Pelada de sexta",
+      location: "Quadra Nova",
+      pricePerPlayerCents: 725,
+      matchDurationSec: 720,
+      goalsToWin: 3,
+      maxPlayers: 24,
+      teamSize: 6,
+      pixKey: "nova@pix.com",
+      notes: "Traga colete",
+    });
+  });
+
   it("preco com milhar e virgula", async () => {
     mockFetch({ "POST /api/game-days": { body: { id: "n" } } });
     render(<GameDayForm initial={{ ...initial, price: "1.234,56" }} />);

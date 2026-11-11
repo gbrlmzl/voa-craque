@@ -113,6 +113,10 @@ Server Actions: `await loginAction({}, formData({ username, password }))`; `redi
 - `cy.task("sql", "select ...")` é só leitura. `cy.task("linkRedefinicao", email)` devolve o link da redefinição
   (o E2E não lê e-mail).
 - Todas as tasks recusam rodar se o banco não terminar em `_e2e`.
+- Os limitadores de taxa vivem na memória do servidor. Rodar o mesmo spec muitas vezes contra o **mesmo** servidor
+  (por exemplo `recuperar-senha`, que pede link 1 vez por tentativa; o limite é 5 por hora por IP) acaba em
+  "Muitas tentativas" e parece teste quebrado. `npm run test:e2e` sobe um servidor novo a cada execução; ao rodar
+  specs soltos com `cy:run`, reinicie o `start:e2e` de vez em quando.
 
 ## Cypress Component Testing
 
