@@ -1,5 +1,4 @@
-import { describe, expect, it } from "vitest";
-import { isInAppLeave } from "../src/lib/leave-guard";
+import { isInAppLeave } from "../../src/lib/leave-guard";
 
 const CURRENT = "https://voacraque.test/profile?aba=dados";
 

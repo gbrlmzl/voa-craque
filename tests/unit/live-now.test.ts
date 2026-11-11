@@ -1,5 +1,4 @@
-import { describe, expect, it } from "vitest";
-import { dismissKey, isInterval, shouldShowLiveNow, type LiveNow } from "../src/lib/live-now";
+import { dismissKey, isInterval, shouldShowLiveNow, type LiveNow } from "../../src/lib/live-now";
 
 function liveNow(overrides: Partial<LiveNow> = {}): LiveNow {
   return {

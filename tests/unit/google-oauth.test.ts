@@ -1,19 +1,19 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { stubEnv, restoreEnv } from "../helpers/env";
 import { GOOGLE_SCOPES, googleRedirectUri, readGoogleIdClaims } from "@/lib/auth/google-oauth-state";
 
 const CLIENT_ID = "cliente-de-teste.apps.googleusercontent.com";
 
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => restoreEnv());
 
 describe("googleRedirectUri", () => {
   it("usa AUTH_URL e o mesmo caminho que o Auth.js usava", () => {
-    vi.stubEnv("AUTH_URL", "https://voacraque.app/");
+    stubEnv("AUTH_URL", "https://voacraque.app/");
     expect(googleRedirectUri()).toBe("https://voacraque.app/api/auth/callback/google");
   });
 
   it("sem AUTH_URL nem NEXTAUTH_URL, lanca (nunca do header Host)", () => {
-    vi.stubEnv("AUTH_URL", "");
-    vi.stubEnv("NEXTAUTH_URL", "");
+    stubEnv("AUTH_URL", "");
+    stubEnv("NEXTAUTH_URL", "");
     expect(() => googleRedirectUri()).toThrow(/AUTH_URL/);
   });
 });

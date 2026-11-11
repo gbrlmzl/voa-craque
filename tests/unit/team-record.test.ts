@@ -1,5 +1,4 @@
-import { describe, expect, it } from "vitest";
-import { summarizeTeam, type FinishedMatchRow } from "../src/lib/team-record";
+import { summarizeTeam, type FinishedMatchRow } from "../../src/lib/team-record";
 
 function match(overrides: Partial<FinishedMatchRow> & Pick<FinishedMatchRow, "id" | "homeTeamId" | "awayTeamId">): FinishedMatchRow {
   return { orderIndex: 1, homeScore: 0, awayScore: 0, result: "DRAW", ...overrides };

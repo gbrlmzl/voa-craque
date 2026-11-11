@@ -1,5 +1,4 @@
-import { describe, expect, it } from "vitest";
-import { EMPTY_PROFILE, profileChanged } from "../src/lib/profile-defaults";
+import { EMPTY_PROFILE, profileChanged } from "../../src/lib/profile-defaults";
 
 const BASE = { ...EMPTY_PROFILE, name: "Fernando", nickname: "Fernandinho", age: "21", photoUrl: "/praia.webp" };
 

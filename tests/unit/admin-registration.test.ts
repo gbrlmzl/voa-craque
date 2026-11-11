@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest";
 import { checkAdminRegistration, checkAdminRemoval, remainingSlots } from "@/lib/admin-registration";
 
 function errorOf(result: { ok: boolean; error?: string }): string {

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { stubEnv, restoreEnv } from "../helpers/env";
 import {
   ACCESS_REFRESH_MARGIN_S,
   ACCESS_TOKEN_TTL_S,
@@ -25,13 +25,13 @@ const plusSeconds = (seconds: number) => new Date(NOW.getTime() + seconds * 1000
 const base64url = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
 
 beforeEach(() => {
-  vi.stubEnv("AUTH_SECRET", SECRET_A);
-  vi.stubEnv("AUTH_SECRET_1", "");
+  stubEnv("AUTH_SECRET", SECRET_A);
+  stubEnv("AUTH_SECRET_1", "");
 });
 
 afterEach(() => {
-  vi.unstubAllEnvs();
-  vi.resetModules();
+  restoreEnv();
+  jest.resetModules();
 });
 
 describe("constantes da sessao", () => {
@@ -85,30 +85,30 @@ describe("access token", () => {
 
   it("assinado com outro segredo nao verifica", async () => {
     const token = await signAccessToken("user-1", NOW);
-    vi.stubEnv("AUTH_SECRET", SECRET_B);
+    stubEnv("AUTH_SECRET", SECRET_B);
     expect(await verifyAccessToken(token, NOW)).toBeNull();
   });
 
   it("troca de segredo: o antigo em AUTH_SECRET_1 ainda verifica, e os tokens novos saem com o novo", async () => {
     const oldToken = await signAccessToken("user-1", NOW);
 
-    vi.stubEnv("AUTH_SECRET", SECRET_B);
-    vi.stubEnv("AUTH_SECRET_1", SECRET_A);
+    stubEnv("AUTH_SECRET", SECRET_B);
+    stubEnv("AUTH_SECRET_1", SECRET_A);
     expect(await verifyAccessToken(oldToken, NOW)).not.toBeNull();
 
     const newToken = await signAccessToken("user-1", NOW);
     expect(await verifyAccessToken(newToken, NOW)).not.toBeNull();
 
     // So o segredo antigo, sem o novo: o token novo nao valida.
-    vi.stubEnv("AUTH_SECRET", SECRET_A);
-    vi.stubEnv("AUTH_SECRET_1", "");
+    stubEnv("AUTH_SECRET", SECRET_A);
+    stubEnv("AUTH_SECRET_1", "");
     expect(await verifyAccessToken(newToken, NOW)).toBeNull();
   });
 
   it("AUTH_SECRET curto ou ausente rejeita a assinatura com erro", async () => {
-    vi.stubEnv("AUTH_SECRET", "curto");
+    stubEnv("AUTH_SECRET", "curto");
     await expect(signAccessToken("user-1", NOW)).rejects.toThrow(/AUTH_SECRET/);
-    vi.stubEnv("AUTH_SECRET", "");
+    stubEnv("AUTH_SECRET", "");
     await expect(signAccessToken("user-1", NOW)).rejects.toThrow(/AUTH_SECRET/);
   });
 
@@ -179,8 +179,8 @@ describe("cookies de sessao", () => {
   });
 
   it("em https (producao): Secure e prefixo __Host- nos tres cookies", async () => {
-    vi.stubEnv("AUTH_URL", "https://voacraque.app");
-    vi.resetModules();
+    stubEnv("AUTH_URL", "https://voacraque.app");
+    jest.resetModules();
     const config = await import("@/lib/auth/config");
     const cookies = await import("@/lib/auth/session-cookies");
 
@@ -198,8 +198,8 @@ describe("cookies de sessao", () => {
   });
 
   it("em http://localhost: sem Secure e sem prefixo", async () => {
-    vi.stubEnv("AUTH_URL", "http://localhost:3000");
-    vi.resetModules();
+    stubEnv("AUTH_URL", "http://localhost:3000");
+    jest.resetModules();
     const config = await import("@/lib/auth/config");
 
     expect(config.COOKIE_BASE_OPTIONS.secure).toBe(false);

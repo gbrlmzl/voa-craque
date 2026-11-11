@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest";
 import { pairGoalsWithAssists, planMatchEvents, type PairableEvent } from "@/lib/match-event";
 
 describe("planMatchEvents", () => {

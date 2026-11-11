@@ -1,5 +1,4 @@
-import { describe, expect, it } from "vitest";
-import { pickBadges, pickHeadline } from "../src/lib/story-summary";
+import { pickBadges, pickHeadline } from "../../src/lib/story-summary";
 
 describe("pickHeadline", () => {
   it("destaca os gols quando fez pelo menos um", () => {

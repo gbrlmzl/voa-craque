@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest";
 import { decideAccess, settingsChangeSummary, type AccessDecision, type Viewer } from "@/lib/site-access";
 
 const visitor: Viewer = null;

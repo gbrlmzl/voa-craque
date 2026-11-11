@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest";
 import { ByteLru } from "@/lib/photo-cache";
 
 const bytes = (size: number, fill = 1) => Buffer.alloc(size, fill);

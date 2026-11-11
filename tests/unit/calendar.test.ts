@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest";
 import {
   MINUTE_STEPS,
   addDays,
@@ -11,7 +10,7 @@ import {
   localDayOf,
   monthGrid,
   parseLocalInput,
-} from "../src/lib/calendar";
+} from "../../src/lib/calendar";
 
 describe("parseLocalInput", () => {
   it("le o texto do datetime-local em partes", () => {

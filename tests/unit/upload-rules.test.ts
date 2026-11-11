@@ -1,5 +1,4 @@
-import { describe, expect, it } from "vitest";
-import { ACCEPTED_IMAGE_TYPES, PHOTO_MAX_MB, RECEIPT_MAX_MB, checkImageFile } from "../src/lib/upload-rules";
+import { ACCEPTED_IMAGE_TYPES, PHOTO_MAX_MB, RECEIPT_MAX_MB, checkImageFile } from "../../src/lib/upload-rules";
 
 const MB = 1024 * 1024;
 

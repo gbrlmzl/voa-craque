@@ -1,5 +1,4 @@
 import sharp from "sharp";
-import { describe, expect, it } from "vitest";
 import { HttpError } from "@/lib/http";
 import { PHOTO_SIZE, normalizeProfilePhoto } from "@/lib/profile-photo";
 

@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest";
 import {
   type GameDayStatusName,
   canCancel,
@@ -7,7 +6,7 @@ import {
   canWatchLive,
   isClosed,
   teamsLocked,
-} from "../src/lib/gameday-lifecycle";
+} from "../../src/lib/gameday-lifecycle";
 
 const STATUSES: GameDayStatusName[] = ["OPEN", "TEAMS_SET", "LIVE", "FINISHED", "CANCELED"];
 

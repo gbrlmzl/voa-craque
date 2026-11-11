@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { stubEnv, restoreEnv } from "../helpers/env";
 import { classifyResetToken, hashResetToken, buildPasswordResetUrl } from "@/lib/auth/password-reset-state";
 import { changePasswordSchema, forgotPasswordSchema, resetPasswordSchema } from "@/lib/validation";
 import { sendMail } from "@/lib/mail/mailer";
@@ -43,11 +43,11 @@ describe("hashResetToken", () => {
 
 describe("buildPasswordResetUrl", () => {
   afterEach(() => {
-    vi.unstubAllEnvs();
+    restoreEnv();
   });
 
   it("usa AUTH_URL, caminho /reset-password e o token no searchParams", () => {
-    vi.stubEnv("AUTH_URL", "https://voacraque.app");
+    stubEnv("AUTH_URL", "https://voacraque.app");
     const url = buildPasswordResetUrl("token-abc");
     expect(url.origin).toBe("https://voacraque.app");
     expect(url.pathname).toBe("/reset-password");
@@ -55,14 +55,14 @@ describe("buildPasswordResetUrl", () => {
   });
 
   it("funciona com AUTH_URL terminando em barra", () => {
-    vi.stubEnv("AUTH_URL", "https://voacraque.app/");
+    stubEnv("AUTH_URL", "https://voacraque.app/");
     const url = buildPasswordResetUrl("token-abc");
     expect(url.pathname).toBe("/reset-password");
   });
 
   it("sem AUTH_URL nem NEXTAUTH_URL, lanca erro", () => {
-    vi.stubEnv("AUTH_URL", "");
-    vi.stubEnv("NEXTAUTH_URL", "");
+    stubEnv("AUTH_URL", "");
+    stubEnv("NEXTAUTH_URL", "");
     expect(() => buildPasswordResetUrl("token-abc")).toThrow();
   });
 });
@@ -156,14 +156,14 @@ describe("forgotPasswordSchema", () => {
 
 describe("sendMail com driver console", () => {
   afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.restoreAllMocks();
+    restoreEnv();
+    jest.restoreAllMocks();
   });
 
   it("fora de producao, imprime a mensagem no log", async () => {
-    vi.stubEnv("MAIL_DRIVER", "console");
-    vi.stubEnv("NODE_ENV", "development");
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    stubEnv("MAIL_DRIVER", "console");
+    stubEnv("NODE_ENV", "development");
+    const info = jest.spyOn(console, "info").mockImplementation(() => {});
 
     await sendMail({ to: "a@b.com", subject: "Assunto", text: "corpo do texto", html: "<p>corpo</p>" });
 
@@ -172,10 +172,10 @@ describe("sendMail com driver console", () => {
   });
 
   it("em producao, nao imprime o conteudo da mensagem", async () => {
-    vi.stubEnv("MAIL_DRIVER", "console");
-    vi.stubEnv("NODE_ENV", "production");
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    stubEnv("MAIL_DRIVER", "console");
+    stubEnv("NODE_ENV", "production");
+    const info = jest.spyOn(console, "info").mockImplementation(() => {});
+    const error = jest.spyOn(console, "error").mockImplementation(() => {});
 
     await sendMail({ to: "a@b.com", subject: "Assunto", text: "segredo-do-link", html: "<p>segredo-do-link</p>" });
 

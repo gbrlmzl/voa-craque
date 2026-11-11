@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest";
 import { classifyPath, loginHref, onboardingHref, safeFinalPath, safeNextPath, withNext } from "@/lib/auth/routes";
 import { applyUserPatch, mergeUserPatch } from "@/lib/auth/user-patch";
 import type { CurrentUser } from "@/lib/auth/current-user";

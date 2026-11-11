@@ -1,11 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { TEAM_NAMES } from "../src/lib/team-balancer";
+import { TEAM_NAMES } from "../../src/lib/team-balancer";
 import {
   DEFAULT_TEAM_LABEL_MODE,
   formatTeamName,
   formatTeamTag,
   parseTeamLabelMode,
-} from "../src/lib/team-label";
+} from "../../src/lib/team-label";
 
 describe("formatTeamName", () => {
   it("modo letras mantem a letra gravada", () => {

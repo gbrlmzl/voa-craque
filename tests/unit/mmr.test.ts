@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest";
 import {
   MMR,
   calibrationFactor,
@@ -10,7 +9,7 @@ import {
   type MmrMatch,
   type MmrPlayer,
   type MmrPlayerResult,
-} from "../src/lib/mmr";
+} from "../../src/lib/mmr";
 
 // ---------------------------------------------------------------- montagem de cenarios
 
@@ -189,7 +188,7 @@ describe("a posicao nao pesa (D18 = D)", () => {
     const reference = blocks(night([row], { tested: "gk" }).result);
     expectBlocks(reference, { result: 5, attack: -1.56, defense: 5.5, total: 8.94 });
     for (const role of ["fx", "l2", "pv"] as const) {
-      expect(blocks(night([row], { tested: role }).result), role).toEqual(reference);
+      expect(blocks(night([row], { tested: role }).result)).toEqual(reference);
     }
   });
 
@@ -358,7 +357,7 @@ describe("a estrela decide quanto o jogador anda, nos dois sentidos", () => {
     for (const stars of STARS) {
       const { result } = night(goodNight, { tested: "pv", testedStars: stars });
       const sum = result.resultDelta + result.attackDelta + result.defenseDelta + result.normalizeDelta;
-      expect(result.delta, `${stars}★`).toBeCloseTo(sum * stakeFactor(stars), 1);
+      expect(result.delta).toBeCloseTo(sum * stakeFactor(stars), 1);
       expect(result.starsUsed).toBe(stars);
     }
   });
@@ -367,8 +366,8 @@ describe("a estrela decide quanto o jogador anda, nos dois sentidos", () => {
     const up = STARS.map((stars) => night(goodNight, { tested: "pv", testedStars: stars }).result.delta);
     const down = STARS.map((stars) => night(badNight, { tested: "pv", testedStars: stars }).result.delta);
     for (let i = 1; i < STARS.length; i++) {
-      expect(up[i], `sobe ${STARS[i]}★ > ${STARS[i - 1]}★`).toBeGreaterThan(up[i - 1]);
-      expect(down[i], `cai ${STARS[i]}★ < ${STARS[i - 1]}★`).toBeLessThan(down[i - 1]);
+      expect(up[i]).toBeGreaterThan(up[i - 1]);
+      expect(down[i]).toBeLessThan(down[i - 1]);
     }
     expect(up[0]).toBeGreaterThan(0);
     expect(down[0]).toBeLessThan(0);
