@@ -1,9 +1,11 @@
 "use client";
 
 import { useRef } from "react";
-import { Copy, Eye, Receipt, X } from "lucide-react";
+import Link from "next/link";
+import { Copy, Eye, LogIn, Receipt, X } from "lucide-react";
 import { Badge, Button, Card, SectionTitle } from "@/components/ui";
 import { PAYMENT_METHOD_LABEL, PAYMENT_STATUS_LABEL } from "@/lib/labels";
+import { useLoginRedirect } from "@/hooks/useLoginRedirect";
 import { type Registration, useRegistrationPanel } from "@/hooks/useRegistrationPanel";
 import { ReceiptModal } from "@/components/gameday/ReceiptModal";
 
@@ -18,6 +20,8 @@ export function RegistrationPanel({
   registration,
   open,
   full,
+  guest = false,
+  registrationsClosed = false,
 }: {
   gameDayId: string;
   price: string;
@@ -25,6 +29,10 @@ export function RegistrationPanel({
   registration: Registration | null;
   open: boolean;
   full: boolean;
+  /** Visitante: em vez do formulario, o convite para entrar. */
+  guest?: boolean;
+  /** "Inscricoes abertas" desligada em /admin/system; so o visitante ve o aviso (o jogador recebe o erro ao confirmar). */
+  registrationsClosed?: boolean;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const {
@@ -115,6 +123,8 @@ export function RegistrationPanel({
       </section>
     );
   }
+
+  if (guest) return <GuestRegistration price={price} full={full} registrationsClosed={registrationsClosed} />;
 
   return (
     <section>
@@ -238,6 +248,44 @@ export function RegistrationPanel({
       {viewingPrepared && receipt ? (
         <ReceiptModal url={receipt.previewUrl} title="Seu comprovante" onClose={() => setViewingPrepared(false)} />
       ) : null}
+    </section>
+  );
+}
+
+/** Cartao de quem nao tem conta: nada e enviado antes do login, entao nenhum comprovante se perde. */
+function GuestRegistration({
+  price,
+  full,
+  registrationsClosed,
+}: {
+  price: string;
+  full: boolean;
+  registrationsClosed: boolean;
+}) {
+  const { loginHref } = useLoginRedirect();
+  const notice = registrationsClosed
+    ? "As inscrições estão fechadas no momento."
+    : full
+      ? "A pelada já bateu o limite de jogadores."
+      : null;
+
+  return (
+    <section>
+      <SectionTitle hint={price}>Sua inscrição</SectionTitle>
+      <Card className="grid gap-3">
+        {notice ? (
+          <p className="rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-300">{notice}</p>
+        ) : (
+          <>
+            <p className="text-sm text-slate-300">Entre na sua conta para garantir sua vaga.</p>
+            <Link href={loginHref}>
+              <Button size="lg" className="w-full">
+                <LogIn size={18} /> Quero jogar
+              </Button>
+            </Link>
+          </>
+        )}
+      </Card>
     </section>
   );
 }

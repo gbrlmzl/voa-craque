@@ -1,7 +1,7 @@
 # Arquitetura da sessão: access JWT stateless + refresh token rotativo
 
 Como o Voa Craque mantém alguém logado: um cookie de sessão que é um **JWT de 15 minutos, sem
-nenhuma linha no banco**, e um **refresh token opaco de 7 dias, guardado (só o hash) no banco**,
+nenhuma linha no banco**, e um **refresh token opaco de 7 ou 30 dias (conforme o "Manter login"), guardado (só o hash) no banco**,
 que troca a sessão por uma nova sem pedir a senha de novo. Este documento descreve o que existe
 hoje no código; a proposta original, com o comparativo entre o modelo antigo e este, está em
 [`plano-sessao-jwt-stateless.md`](plano-sessao-jwt-stateless.md).
@@ -72,8 +72,8 @@ Arquivos:
 
 | Cookie | Conteúdo | Validade | Banco |
 | :-- | :-- | :-- | :-- |
-| `voacraque.session` | JWT HS256 (`sub` = id do usuário, `iss`, `aud`, `iat`, `exp`) | 15 min (`Max-Age=900`) | Nada |
-| `voacraque.refresh` | 40 bytes aleatórios em hex, opaco | 7 dias (`Max-Age=604800`) | Só o SHA-256, em `RefreshToken` |
+| `voacraque.session` | JWT HS256 (`sub` = id do usuário, `iss`, `aud`, `iat`, `exp`) | 15 min (`Max-Age=900`); sem "Manter login", cookie de sessão (sem `Max-Age`) | Nada |
+| `voacraque.refresh` | 40 bytes aleatórios em hex, opaco | Com "Manter login": 30 dias (`Max-Age=2592000`). Sem: cookie de sessão, e o banco o limita a 7 dias | Só o SHA-256, em `RefreshToken` |
 | `voacraque.oauth` | JWT com `state`, `code_verifier` e destino do login Google | 10 min | Nada |
 
 Atributos, nos três: `HttpOnly`, `SameSite=Lax`, `Path=/`.
@@ -101,7 +101,8 @@ Atributos, nos três: `HttpOnly`, `SameSite=Lax`, `Path=/`.
 | D2 | Access = JWT HS256, 15 min, `iss` e `aud` exigidos; `HttpOnly` sempre; `Secure` + `__Host-` em https | Cookie de sessão fora do banco; mesma escolha da referência |
 | D3 | Refresh opaco (40 bytes hex), 7 dias, só o hash SHA-256 no banco, por família, rotativo, com graça de 10 s e detecção de reuso | Porte direto do `rotateRefreshToken` da referência |
 | D4 | `revokedReason` em `RefreshToken`: só token aposentado **por rotação** pode ser lido como reuso | Ver [abaixo](#por-que-revokedreason) |
-| D5 | Refresh deslizante: cada rotação cria o sucessor com 7 dias cheios | A sessão cai após 7 dias **sem uso** |
+| D5 | Refresh deslizante: cada rotação cria o sucessor com o prazo cheio (30 dias com "Manter login", 7 sem) | A sessão cai após esse prazo **sem uso** |
+| D5b | "Manter login" é a coluna `RefreshToken.persistent`, escolhida no login e herdada por todo sucessor da família | A escolha vale até o logout, não só até a primeira renovação. Sem a marca, os cookies são de sessão: fechar o navegador encerra o login. Cadastro e Google entram sempre com a marca; a troca de senha mantém a escolha da sessão atual |
 | D6 | Só o proxy renova, e só quando o access falta, é inválido ou tem menos de 60 s | Uma Server Action com upload de até 6 MB passa pelo proxy no início e só lê o access no fim |
 | D7 | O proxy renova em páginas, Server Actions e `/api/*` (exceto `/api/auth/*`, POST em rota só-de-deslogado e prefetch especulativo) | As rotas de API rodam no mesmo processo, os hooks fazem `fetch` direto e há `EventSource` (sem retry); cobrir `/api/*` no proxy evita retry no cliente |
 | D8 | `getCurrentUser()` continua sendo a autoridade: verifica o access, carrega o usuário e exige `active`. O papel não vai no token | Desativação e troca de papel valem na hora |
@@ -236,7 +237,7 @@ acaba na primeira navegação de topo ou quando o access vence, em até 15 minut
 | Google remove senha não verificada | — | Todas revogadas (`GOOGLE_LINKED`); o login do Google abre família nova | Os outros em até 15 min |
 | Conta desativada | Recusado no `getCurrentUser` | Recusado na renovação | Imediato |
 | Troca de `AUTH_SECRET` sem `AUTH_SECRET_1` | Inválido; o proxy renova pelo refresh | Não depende do segredo | Transparente |
-| 7 dias sem uso | Expirado | Expirado | — |
+| 30 dias sem uso (com "Manter login") ou 7 (sem) | Expirado | Expirado | — |
 
 ---
 

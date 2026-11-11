@@ -4,6 +4,7 @@ import {
   ACCESS_TOKEN_TTL_S,
   OAUTH_STATE_TTL_S,
   REFRESH_GRACE_S,
+  REFRESH_TOKEN_TTL_PERSISTENT_S,
   REFRESH_TOKEN_TTL_S,
 } from "@/lib/auth/config";
 import { buildSessionCookies, expiredSessionCookies } from "@/lib/auth/session-cookies";
@@ -38,6 +39,7 @@ describe("constantes da sessao", () => {
   it("15 min de access, 7 dias de refresh, 10 s de graca, 60 s de margem", () => {
     expect(ACCESS_TOKEN_TTL_S).toBe(900);
     expect(REFRESH_TOKEN_TTL_S).toBe(604800);
+    expect(REFRESH_TOKEN_TTL_PERSISTENT_S).toBe(2_592_000);
     expect(REFRESH_GRACE_S).toBe(10);
     expect(ACCESS_REFRESH_MARGIN_S).toBe(60);
     expect(OAUTH_STATE_TTL_S).toBe(600);
@@ -143,18 +145,28 @@ describe("state do OAuth", () => {
 
 describe("cookies de sessao", () => {
   it("nomes sem prefixo em http, validades e atributos", async () => {
-    const [access, refresh] = await buildSessionCookies({ userId: "user-1", refreshToken: "opaco" }, NOW);
+    const [access, refresh] = await buildSessionCookies({ userId: "user-1", refreshToken: "opaco", persistent: true }, NOW);
 
     expect(access.name).toBe("voacraque.session");
     expect(refresh.name).toBe("voacraque.refresh");
     expect(access.options.maxAge).toBe(900);
-    expect(refresh.options.maxAge).toBe(604800);
+    expect(refresh.options.maxAge).toBe(30 * 86_400);
     for (const cookie of [access, refresh]) {
       expect(cookie.options).toMatchObject({ httpOnly: true, sameSite: "lax", path: "/" });
     }
 
     expect(await verifyAccessToken(access.value, NOW)).toEqual({ sub: "user-1", exp: NOW_S + 900 });
     expect(refresh.value).toBe("opaco");
+  });
+
+  it("sem \"manter login\" os dois cookies sao de sessao: nenhum leva Max-Age", async () => {
+    const cookies = await buildSessionCookies({ userId: "user-1", refreshToken: "opaco", persistent: false }, NOW);
+
+    expect(cookies.map((cookie) => cookie.name)).toEqual(["voacraque.session", "voacraque.refresh"]);
+    for (const cookie of cookies) {
+      expect(cookie.options.maxAge).toBeUndefined();
+      expect(cookie.options).toMatchObject({ httpOnly: true, sameSite: "lax", path: "/" });
+    }
   });
 
   it("os cookies expirados sao dois, vazios, com Max-Age 0", () => {
@@ -178,7 +190,7 @@ describe("cookies de sessao", () => {
     }
 
     // Apagar um __Host- exige os mesmos atributos: secure e path "/".
-    const written = [...(await cookies.buildSessionCookies({ userId: "u", refreshToken: "r" }, NOW)), ...cookies.expiredSessionCookies()];
+    const written = [...(await cookies.buildSessionCookies({ userId: "u", refreshToken: "r", persistent: true }, NOW)), ...cookies.expiredSessionCookies()];
     for (const cookie of written) {
       expect(cookie.name.startsWith("__Host-")).toBe(true);
       expect(cookie.options).toMatchObject({ secure: true, httpOnly: true, path: "/" });

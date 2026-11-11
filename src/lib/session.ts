@@ -7,6 +7,8 @@ import { forbidden, unauthorized } from "@/lib/http";
 import { ACCESS_COOKIE_NAME } from "@/lib/auth/config";
 import type { CurrentUser } from "@/lib/auth/current-user";
 import { verifyAccessToken } from "@/lib/auth/tokens";
+import { loginHref, onboardingHref } from "@/lib/auth/routes";
+import { decideAccess } from "@/lib/site-access";
 
 export type { CurrentUser };
 
@@ -115,6 +117,19 @@ export async function requireSuperadmin(): Promise<CurrentUser> {
   return user;
 }
 
+/**
+ * API de consulta (leitura que um visitante pode fazer com o site aberto a
+ * visitantes): devolve o usuario, ou null se for visitante e puder ver. Nao exige
+ * perfil, como requireUser. Quem grava continua com requireUser/requireAdmin.
+ */
+export async function requireViewer(): Promise<CurrentUser | null> {
+  const user = await getCurrentUser();
+  const decision = decideAccess(user, await getSystemSettings());
+  if (decision === "login") throw unauthorized();
+  if (decision === "maintenance") throw forbidden("O site está em manutenção.");
+  return user;
+}
+
 /** O superadmin continua trabalhando com o site em manutencao; o resto nao. */
 export async function assertSiteOpen(user: CurrentUser | null): Promise<void> {
   const settings = await getSystemSettings();
@@ -128,29 +143,47 @@ export async function assertSiteOpen(user: CurrentUser | null): Promise<void> {
 // Cada page.tsx chama a sua. O layout de (app) nao guarda mais nada: se desse
 // `await` na sessao, bloquearia toda navegacao e os loading.tsx nao apareceriam.
 
-export async function pageUser(): Promise<CurrentUser> {
+// `from` e o caminho da pagina que chama a guarda: um Server Component nao sabe a
+// propria URL, entao cada pagina informa o dela e o login/onboarding devolve a
+// pessoa para la. Querystring nao e preservada (o proxy preserva quando e ele
+// quem barra).
+
+export async function pageUser(from = "/"): Promise<CurrentUser> {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const settings = await getSystemSettings();
-  if (!settings.publicAccessEnabled && !isSuperadmin(user)) redirect("/maintenance");
+  if (!user) redirect(loginHref(from));
+  if (decideAccess(user, await getSystemSettings()) === "maintenance") redirect("/maintenance");
   return user;
 }
 
 /** Primeiro acesso: ninguem circula pelo site sem o perfil de jogador pronto. */
-export async function pageUserWithProfile(): Promise<CurrentUser> {
-  const user = await pageUser();
-  if (!user.profileCompleted) redirect("/onboarding");
+export async function pageUserWithProfile(from = "/"): Promise<CurrentUser> {
+  const user = await pageUser(from);
+  if (!user.profileCompleted) redirect(onboardingHref(from));
   return user;
 }
 
-export async function pageAdmin(): Promise<CurrentUser> {
-  const user = await pageUserWithProfile();
+/**
+ * Pagina de consulta: devolve o usuario, ou null quando o visitante pode ver
+ * (site liberado e "Site privado" desligado). Site privado vai para /login,
+ * manutencao para /maintenance; quem esta logado sem perfil vai para o onboarding.
+ */
+export async function pageViewer(from: string): Promise<CurrentUser | null> {
+  const user = await getCurrentUser();
+  const decision = decideAccess(user, await getSystemSettings());
+  if (decision === "maintenance") redirect("/maintenance");
+  if (decision === "login") redirect(loginHref(from));
+  if (user && !user.profileCompleted) redirect(onboardingHref(from));
+  return user;
+}
+
+export async function pageAdmin(from = "/"): Promise<CurrentUser> {
+  const user = await pageUserWithProfile(from);
   if (!isAdmin(user)) redirect("/");
   return user;
 }
 
-export async function pageSuperadmin(): Promise<CurrentUser> {
-  const user = await pageUserWithProfile();
+export async function pageSuperadmin(from = "/"): Promise<CurrentUser> {
+  const user = await pageUserWithProfile(from);
   if (!isSuperadmin(user)) redirect("/");
   return user;
 }

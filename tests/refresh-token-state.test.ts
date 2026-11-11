@@ -36,8 +36,13 @@ describe("hashRefreshToken", () => {
 });
 
 describe("prazos", () => {
-  it("refresh vale 7 dias a partir de agora", () => {
+  it("refresh sem \"manter login\" vale 7 dias a partir de agora", () => {
     expect(refreshExpiresAt(NOW).getTime()).toBe(NOW.getTime() + 7 * 86_400_000);
+    expect(refreshExpiresAt(NOW, false).getTime()).toBe(NOW.getTime() + 7 * 86_400_000);
+  });
+
+  it("refresh com \"manter login\" vale 30 dias a partir de agora", () => {
+    expect(refreshExpiresAt(NOW, true).getTime()).toBe(NOW.getTime() + 30 * 86_400_000);
   });
 
   it("a purga corta 30 dias para tras", () => {

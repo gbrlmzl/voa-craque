@@ -2,50 +2,36 @@
 
 import Link from "next/link";
 import { Suspense } from "react";
-import {
-  CalendarDays,
-  ClipboardList,
-  Home,
-  LogOut,
-  ScrollText,
-  Settings,
-  Trophy,
-  UserRound,
-  Users,
-  X,
-} from "lucide-react";
-import type { Role } from "@/generated/prisma/client";
+import { CalendarDays, Home, LogIn, LogOut, Settings, Trophy, UserRound, X } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import { ROLE_LABEL } from "@/lib/labels";
 import { BrandIcon } from "@/components/BrandIcon";
 import { LiveNowBanner } from "@/components/LiveNowBanner";
 import { Avatar } from "@/components/Player";
+import { UserAvatar } from "@/components/UserAvatar";
 import { SkeletonBlock, SkeletonText } from "@/components/Skeleton";
 import { Button, cn } from "@/components/ui";
 import { useCurrentUser } from "@/components/providers/UserProvider";
 import { useAppShell } from "@/hooks/useAppShell";
+import { useLoginRedirect } from "@/hooks/useLoginRedirect";
 
-type NavItem = { href: string; label: string; icon: typeof Home; roles?: Role[] };
+type NavItem = { href: string; label: string; icon: typeof Home };
 
+// O ultimo item da navegacao depende da sessao: "Perfil" para quem entrou,
+// "Entrar" para o visitante (ver ProfileOrLoginItem).
 const MAIN_NAV: NavItem[] = [
   { href: "/", label: "Início", icon: Home },
   { href: "/game-days", label: "Peladas", icon: CalendarDays },
   { href: "/ranking", label: "Ranking", icon: Trophy },
-  { href: "/profile", label: "Perfil", icon: UserRound },
 ];
-
-const EXTRA_NAV: NavItem[] = [
-  { href: "/players", label: "Avaliar jogadores", icon: ClipboardList, roles: ["ADMIN", "SUPERADMIN"] },
-  { href: "/admin/users", label: "Usuários e papéis", icon: Users, roles: ["SUPERADMIN"] },
-  { href: "/admin/system", label: "Sistema", icon: Settings, roles: ["SUPERADMIN"] },
-  { href: "/admin/audit", label: "Auditoria", icon: ScrollText, roles: ["SUPERADMIN"] },
-];
+const PROFILE_ITEM: NavItem = { href: "/profile", label: "Perfil", icon: UserRound };
+const SETTINGS_ITEM: NavItem = { href: "/settings", label: "Configurações", icon: Settings };
 
 /**
  * A casca nao espera a sessao. Navegacao, tab bar, botao de sair e a pagina
  * renderizam na hora; so os pedacos que leem o usuario suspendem, cada um no
- * seu <Suspense> com fallback do mesmo tamanho. Os links extras aparecem quando
- * o papel chega, mas o acesso a essas paginas e decidido no servidor.
+ * seu <Suspense> com fallback do mesmo tamanho. Os links de gestao ficam em
+ * /settings, e o acesso a essas paginas e decidido no servidor.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { menuOpen, openMenu, closeMenu, isActive } = useAppShell();
@@ -78,38 +64,44 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const tabLink = (item: NavItem) => {
+    const Icon = item.icon;
+    return (
+      <Link
+        key={item.label}
+        href={item.href}
+        className={cn(
+          "touch-target flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[11px]",
+          isActive(item.href) ? "text-pitch-400" : "text-slate-500",
+        )}
+      >
+        <Icon size={22} />
+        {item.label}
+      </Link>
+    );
+  };
+
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-night-950/90 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
+        {/* Desktop: logo na esquerda, navegacao principal no meio, conta e extras na direita. */}
+        <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4 sm:grid sm:grid-cols-[1fr_auto_1fr]">
           <Link href="/" className="flex items-center gap-2">
             <BrandIcon className="h-8 w-8 rounded-lg" />
             <span className="text-base font-bold tracking-tight">Voa Craque</span>
           </Link>
 
-          <nav className="ml-auto hidden items-center gap-1 sm:flex">
-            {MAIN_NAV.map(desktopLink)}
-            <Suspense fallback={null}>
-              <ExtraNav render={desktopLink} />
-            </Suspense>
-          </nav>
+          <nav className="hidden items-center gap-1 sm:flex">{MAIN_NAV.map(desktopLink)}</nav>
 
-          <button
-            type="button"
-            onClick={openMenu}
-            className="ml-auto rounded-full sm:ml-0 sm:hidden"
-            aria-label="Abrir menu"
-          >
+          <Suspense fallback={<SkeletonBlock className="ml-auto h-9 w-9 rounded-full sm:hidden" />}>
+            <MobileAccount onOpenMenu={openMenu} />
+          </Suspense>
+
+          <div className="hidden items-center justify-end sm:flex">
             <Suspense fallback={<SkeletonBlock className="h-9 w-9 rounded-full" />}>
-              <UserAvatar size="sm" />
+              <DesktopAccount />
             </Suspense>
-          </button>
-
-          <form action={logoutAction} className="hidden sm:block">
-            <Button variant="ghost" size="sm" type="submit" aria-label="Sair">
-              <LogOut size={18} />
-            </Button>
-          </form>
+          </div>
         </div>
       </header>
 
@@ -123,23 +115,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-night-950/95 backdrop-blur sm:hidden">
         <div className="mx-auto flex max-w-lg items-stretch">
-          {MAIN_NAV.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "touch-target flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[11px]",
-                  active ? "text-pitch-400" : "text-slate-500",
-                )}
-              >
-                <Icon size={22} />
-                {item.label}
-              </Link>
-            );
-          })}
+          {MAIN_NAV.map(tabLink)}
+          <Suspense fallback={tabLink(PROFILE_ITEM)}>
+            <ProfileOrLoginItem render={tabLink} />
+          </Suspense>
         </div>
       </nav>
 
@@ -160,9 +139,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             <div className="grid gap-1">
               {MAIN_NAV.map(drawerLink)}
-              <Suspense fallback={null}>
-                <ExtraNav render={drawerLink} />
-              </Suspense>
+              {drawerLink(PROFILE_ITEM)}
+              {drawerLink(SETTINGS_ITEM)}
             </div>
 
             <form action={logoutAction} className="mt-3">
@@ -177,22 +155,60 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function UserAvatar({ size }: { size: "sm" | "md" }) {
+function AccountAvatar({ size }: { size: "sm" | "md" }) {
   const user = useCurrentUser();
   return <Avatar name={user?.name ?? user?.username ?? ""} photoUrl={user?.photoUrl} size={size} />;
 }
 
-function ExtraNav({ render }: { render: (item: NavItem) => React.ReactNode }) {
+/** "Perfil" para quem entrou; "Login" (volta para esta pagina depois) para o visitante. */
+function ProfileOrLoginItem({ render }: { render: (item: NavItem) => React.ReactNode }) {
   const user = useCurrentUser();
-  if (!user) return null;
-  return <>{EXTRA_NAV.filter((item) => !item.roles || item.roles.includes(user.role)).map(render)}</>;
+  const { loginHref } = useLoginRedirect();
+  return <>{render(user ? PROFILE_ITEM : { href: loginHref, label: "Login", icon: LogIn })}</>;
+}
+
+/** Celular: o avatar abre a gaveta; o visitante nao tem gaveta, so o botao "Entrar". */
+function MobileAccount({ onOpenMenu }: { onOpenMenu: () => void }) {
+  const user = useCurrentUser();
+  const { loginHref } = useLoginRedirect();
+
+  if (!user) {
+    return (
+      <Link
+        href={loginHref}
+        className="touch-target ml-auto inline-flex items-center gap-1.5 rounded-full px-3 text-sm font-medium text-pitch-400 sm:hidden"
+      >
+        <LogIn size={18} /> Login
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onOpenMenu} className="ml-auto rounded-full sm:ml-0 sm:hidden" aria-label="Abrir menu">
+      <AccountAvatar size="sm" />
+    </button>
+  );
+}
+
+/** Desktop: o avatar com o menu da conta para quem entrou, o botao "Login" para o visitante. */
+function DesktopAccount() {
+  const user = useCurrentUser();
+  const { loginHref } = useLoginRedirect();
+  if (user) return <UserAvatar />;
+  return (
+    <Link href={loginHref}>
+      <Button variant="secondary" size="sm" type="button">
+        <LogIn size={18} /> Login
+      </Button>
+    </Link>
+  );
 }
 
 function DrawerIdentity() {
   const user = useCurrentUser();
   return (
     <>
-      <UserAvatar size="md" />
+      <AccountAvatar size="md" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold">{user?.name ?? user?.username}</p>
         <p className="text-xs text-slate-500">{user ? ROLE_LABEL[user.role] : null}</p>

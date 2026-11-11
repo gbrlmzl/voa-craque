@@ -16,7 +16,7 @@ type PendingPhoto = {
   uploadedUrl?: string;
 };
 
-export function useProfileForm(initial: ProfileValues, mode: "onboarding" | "edit") {
+export function useProfileForm(initial: ProfileValues, mode: "onboarding" | "edit", afterOnboarding = "/") {
   const router = useRouter();
   const toast = useToast();
   const updateCurrentUser = useUpdateCurrentUser();
@@ -145,7 +145,7 @@ export function useProfileForm(initial: ProfileValues, mode: "onboarding" | "edi
 
       if (mode === "onboarding") {
         // O servidor precisa reavaliar profileCompleted: aqui o refresh e necessario.
-        router.replace("/");
+        router.replace(afterOnboarding);
         router.refresh();
       } else {
         // Nada nesta tela depende do servidor alem da foto no cabecalho, que o

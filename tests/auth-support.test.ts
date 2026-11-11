@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyPath, safeNextPath } from "@/lib/auth/routes";
+import { classifyPath, loginHref, onboardingHref, safeFinalPath, safeNextPath, withNext } from "@/lib/auth/routes";
 import { applyUserPatch, mergeUserPatch } from "@/lib/auth/user-patch";
 import type { CurrentUser } from "@/lib/auth/current-user";
 import { clientIp } from "@/lib/client-ip";
@@ -17,7 +17,29 @@ describe("classifyPath", () => {
     ["/maintenance", "public"],
     ["/api/game-days", "protected-api"],
     ["/api/authorize-algo", "protected-api"], // prefixo parecido nao e rota de autenticacao
-    ["/", "protected-page"],
+    ["/api/game-days/abc/stats-extra", "protected-api"],
+    ["/", "browsable-page"],
+    ["/game-days", "browsable-page"],
+    ["/game-days/abc", "browsable-page"],
+    ["/game-days/abc/live", "browsable-page"],
+    ["/ranking", "browsable-page"],
+    ["/game-days/abc/stats", "public"],
+    ["/game-days/new", "protected-page"], // casa com /game-days/[id], mas e de organizador
+    ["/game-days/abc/panel", "protected-page"],
+    ["/game-days/abc/teams", "protected-page"],
+    ["/game-days/abc/edit", "protected-page"],
+    ["/game-days/abc/settings", "protected-page"],
+    ["/profile", "protected-page"],
+    ["/players", "protected-page"],
+    ["/admin/system", "protected-page"],
+    ["/api/players/abc", "browsable-api"],
+    ["/api/players/abc/evaluation", "protected-api"],
+    ["/api/game-days/abc/live", "browsable-api"],
+    ["/api/game-days/abc/stream", "browsable-api"],
+    ["/api/game-days/abc", "protected-api"],
+    ["/api/game-days/abc/registrations", "protected-api"],
+    ["/api/files/fotos/avatar.jpg", "browsable-api"],
+    ["/api/files/comprovantes/pix.pdf", "protected-api"],
     ["/onboarding", "protected-page"],
     ["/login/extra", "protected-page"],
   ])("%s -> %s", (path, kind) => {
@@ -36,6 +58,59 @@ describe("safeNextPath", () => {
     ["", "/"],
   ])("%s -> %s", (input, expected) => {
     expect(safeNextPath(input)).toBe(expected);
+  });
+});
+
+describe("safeFinalPath", () => {
+  it.each([
+    ["/game-days/abc", "/game-days/abc"],
+    ["/ranking?ordem=gols", "/ranking?ordem=gols"],
+    ["/login", "/"],
+    ["/login?proximo=/ranking", "/"],
+    ["/register", "/"],
+    ["/forgot-password", "/"],
+    ["/onboarding", "/"],
+    ["/onboarding?proximo=/ranking", "/"],
+    ["//evil.com", "/"],
+    [undefined, "/"],
+  ])("%s -> %s", (input, expected) => {
+    expect(safeFinalPath(input)).toBe(expected);
+  });
+});
+
+describe("loginHref", () => {
+  it.each([
+    ["/", "/login"],
+    ["/game-days/abc", "/login?proximo=%2Fgame-days%2Fabc"],
+    ["/ranking?ordem=gols&x=1", "/login?proximo=%2Franking%3Fordem%3Dgols%26x%3D1"],
+    ["/onboarding?proximo=/game-days/abc", "/login?proximo=%2Fonboarding%3Fproximo%3D%2Fgame-days%2Fabc"],
+    ["//evil.com", "/login"],
+    ["https://evil.com", "/login"],
+    [null, "/login"],
+  ])("%s -> %s", (input, expected) => {
+    expect(loginHref(input)).toBe(expected);
+  });
+});
+
+describe("onboardingHref", () => {
+  it.each([
+    ["/", "/onboarding"],
+    ["/game-days/abc", "/onboarding?proximo=%2Fgame-days%2Fabc"],
+    ["/onboarding", "/onboarding"],
+    ["/onboarding?proximo=/ranking", "/onboarding"],
+    ["/login", "/onboarding"],
+    ["//evil.com", "/onboarding"],
+    [undefined, "/onboarding"],
+  ])("%s -> %s", (input, expected) => {
+    expect(onboardingHref(input)).toBe(expected);
+  });
+});
+
+describe("withNext", () => {
+  it("carrega o destino nos links entre login e cadastro", () => {
+    expect(withNext("/register", "/game-days/abc")).toBe("/register?proximo=%2Fgame-days%2Fabc");
+    expect(withNext("/register", "/")).toBe("/register");
+    expect(withNext("/register", "//evil.com")).toBe("/register");
   });
 });
 

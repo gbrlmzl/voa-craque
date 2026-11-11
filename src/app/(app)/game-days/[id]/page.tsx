@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { CalendarDays, MapPin, Radio, Settings, Shuffle, Trophy, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { canFinish } from "@/lib/gameday-lifecycle";
-import { isAdmin, pageUserWithProfile } from "@/lib/session";
+import { getSystemSettings, isAdmin, pageViewer } from "@/lib/session";
 import {
   formatCents,
   formatDateTime,
@@ -24,9 +24,10 @@ import { buildGameDayStats } from "@/services/gameday-stats";
 export const dynamic = "force-dynamic";
 
 export default async function GameDayPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await pageUserWithProfile();
-  const admin = isAdmin(user);
   const { id } = await params;
+  // Visitante (user === null) so chega aqui com o site aberto a visitantes.
+  const user = await pageViewer(`/game-days/${id}`);
+  const admin = isAdmin(user);
 
   const gameDay = await prisma.gameDay.findUnique({
     where: { id },
@@ -74,11 +75,11 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
   if (!gameDay) notFound();
 
   const myStats =
-    gameDay.status === "FINISHED"
+    user && gameDay.status === "FINISHED"
       ? (await buildGameDayStats(gameDay.id, { canSeeMmr: false })).find((row) => row.userId === user.id)
       : undefined;
 
-  const myRegistration = gameDay.registrations.find((row) => row.userId === user.id) ?? null;
+  const myRegistration = user ? (gameDay.registrations.find((row) => row.userId === user.id) ?? null) : null;
   const paymentRows: PaymentRow[] = gameDay.registrations.map((row) => ({
     id: row.id,
     userId: row.userId,
@@ -214,6 +215,8 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
           }
           open={gameDay.status === "OPEN"}
           full={gameDay.registrations.length >= gameDay.maxPlayers}
+          guest={!user}
+          registrationsClosed={!user && !(await getSystemSettings()).registrationOpen}
         />
       ) : null}
 
@@ -286,7 +289,8 @@ export default async function GameDayPage({ params }: { params: Promise<{ id: st
                   userId={row.userId}
                   name={row.user.profile?.name ?? row.user.username}
                   photoUrl={row.user.profile?.photoUrl}
-                  subtitle={<Stars value={row.user.profile?.stars ?? null} size={11} />}
+                  // A avaliacao do organizador nao aparece para visitante.
+                  subtitle={user ? <Stars value={row.user.profile?.stars ?? null} size={11} /> : undefined}
                 />
               ))}
             </Card>

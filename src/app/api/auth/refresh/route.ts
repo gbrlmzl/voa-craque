@@ -45,6 +45,6 @@ export async function POST(req: NextRequest) {
 
   return withCookies(
     new NextResponse(null, { status: 204 }),
-    await buildSessionCookies({ userId: result.userId, refreshToken: result.raw }),
+    await buildSessionCookies({ userId: result.userId, refreshToken: result.raw, persistent: result.persistent }),
   );
 }

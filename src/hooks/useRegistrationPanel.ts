@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/providers/ToastProvider";
+import { useLoginRedirect } from "@/hooks/useLoginRedirect";
 import { RECEIPT_MAX_MB, checkImageFile } from "@/lib/upload-rules";
 
 export type Registration = {
@@ -19,6 +20,7 @@ type PickedReceipt = { file: File; previewUrl: string };
 export function useRegistrationPanel(gameDayId: string) {
   const router = useRouter();
   const toast = useToast();
+  const { goToLogin } = useLoginRedirect();
 
   const [method, setMethod] = useState<"PIX" | "ON_SITE">("PIX");
   // Arquivo escolhido, aberto no modal de previa (Cancelar | Confirmar).
@@ -80,12 +82,16 @@ export function useRegistrationPanel(gameDayId: string) {
     setViewingPrepared(false);
   }
 
-  /** So envia e devolve a URL; quem chama cuida do estado de tela. */
-  async function uploadReceipt(file: File): Promise<string> {
+  /** So envia e devolve a URL (null se a sessao caiu: ja foi para o login); quem chama cuida do estado de tela. */
+  async function uploadReceipt(file: File): Promise<string | null> {
     const form = new FormData();
     form.set("file", file);
     form.set("tipo", "comprovante");
     const response = await fetch("/api/uploads", { method: "POST", body: form });
+    if (response.status === 401) {
+      goToLogin();
+      return null;
+    }
     const body = await response.json();
     if (!response.ok) throw new Error(body.error ?? "Falha ao enviar o comprovante.");
     return body.url as string;
@@ -108,7 +114,9 @@ export function useRegistrationPanel(gameDayId: string) {
         } else {
           setUploading(true);
           try {
-            receiptUrl = await uploadReceipt(receipt.file);
+            const url = await uploadReceipt(receipt.file);
+            if (url === null) return;
+            receiptUrl = url;
           } finally {
             setUploading(false);
           }
@@ -121,6 +129,11 @@ export function useRegistrationPanel(gameDayId: string) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ paymentMethod: method, receiptUrl }),
       });
+      // Sessao vencida (ou nunca houve): vai para o login e volta para esta pelada.
+      if (response.status === 401) {
+        goToLogin();
+        return;
+      }
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Não foi possível inscrever.");
 
@@ -141,6 +154,10 @@ export function useRegistrationPanel(gameDayId: string) {
     setMessage(null);
     try {
       const response = await fetch(`/api/game-days/${gameDayId}/registrations`, { method: "DELETE" });
+      if (response.status === 401) {
+        goToLogin();
+        return;
+      }
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Não foi possível cancelar.");
       toast.show({ message: "Inscrição cancelada." });

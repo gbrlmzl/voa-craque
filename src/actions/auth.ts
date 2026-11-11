@@ -10,8 +10,9 @@ import { verifyCredentials } from "@/lib/auth/credentials";
 import { endSession, establishSession } from "@/lib/auth/establish-session";
 import { startGoogleSignIn } from "@/lib/auth/google-oauth";
 import { hashPassword } from "@/lib/auth/password";
-import { safeNextPath } from "@/lib/auth/routes";
+import { onboardingHref, safeNextPath } from "@/lib/auth/routes";
 import { clientIp } from "@/lib/client-ip";
+import { getSystemSettings } from "@/lib/session";
 import { fieldErrorsOf } from "@/lib/form-state";
 import { formatRetry, loginLimiter, registerLimiter } from "@/lib/rate-limit";
 
@@ -45,7 +46,8 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
     return { message: "Usuário ou senha não conferem." };
   }
 
-  await establishSession(user.id);
+  // Checkbox "Manter login": marcado chega como "on"; desmarcado nao chega.
+  await establishSession(user.id, { persistent: formData.get("keepLoggedIn") === "on" });
   redirect(safeNextPath(formData.get("proximo")));
 }
 
@@ -91,8 +93,10 @@ export async function registerAction(_prev: FormState, formData: FormData): Prom
     after: { username: user.username, email: user.email, role: user.role },
   });
 
-  await establishSession(user.id);
-  redirect("/onboarding");
+  // Conta nova ja entra mantendo o login: nao ha checkbox no cadastro.
+  await establishSession(user.id, { persistent: true });
+  // Depois do perfil, volta para a pagina de onde a pessoa saiu (se houver).
+  redirect(onboardingHref(formData.get("proximo")));
 }
 
 /**
@@ -108,5 +112,7 @@ export async function googleSignInAction(formData: FormData): Promise<void> {
 /** Revoga a familia de refresh deste aparelho e apaga os dois cookies (ver endSession). */
 export async function logoutAction(): Promise<void> {
   await endSession();
-  redirect("/login");
+  // Com o site aberto a visitantes a pessoa segue navegando como visitante.
+  const settings = await getSystemSettings();
+  redirect(settings.publicAccessEnabled && !settings.privateSiteEnabled ? "/" : "/login");
 }

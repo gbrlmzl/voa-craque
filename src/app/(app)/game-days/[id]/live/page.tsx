@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { canWatchLive } from "@/lib/gameday-lifecycle";
-import { pageUserWithProfile } from "@/lib/session";
+import { pageViewer } from "@/lib/session";
 import { buildLiveSnapshot, getGameDayStatus } from "@/services/live";
 import { Button } from "@/components/ui";
 import { LiveBoard } from "@/components/live/LiveBoard";
@@ -10,8 +10,8 @@ import { LiveBoard } from "@/components/live/LiveBoard";
 export const dynamic = "force-dynamic";
 
 export default async function SpectatorPage({ params }: { params: Promise<{ id: string }> }) {
-  await pageUserWithProfile();
   const { id } = await params;
+  await pageViewer(`/game-days/${id}/live`);
 
   // Antes de "Iniciar pelada" nao ha o que acompanhar: o caminho unico para iniciar e a pagina da pelada.
   const status = await getGameDayStatus(id);

@@ -1,11 +1,11 @@
-import { isAdmin, pageUserWithProfile } from "@/lib/session";
+import { isAdmin, pageViewer } from "@/lib/session";
 import { buildRanking } from "@/services/ranking";
 import { RankingTable } from "@/components/RankingTable";
 
 export const dynamic = "force-dynamic";
 
 export default async function RankingPage() {
-  const user = await pageUserWithProfile();
+  const user = await pageViewer("/ranking");
   const rows = await buildRanking({ showMmrDelta: isAdmin(user) });
 
   return (

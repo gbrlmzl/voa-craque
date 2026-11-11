@@ -7,7 +7,7 @@ import { compare } from "bcryptjs";
 import type { FormState } from "@/actions/auth";
 import { prisma } from "@/lib/prisma";
 import { AUDIT_ACTIONS, recordAudit } from "@/lib/audit";
-import { establishSession } from "@/lib/auth/establish-session";
+import { currentSessionIsPersistent, establishSession } from "@/lib/auth/establish-session";
 import { hashPassword } from "@/lib/auth/password";
 import {
   buildPasswordResetUrl,
@@ -97,8 +97,9 @@ export async function changePasswordAction(_prev: FormState, formData: FormData)
   // Como na referencia: nenhuma sessao existente continua confiavel. Todas as
   // familias caem e este aparelho recebe uma familia nova. Os outros aparelhos
   // param na proxima renovacao (o access deles vive no maximo 15 min).
+  const persistent = await currentSessionIsPersistent(); // le antes de revogar: depois a linha esta revogada, mas a escolha continua
   await revokeAllUserRefreshTokens(user.id, "PASSWORD_CHANGED");
-  await establishSession(user.id);
+  await establishSession(user.id, { persistent });
 
   changePasswordLimiter.reset(user.id);
   logSecurityEvent("password_changed", { userId: user.id });

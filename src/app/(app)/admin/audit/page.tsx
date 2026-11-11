@@ -16,7 +16,7 @@ export default async function AuditPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  await pageSuperadmin();
+  await pageSuperadmin("/admin/audit");
   const raw = await searchParams;
   const filters = auditQuerySchema.parse(raw);
 

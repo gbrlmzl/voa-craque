@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/session";
+import { toErrorResponse } from "@/lib/http";
+import { requireViewer } from "@/lib/session";
 import { subscribeGameDay } from "@/lib/realtime";
 import { buildLiveSnapshot } from "@/services/live";
 import { syncMatchClock } from "@/services/match";
@@ -16,9 +17,11 @@ const HEARTBEAT_MS = 15000;
  * quando o cronometro zera, mesmo sem ninguem tocar em nada.
  */
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Faça login para continuar." }, { status: 401 });
+  // Visitante pode assistir com o site aberto a visitantes; manutencao tambem barra aqui.
+  try {
+    await requireViewer();
+  } catch (error) {
+    return toErrorResponse(error);
   }
 
   const { id } = await ctx.params;

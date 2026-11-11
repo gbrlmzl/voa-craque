@@ -3,7 +3,7 @@ import {
   ACCESS_TOKEN_TTL_S,
   COOKIE_BASE_OPTIONS,
   REFRESH_COOKIE_NAME,
-  REFRESH_TOKEN_TTL_S,
+  REFRESH_TOKEN_TTL_PERSISTENT_S,
 } from "@/lib/auth/config";
 import { signAccessToken } from "@/lib/auth/tokens";
 
@@ -16,24 +16,33 @@ import { signAccessToken } from "@/lib/auth/tokens";
 export type CookieWrite = {
   name: string;
   value: string;
-  options: typeof COOKIE_BASE_OPTIONS & { maxAge: number };
+  /** Sem `maxAge` o cookie e de sessao: o navegador o descarta ao fechar. */
+  options: typeof COOKIE_BASE_OPTIONS & { maxAge?: number };
 };
 
-/** Access recem-assinado + o refresh opaco que o acompanha. */
+/**
+ * Access recem-assinado + o refresh opaco que o acompanha.
+ *
+ * `persistent` ("manter login"): os cookies sobrevivem ao navegador fechado (o
+ * refresh por 30 dias, o access pelos seus 15 min). Sem ele nenhum dos dois leva
+ * Max-Age: fechar o navegador encerra a sessao.
+ */
 export async function buildSessionCookies(
-  { userId, refreshToken }: { userId: string; refreshToken: string },
+  { userId, refreshToken, persistent }: { userId: string; refreshToken: string; persistent: boolean },
   now = new Date(),
 ): Promise<CookieWrite[]> {
   return [
     {
       name: ACCESS_COOKIE_NAME,
       value: await signAccessToken(userId, now),
-      options: { ...COOKIE_BASE_OPTIONS, maxAge: ACCESS_TOKEN_TTL_S },
+      options: persistent ? { ...COOKIE_BASE_OPTIONS, maxAge: ACCESS_TOKEN_TTL_S } : { ...COOKIE_BASE_OPTIONS },
     },
     {
       name: REFRESH_COOKIE_NAME,
       value: refreshToken,
-      options: { ...COOKIE_BASE_OPTIONS, maxAge: REFRESH_TOKEN_TTL_S },
+      options: persistent
+        ? { ...COOKIE_BASE_OPTIONS, maxAge: REFRESH_TOKEN_TTL_PERSISTENT_S }
+        : { ...COOKIE_BASE_OPTIONS },
     },
   ];
 }

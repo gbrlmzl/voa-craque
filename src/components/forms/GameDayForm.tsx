@@ -38,7 +38,7 @@ export function GameDayForm({
           <Input
             value={values.location}
             onChange={(event) => set("location", event.target.value)}
-            placeholder="Ginásio do campus"
+            placeholder="Ginásio do Sesi"
             required
           />
         </Field>
@@ -105,7 +105,7 @@ export function GameDayForm({
           <Textarea
             value={values.notes}
             onChange={(event) => set("notes", event.target.value)}
-            placeholder="Leve camisa clara e escura."
+            placeholder="Se possível, chegar 5 minutos antes."
           />
         </Field>
 

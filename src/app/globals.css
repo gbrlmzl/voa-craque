@@ -138,6 +138,11 @@ input[type="number"]::-webkit-inner-spin-button {
   margin: 0;
 }
 
+/* Botao flutuante de acao: sobe quando o cartao "Ao vivo" ocupa o canto. */
+body:has([data-live-banner]) .fab-offset {
+  transform: translateY(-5.5rem);
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

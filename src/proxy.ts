@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME } from "@/lib/auth/config";
 import { isSessionAlive, rotateRefreshToken } from "@/lib/auth/refresh-tokens";
-import { classifyPath, type RouteKind } from "@/lib/auth/routes";
+import { classifyPath, safeFinalPath, type RouteKind } from "@/lib/auth/routes";
 import { buildSessionCookies, expiredSessionCookies, type CookieWrite } from "@/lib/auth/session-cookies";
 import { needsRefresh, verifyAccessToken } from "@/lib/auth/tokens";
 import { clientIp } from "@/lib/client-ip";
@@ -11,7 +11,10 @@ import { clientIp } from "@/lib/client-ip";
  *
  * 1. Guarda de rota, por heuristica: "tem access token que verifica?". Nao e
  *    autoridade; quem responde "essa sessao vale?" e getCurrentUser(), em cada
- *    pagina e rota. O proxy sozinho nao protege nada.
+ *    pagina e rota. O proxy sozinho nao protege nada. As paginas e APIs de
+ *    consulta (browsable-*) passam sem sessao: quem decide se o site e publico ou
+ *    privado e a guarda (pageViewer/requireViewer), que le SystemSetting; o proxy
+ *    nao toca nessa tabela.
  *
  * 2. O UNICO lugar que renova a sessao (junto com as actions de auth e /api/auth/*),
  *    porque e o unico ponto do fluxo que sempre consegue gravar cookie no
@@ -45,7 +48,11 @@ export async function proxy(req: NextRequest) {
       if (result.status === "rotated") {
         // O Next repassa estes Set-Cookie ao cookies() do render, do handler e
         // da Server Action desta mesma requisicao.
-        renewed = await buildSessionCookies({ userId: result.userId, refreshToken: result.raw });
+        renewed = await buildSessionCookies({
+          userId: result.userId,
+          refreshToken: result.raw,
+          persistent: result.persistent,
+        });
         authenticated = true;
       } else {
         // Refresh expirado, desconhecido, revogado ou reusado: a sessao acabou.
@@ -87,7 +94,9 @@ export async function proxy(req: NextRequest) {
   // So GET: um POST aqui e a Server Action de login de uma aba antiga, e
   // redirecionar a action quebraria a resposta que ela espera.
   if (authenticated && route === "guest-only" && req.method === "GET") {
-    return withSessionCookies(NextResponse.redirect(new URL("/", req.nextUrl)), renewed, clear);
+    // Quem ja esta logado e abre /login?proximo=X segue para X.
+    const destination = safeFinalPath(req.nextUrl.searchParams.get("proximo"));
+    return withSessionCookies(NextResponse.redirect(new URL(destination, req.nextUrl)), renewed, clear);
   }
 
   return withSessionCookies(nextWithSession(req, renewed, clear), renewed, clear);

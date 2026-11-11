@@ -147,6 +147,9 @@ model RefreshToken {
   familyId      String
   tokenHash     String                    @unique
   expiresAt     DateTime
+  // "Manter login" no login: 30 dias e cookie persistente; sem ele, 7 dias e
+  // cookie de sessao. Herdado por todo sucessor da familia.
+  persistent    Boolean                   @default(true)
   revokedAt     DateTime?
   // So ROTATED pode ser lido como reuso; os outros motivos sao sessao encerrada.
   revokedReason RefreshTokenRevokeReason?
@@ -481,6 +484,9 @@ model SystemSetting {
   publicAccessEnabled Boolean  @default(true)
   maintenanceMessage  String   @default("Estamos em manutenção. Volte em alguns minutos.")
   registrationOpen    Boolean  @default(true)
+  // Ligado, so quem tem sessao acessa o site; desligado, visitante navega
+  // pelas paginas de consulta. Manutencao (publicAccessEnabled) vence.
+  privateSiteEnabled  Boolean  @default(false)
   updatedById         String?
   updatedAt           DateTime @updatedAt
 

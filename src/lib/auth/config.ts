@@ -10,8 +10,20 @@
 /** Vida do cookie de sessao (access token). Tambem e o Max-Age do cookie. */
 export const ACCESS_TOKEN_TTL_S = 15 * 60;
 
-/** Vida do refresh token. Cada rotacao cria o sucessor com o prazo cheio. */
+/**
+ * Vida do refresh token de um login SEM "manter login". Os cookies deste login
+ * sao de sessao (somem ao fechar o navegador); este prazo e so a trava no
+ * servidor para o caso do navegador restaurar a sessao. Cada rotacao cria o
+ * sucessor com o prazo cheio.
+ */
 export const REFRESH_TOKEN_TTL_S = 7 * 24 * 60 * 60;
+
+/**
+ * Vida do refresh token de um login COM "manter login": tambem e o Max-Age do
+ * cookie. Deslizante como o outro: cada renovacao devolve os 30 dias cheios, e a
+ * sessao cai depois de 30 dias sem uso.
+ */
+export const REFRESH_TOKEN_TTL_PERSISTENT_S = 30 * 24 * 60 * 60;
 
 /**
  * Por quanto tempo, depois de rotacionado, um refresh ainda e aceito de novo em

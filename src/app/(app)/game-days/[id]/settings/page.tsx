@@ -12,8 +12,8 @@ import { RestoreGameDayButton } from "@/components/gameday/RestoreGameDayButton"
 export const dynamic = "force-dynamic";
 
 export default async function GameDaySettingsPage({ params }: { params: Promise<{ id: string }> }) {
-  await pageAdmin();
   const { id } = await params;
+  await pageAdmin(`/game-days/${id}/settings`);
   const gameDay = await prisma.gameDay.findUnique({
     where: { id },
     select: {

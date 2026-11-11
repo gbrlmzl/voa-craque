@@ -10,8 +10,8 @@ import { LivePanel } from "@/components/live/LivePanel";
 export const dynamic = "force-dynamic";
 
 export default async function LivePanelPage({ params }: { params: Promise<{ id: string }> }) {
-  await pageAdmin();
   const { id } = await params;
+  await pageAdmin(`/game-days/${id}/panel`);
 
   // Antes de "Iniciar pelada" nao ha o que acompanhar: o caminho unico para iniciar e a pagina da pelada.
   const status = await getGameDayStatus(id);

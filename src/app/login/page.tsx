@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { isGoogleAuthEnabled } from "@/lib/auth/config";
+import { withNext } from "@/lib/auth/routes";
 import { BrandIcon } from "@/components/BrandIcon";
 import { LoginForm } from "@/components/forms/LoginForm";
 import { GoogleSignInButton, OrDivider } from "@/components/forms/GoogleSignInButton";
@@ -40,18 +41,17 @@ export default async function LoginPage({
         </p>
       ) : null}
 
+      <LoginForm next={proximo} notice={authErrorMessage(error)} googleEnabled={googleEnabled} />
       {googleEnabled ? (
         <>
+          <OrDivider label="ou entre com o Google" />
           <GoogleSignInButton next={proximo} />
-          <OrDivider label="ou entre com usuário e senha" />
         </>
       ) : null}
 
-      <LoginForm next={proximo} notice={authErrorMessage(error)} googleEnabled={googleEnabled} />
-
       <p className="mt-6 text-center text-sm text-slate-400">
         Primeira vez aqui?{" "}
-        <Link href="/register" className="font-semibold text-pitch-400 underline underline-offset-4">
+        <Link href={withNext("/register", proximo)} className="font-semibold text-pitch-400 underline underline-offset-4">
           Criar conta
         </Link>
       </p>
