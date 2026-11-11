@@ -65,7 +65,7 @@ export default async (): Promise<Config> => ({
   ],
   coverageThreshold: {
     // Catraca: sobe a cada fase ate chegar na meta de D4 (70/65/60) e nos limites por pasta.
-    global: { statements: 19, lines: 18, functions: 19, branches: 17 },
+    global: { statements: 54, lines: 54, functions: 47, branches: 46 },
   },
   coverageReporters: ["text-summary", "lcov", "json-summary"],
 });

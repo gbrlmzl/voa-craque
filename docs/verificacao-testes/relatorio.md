@@ -13,3 +13,4 @@
 | Momento | Statements | Branches | Functions | Lines | Suites | Testes |
 | --- | --- | --- | --- | --- | --- | --- |
 | Linha de base (23 testes migrados + spike) | 19,11% | 17,82% | 19,08% | 18,27% | 24 | 423 |
+| Fim da Fase 2 (integração) | 54,33% | 46,31% | 47,50% | 54,44% | 53 | 741 |
