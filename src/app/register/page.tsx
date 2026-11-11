@@ -19,15 +19,15 @@ export default async function RegisterPage({
         <h1 className="text-2xl font-bold tracking-tight">Criar conta</h1>
       </div>
 
+      <RegisterForm next={proximo} />
+
       {isGoogleAuthEnabled() ? (
         <>
           {/* O mesmo fluxo do login: conta nova pelo Google nasce no primeiro acesso. */}
+          <OrDivider label="ou entre com o Google" />
           <GoogleSignInButton next={onboardingHref(proximo)} />
-          <OrDivider label="ou cadastre com e-mail" />
         </>
       ) : null}
-
-      <RegisterForm next={proximo} />
 
       <p className="mt-6 text-center text-sm text-slate-400">
         Já tem conta?{" "}

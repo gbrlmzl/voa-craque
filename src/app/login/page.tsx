@@ -41,14 +41,13 @@ export default async function LoginPage({
         </p>
       ) : null}
 
+      <LoginForm next={proximo} notice={authErrorMessage(error)} googleEnabled={googleEnabled} />
       {googleEnabled ? (
         <>
+          <OrDivider label="ou entre com o Google" />
           <GoogleSignInButton next={proximo} />
-          <OrDivider label="ou entre com usuário e senha" />
         </>
       ) : null}
-
-      <LoginForm next={proximo} notice={authErrorMessage(error)} googleEnabled={googleEnabled} />
 
       <p className="mt-6 text-center text-sm text-slate-400">
         Primeira vez aqui?{" "}
