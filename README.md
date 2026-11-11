@@ -277,29 +277,23 @@ automático pela virada do cronômetro aparece com ator "Sistema".
 
 ## Testes
 
+Jest (unitário, componente e integração com Postgres real) e Cypress (componente e E2E). Guia
+completo, com convenções e como escrever cenários: [docs/guia-de-testes.md](docs/guia-de-testes.md).
+
 ```bash
-npm test
+npm run test:db:up      # Postgres descartável dos testes (porta 55433), uma vez
+npm test                # os três projetos do Jest
+npm run test:unit       # unitário + componente, sem banco
+npm run test:coverage   # com cobertura e a trava de 70% (verificada em scripts/check-coverage.mjs)
+npm run cy:component    # Cypress Component Testing (navegador de verdade)
+npm run test:e2e        # build de produção + Cypress E2E na porta 3100 (banco voacraque_e2e)
+npm run typecheck       # app, testes e Cypress
 ```
 
-Vitest cobre os módulos que concentram regra de negócio e decisão de segurança, todos
-puros e sem banco:
-
-- `src/lib/team-balancer.ts` — força do jogador, mediana para quem não tem estrelas,
-  distribuição de goleiros, sobra de jogadores, limite de times e variedade entre
-  sorteios.
-- `src/lib/match-engine.ts` — cronômetro, transições válidas e inválidas, fim por gols,
-  fim por tempo, empate e rotação da fila.
-- `tests/auth-tokens.test.ts` — JWT de sessão e state do OAuth (validade, adulteração, `alg: none`,
-  segredo trocado e rotação de segredo), `needsRefresh` e os cookies (atributos, `Secure` e
-  prefixo `__Host-` em https).
-- `tests/refresh-token-state.test.ts` — refresh opaco (geração e hash), prazos e a classificação
-  ativo, graça, reuso, revogado e expirado (inclusive por motivo de revogação).
-- `tests/google-oauth.test.ts` — redirect URI do Google e leitura dos claims do `id_token`.
-- `tests/auth-support.test.ts` — classificação de rotas do proxy, destino seguro após o
-  login, IP do cliente atrás de proxy, rate limit e a mescla do usuário no contexto.
-- `tests/password-reset.test.ts` — classificação do token de redefinição de senha,
-  hash do token, montagem do link a partir de `AUTH_URL`, os schemas de troca/redefinição
-  de senha e o driver `console` do envio de e-mail.
+Os testes nunca falam com S3, SMTP, Google nem com o banco de desenvolvimento: o
+`tests/setup/env.ts` zera essas variáveis e o `globalSetup` aborta se o banco não terminar em
+`_test`. O CI (`.github/workflows/ci.yml`) roda tudo em todo pull request; o deploy só sai
+com os quatro jobs verdes.
 
 Verificação de tipos:
 
