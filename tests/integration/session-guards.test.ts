@@ -178,3 +178,30 @@ describe("guardas de pagina", () => {
     expect((await pageSuperadmin("/admin/system")).role).toBe("SUPERADMIN");
   });
 });
+
+describe("getTeamLabelModePromise", () => {
+  it("le o cookie da preferencia; sem cookie ou com valor adulterado cai em letras", async () => {
+    const { getTeamLabelModePromise } = await import("@/lib/preferences");
+    expect(await getTeamLabelModePromise()).toBe("letters");
+    setCookie("vc_team_label", "numbers");
+    expect(await getTeamLabelModePromise()).toBe("numbers");
+    setCookie("vc_team_label", "emojis");
+    expect(await getTeamLabelModePromise()).toBe("letters");
+  });
+});
+
+describe("getSessionPromise", () => {
+  it("devolve o usuario; qualquer falha vira deslogado, com log", async () => {
+    const { getSessionPromise } = await import("@/lib/session");
+    const user = await createPlayer();
+    await actAs(user);
+    expect((await getSessionPromise())?.id).toBe(user.id);
+
+    const find = jest.spyOn(prisma.user, "findUnique").mockRejectedValueOnce(new Error("banco fora"));
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    expect(await getSessionPromise()).toBeNull();
+    expect(log).toHaveBeenCalled();
+    find.mockRestore();
+    log.mockRestore();
+  });
+});
