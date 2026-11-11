@@ -36,8 +36,9 @@ services:
       SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL:-super@voacraque.app}
       SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:-VoaCraque123!}
       SUPERADMIN_NAME: ${SUPERADMIN_NAME:-Superadmin}
-      SUPERADMIN_USERNAME: ${SUPERADMIN_USERNAME:-}
-      SEED_SAMPLE_DATA: ${SEED_SAMPLE_DATA:-true}
+      SUPERADMIN_USERNAME: ${SUPERADMIN_USERNAME:-super}
+      # No dev o padrao e so o superadmin: o banco costuma ter dados de teste proprios.
+      SEED_SAMPLE_DATA: ${SEED_SAMPLE_DATA:-false}
       STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
       UPLOAD_DIR: /app/uploads
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-5}
@@ -68,7 +69,11 @@ services:
     # enxerga mudancas feitas pelo host em bind mounts do Docker Desktop no
     # Windows. O webpack + polling (via WATCHPACK_POLLING acima) e o
     # combo que funciona de forma confiavel nesse cenario.
-    command: sh -c "npx prisma migrate deploy && npx next dev --webpack -H 0.0.0.0 -p 3000"
+    #
+    # A seed roda a cada subida (e idempotente) para que o superadmin de teste
+    # (SUPERADMIN_USERNAME / SUPERADMIN_PASSWORD) exista mesmo em volume de banco
+    # ja populado. Se ela falhar, o app sobe do mesmo jeito.
+    command: sh -c "npx prisma migrate deploy && (npx tsx prisma/seed.ts || echo '[voacraque] seed falhou; seguindo') && npx next dev --webpack -H 0.0.0.0 -p 3000"
 
 volumes:
   pgdata_dev:

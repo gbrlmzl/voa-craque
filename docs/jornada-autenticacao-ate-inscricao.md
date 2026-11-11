@@ -571,7 +571,7 @@ GET /api/files/comprovantes/<uuid>.jpg                              src/app/api/
 
 ### Como alguém vira admin
 
-O superadmin nasce no seed (`SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD`). Ele promove outras contas
+O superadmin nasce no seed (`SUPERADMIN_USERNAME`, `SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD`). Ele promove outras contas
 em `/admin/users`, que chama `PATCH /api/users/:id/role` com `requireSuperadmin()`; a rota
 recusa rebaixar a própria conta. Como `getCurrentUser()` lê o papel do banco a cada requisição,
 promoção e rebaixamento valem na requisição seguinte, sem token para reemitir e sem logout.

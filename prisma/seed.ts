@@ -41,7 +41,9 @@ const SAMPLE_PLAYERS: SamplePlayer[] = [
   { name: "Vinícius Aguiar", nickname: "Vini", position: "PIVO", foot: "LEFT", age: 18, heightCm: 166, weightKg: 62, stars: null },
 ];
 
-function emailFor(name: string): string {
+// "Gabriel Marques" -> "gabriel.marques". Esse e o username de login do jogador
+// de exemplo; o e-mail e derivado dele.
+function usernameFor(name: string): string {
   const parts = name
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
@@ -50,14 +52,20 @@ function emailFor(name: string): string {
     .filter(Boolean);
   const first = parts[0];
   const last = parts[parts.length - 1];
-  return `${first}.${last}@voacraque.app`;
+  return `${first}.${last}`;
+}
+
+function emailFor(username: string): string {
+  return `${username}@voacraque.app`;
 }
 
 async function main() {
   const superEmail = (process.env.SUPERADMIN_EMAIL ?? "super@voacraque.app").toLowerCase();
   const superPassword = process.env.SUPERADMIN_PASSWORD ?? "VoaCraque123!";
   const superName = process.env.SUPERADMIN_NAME ?? "Superadmin";
-  const superUsername = process.env.SUPERADMIN_USERNAME || superEmail.split("@")[0];
+  // O login e por username; o e-mail so identifica a conta. Compose passa a
+  // variavel vazia quando ela nao esta no .env, por isso o || (e nao ??).
+  const superUsername = (process.env.SUPERADMIN_USERNAME || "super").trim().toLowerCase();
 
   await prisma.systemSetting.upsert({
     where: { id: "global" },
@@ -66,7 +74,7 @@ async function main() {
   });
 
   const superadmin = await prisma.user.upsert({
-    where: { email: superEmail },
+    where: { username: superUsername },
     update: { role: "SUPERADMIN" },
     create: {
       email: superEmail,
@@ -86,7 +94,7 @@ async function main() {
       },
     },
   });
-  console.log(`[seed] superadmin: ${superadmin.email}`);
+  console.log(`[seed] superadmin: ${superadmin.username} (${superadmin.email})`);
 
   if ((process.env.SEED_SAMPLE_DATA ?? "true") !== "true") {
     console.log("[seed] SEED_SAMPLE_DATA=false, pulando dados de exemplo");
@@ -94,10 +102,10 @@ async function main() {
   }
 
   const admin = await prisma.user.upsert({
-    where: { email: "organizador@voacraque.app" },
+    where: { username: "organizador" },
     update: { role: "ADMIN" },
     create: {
-      email: "organizador@voacraque.app",
+      email: emailFor("organizador"),
       username: "organizador",
       role: "ADMIN",
       passwordHash: await hash("VoaCraque123!", 10),
@@ -116,15 +124,15 @@ async function main() {
       },
     },
   });
-  console.log(`[seed] organizador: ${admin.email}`);
+  console.log(`[seed] organizador: ${admin.username} (${admin.email})`);
 
   const playerPassword = await hash("VoaCraque123!", 10);
 
   for (const player of SAMPLE_PLAYERS) {
-    const email = emailFor(player.name);
-    const username = email.split("@")[0];
+    const username = usernameFor(player.name);
+    const email = emailFor(username);
     await prisma.user.upsert({
-      where: { email },
+      where: { username },
       update: {},
       create: {
         email,

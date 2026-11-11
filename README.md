@@ -15,13 +15,15 @@ http://localhost:3000. O seed é idempotente: subir de novo não duplica nada.
 
 Credenciais criadas pelo seed:
 
-| Papel | E-mail | Senha |
-| --- | --- | --- |
-| Superadmin | `super@voacraque.app` | `VoaCraque123!` |
-| Organizador | `organizador@voacraque.app` | `VoaCraque123!` |
-| Jogadores (20) | `nome.sobrenome@voacraque.app` | `VoaCraque123!` |
+O login é por **username** + senha; o e-mail só identifica a conta.
 
-Os jogadores de exemplo seguem o padrão do nome, como `gabriel.marques@voacraque.app`.
+| Papel | Username | E-mail | Senha |
+| --- | --- | --- | --- |
+| Superadmin | `super` | `super@voacraque.app` | `VoaCraque123!` |
+| Organizador | `organizador` | `organizador@voacraque.app` | `VoaCraque123!` |
+| Jogadores (20) | `nome.sobrenome` | `nome.sobrenome@voacraque.app` | `VoaCraque123!` |
+
+Os jogadores de exemplo seguem o padrão do nome, como o username `gabriel.marques`.
 Eles já estão inscritos na pelada "Pelada de quinta", pronta para sortear os times.
 
 ### Desenvolvimento
@@ -57,10 +59,13 @@ container não é sobrescrito pelo que existe no host — importante porque os b
 Prisma e de dependências nativas são específicos da plataforma. O resto do código é
 montado do host, então qualquer alteração salva aparece imediatamente no navegador.
 
-Para rodar o seed (não é automático, porque não é idempotente para o jogo de exemplo):
+A seed roda a cada subida e é idempotente. No dev ela cria só o superadmin de teste
+(`super` / `VoaCraque123!`, sobrescrevíveis por `SUPERADMIN_USERNAME` e `SUPERADMIN_PASSWORD`
+no `.env`), porque `SEED_SAMPLE_DATA` vale `false` por padrão aqui. Para criar também o
+organizador, os 20 jogadores e a pelada de exemplo:
 
 ```bash
-docker compose -f docker-compose.dev.yml exec app npm run db:seed
+docker compose -f docker-compose.dev.yml exec -e SEED_SAMPLE_DATA=true app npm run db:seed
 ```
 
 Se instalar ou remover uma dependência, refaça o build da imagem:
@@ -125,7 +130,7 @@ Estão todas em `.env.example`, com valores que funcionam sem edição.
 | `AUTH_URL` | Origem pública da aplicação. Com `https://`, os cookies de sessão saem com `Secure` e o prefixo `__Host-`; também define o redirect URI do Google e o link do e-mail de redefinição de senha (`NEXTAUTH_URL` ainda é aceito) |
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | Login com Google (opcional). Sem as duas, o botão não aparece |
 | `TRUST_PROXY_HOPS` | Quantos proxies confiáveis ficam na frente da aplicação; define o IP usado no rate limit e na auditoria (padrão `1`) |
-| `SUPERADMIN_EMAIL` / `_PASSWORD` / `_NAME` | Superadmin criado pelo seed |
+| `SUPERADMIN_USERNAME` / `_EMAIL` / `_PASSWORD` / `_NAME` | Superadmin criado pelo seed (o login é o username; padrão `super`) |
 | `SEED_SAMPLE_DATA` | `false` cria só o superadmin |
 | `STORAGE_DRIVER` | `local` (volume do container) ou `s3` |
 | `UPLOAD_DIR` | Pasta dos arquivos no driver local |
