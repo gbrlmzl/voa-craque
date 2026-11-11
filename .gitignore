@@ -19,3 +19,4 @@ src/generated
 /cypress/screenshots
 /cypress/videos
 /.e2e-uploads
+/cypress/downloads

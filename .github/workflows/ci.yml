@@ -106,3 +106,55 @@ jobs:
             cypress/screenshots
             cypress/videos
           if-no-files-found: ignore
+
+  cypress-e2e:
+    name: cypress-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: voacraque
+          POSTGRES_PASSWORD: voacraque
+          POSTGRES_DB: voacraque_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U voacraque -d voacraque_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # Tem precedencia sobre o .env.e2e (porta do db-test local).
+      DATABASE_URL: "postgresql://voacraque:voacraque@localhost:5432/voacraque_e2e?schema=public"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Gera AUTH_SECRET efemero
+        run: echo "AUTH_SECRET=$(openssl rand -base64 48)" >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run e2e:db
+      # Build de producao (nao next dev): a hidratacao lenta do dev faz clique "nao pegar".
+      - name: Cypress E2E (build de producao na porta 3100)
+        uses: cypress-io/github-action@v7
+        with:
+          install: false
+          build: npm run build:e2e
+          start: npm run start:e2e
+          wait-on: "http://localhost:3100/login"
+          wait-on-timeout: 120
+          browser: chrome
+          spec: "cypress/e2e/**/*.cy.ts"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-e2e-evidencias
+          path: |
+            cypress/screenshots
+            cypress/videos
+          if-no-files-found: ignore
