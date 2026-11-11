@@ -40,6 +40,20 @@ export default defineConfig({
     specPattern: "cypress/e2e/**/*.cy.ts",
     supportFile: "cypress/support/e2e.ts",
     setupNodeEvents(on) {
+      // O Next revela as secoes em streaming (Suspense) por script que depende de timers e de
+      // requestAnimationFrame. Navegador em segundo plano ou sem janela visivel os congela e a
+      // pagina fica "invisivel" para o teste; estas opcoes mantem tudo rodando.
+      on("before:browser:launch", (browser, launchOptions) => {
+        launchOptions.args.push(
+          "--disable-background-timer-throttling",
+          "--disable-renderer-backgrounding",
+          "--disable-backgrounding-occluded-windows",
+        );
+        if (browser.name === "electron") {
+          launchOptions.preferences = { ...launchOptions.preferences, backgroundThrottling: false, webPreferences: { backgroundThrottling: false } } as typeof launchOptions.preferences;
+        }
+        return launchOptions;
+      });
       // Descarta o video das specs que passaram: so a falha precisa dele.
       on("after:spec", (_spec, results) => {
         if (results?.video && results.stats.failures === 0 && results.stats.skipped === 0) {
