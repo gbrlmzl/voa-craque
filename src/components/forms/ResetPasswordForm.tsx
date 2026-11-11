@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { resetPasswordAction } from "@/actions/password";
 import type { FormState } from "@/actions/auth";
 import { Button, Card, Field, Input } from "@/components/ui";
+import { PASSWORD_HINT } from "@/lib/password-rules";
 
 const EMPTY: FormState = {};
 
@@ -15,7 +16,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
       <form action={action} className="grid gap-4">
         <input type="hidden" name="token" value={token} />
 
-        <Field label="Senha nova" hint="Mínimo de 8 caracteres." error={state.fieldErrors?.password}>
+        <Field label="Senha nova" hint={PASSWORD_HINT} error={state.fieldErrors?.password}>
           <Input name="password" type="password" autoComplete="new-password" required />
         </Field>
 

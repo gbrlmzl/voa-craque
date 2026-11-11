@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { changePasswordAction } from "@/actions/password";
 import type { FormState } from "@/actions/auth";
 import { Button, Field, Input } from "@/components/ui";
+import { PASSWORD_HINT } from "@/lib/password-rules";
 
 const EMPTY: FormState = {};
 
@@ -32,7 +33,7 @@ export function ChangePasswordForm({
         <Input name="currentPassword" type="password" autoComplete="current-password" required />
       </Field>
 
-      <Field label="Senha nova" hint="Mínimo de 8 caracteres." error={state.fieldErrors?.newPassword}>
+      <Field label="Senha nova" hint={PASSWORD_HINT} error={state.fieldErrors?.newPassword}>
         <Input name="newPassword" type="password" autoComplete="new-password" required />
       </Field>
 

@@ -71,7 +71,7 @@ describe("changePasswordSchema", () => {
   it("recusa confirmacao diferente", () => {
     const result = changePasswordSchema.safeParse({
       currentPassword: "atual12345",
-      newPassword: "senhanova123",
+      newPassword: "Senhanova123",
       newPasswordConfirm: "outra-coisa",
     });
     expect(result.success).toBe(false);
@@ -89,8 +89,8 @@ describe("changePasswordSchema", () => {
   it("aceita quando tudo confere", () => {
     const result = changePasswordSchema.safeParse({
       currentPassword: "atual12345",
-      newPassword: "senhanova123",
-      newPasswordConfirm: "senhanova123",
+      newPassword: "Senhanova123",
+      newPasswordConfirm: "Senhanova123",
     });
     expect(result.success).toBe(true);
   });
@@ -111,6 +111,36 @@ describe("resetPasswordSchema", () => {
       token: "t".repeat(32),
       password: "curta",
       passwordConfirm: "curta",
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("regras de senha nova", () => {
+  const tentar = (newPassword: string) =>
+    changePasswordSchema.safeParse({
+      currentPassword: "atual12345",
+      newPassword,
+      newPasswordConfirm: newPassword,
+    });
+
+  it("recusa senha sem letra maiuscula", () => {
+    expect(tentar("senhanova123").success).toBe(false);
+  });
+
+  it("recusa senha sem numero nem simbolo", () => {
+    expect(tentar("Senhanovaaa").success).toBe(false);
+  });
+
+  it("aceita simbolo no lugar do numero", () => {
+    expect(tentar("Senha-nova").success).toBe(true);
+  });
+
+  it("vale tambem para a redefinicao por token", () => {
+    const result = resetPasswordSchema.safeParse({
+      token: "t".repeat(32),
+      password: "senhanova123",
+      passwordConfirm: "senhanova123",
     });
     expect(result.success).toBe(false);
   });

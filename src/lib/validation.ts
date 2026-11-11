@@ -1,4 +1,10 @@
 import { z } from "zod";
+import {
+  checkPassword,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MESSAGES,
+  PASSWORD_MIN_LENGTH,
+} from "@/lib/password-rules";
 
 const email = z
   .string()
@@ -7,7 +13,12 @@ const email = z
   .email("E-mail invalido.")
   .transform((value) => value.toLowerCase());
 
-const password = z.string().min(8, "A senha precisa de pelo menos 8 caracteres.").max(72);
+const password = z
+  .string()
+  .min(PASSWORD_MIN_LENGTH, PASSWORD_MESSAGES.length)
+  .max(PASSWORD_MAX_LENGTH)
+  .refine((value) => checkPassword(value).uppercase, PASSWORD_MESSAGES.uppercase)
+  .refine((value) => checkPassword(value).numberOrSymbol, PASSWORD_MESSAGES.numberOrSymbol);
 
 export const credentialsSchema = z.object({
   username: z
