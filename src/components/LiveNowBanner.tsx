@@ -25,7 +25,7 @@ export function LiveNowBanner() {
       {/* O cartao e fixo: este espacador impede que ele cubra o fim da pagina. */}
       <div aria-hidden className="h-24" />
 
-      <div className="pointer-events-none fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] z-35 mx-auto max-w-md sm:inset-x-auto sm:right-6 sm:bottom-6 sm:mx-0 sm:w-full">
+      <div data-live-banner className="pointer-events-none fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] z-35 mx-auto max-w-md sm:inset-x-auto sm:right-6 sm:bottom-6 sm:mx-0 sm:w-full">
         <div className="snack-in pointer-events-auto relative">
           <Link
             href={`/game-days/${live.gameDayId}/panel`}
