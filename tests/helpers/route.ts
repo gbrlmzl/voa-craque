@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { cookieJar } from "./next-env";
 
-type Handler = (req: NextRequest, ctx: { params: Promise<Record<string, string | string[]>> }) => Promise<Response>;
+type Handler = (req: NextRequest, ctx: { params: Promise<Record<string, string | string[]>> }) => Promise<Response | void>;
 
 export type RouteResult<T = any> = {
   status: number;
@@ -40,7 +40,17 @@ export async function callRoute<T = any>(handler: Handler, call: RouteCall = {})
   }
 
   const req = new NextRequest(`http://localhost:3100${call.path ?? "/"}`, { method, headers, body });
-  const response = await handler(req, { params: Promise.resolve(call.params ?? {}) });
+  let response: Response;
+  try {
+    const result = await handler(req, { params: Promise.resolve(call.params ?? {}) });
+    if (!result) throw new Error("O handler nao devolveu resposta");
+    response = result;
+  } catch (error) {
+    // redirect() lanca NEXT_REDIRECT; o Next o converte em 307 com Location.
+    const digest = (error as { digest?: string }).digest;
+    if (typeof digest !== "string" || !digest.startsWith("NEXT_REDIRECT")) throw error;
+    response = new Response(null, { status: 307, headers: { location: digest.split(";")[2] } });
+  }
   const text = response.body ? await response.text() : "";
   let json: unknown = null;
   try {

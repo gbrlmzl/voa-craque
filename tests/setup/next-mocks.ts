@@ -28,3 +28,10 @@ jest.mock("@/lib/mail/mailer", () => ({
 beforeEach(() => {
   resetNextEnv();
 });
+
+// Os logs de seguranca e do mailer sao ruido nos testes; quem quiser conferi-los usa
+// tests/helpers/logs.ts.
+beforeEach(() => {
+  jest.spyOn(console, "warn").mockImplementation(() => {});
+  jest.spyOn(console, "info").mockImplementation(() => {});
+});
