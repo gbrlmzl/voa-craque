@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
   const userId = await userIdForGoogleAccount(result.providerAccountId);
   if (!userId) redirect("/login?error=AccessDenied");
 
-  await establishSession(userId);
+  // O Google nao tem o checkbox (o botao e outro formulario): entra mantendo o login.
+  await establishSession(userId, { persistent: true });
   redirect(safeNextPath(result.next));
 }

@@ -48,7 +48,11 @@ export async function proxy(req: NextRequest) {
       if (result.status === "rotated") {
         // O Next repassa estes Set-Cookie ao cookies() do render, do handler e
         // da Server Action desta mesma requisicao.
-        renewed = await buildSessionCookies({ userId: result.userId, refreshToken: result.raw });
+        renewed = await buildSessionCookies({
+          userId: result.userId,
+          refreshToken: result.raw,
+          persistent: result.persistent,
+        });
         authenticated = true;
       } else {
         // Refresh expirado, desconhecido, revogado ou reusado: a sessao acabou.

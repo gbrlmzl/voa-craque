@@ -32,17 +32,30 @@ import { logSecurityEvent } from "@/lib/security-log";
 
 type FamilyRow = RefreshTokenRow & { familyId: string };
 
-/** Login em um aparelho: `familyId` novo. Devolve o valor puro, que vai so para o cookie. */
+/**
+ * Login em um aparelho: `familyId` novo. Devolve o valor puro, que vai so para o cookie.
+ * `persistent` ("manter login") fica gravado na linha e e herdado por todo sucessor da
+ * familia: a escolha feita no login vale ate o logout, nao so ate a primeira renovacao.
+ */
 export async function issueRefreshToken(
   userId: string,
-  familyId: string = randomUUID(),
-  now = new Date(),
+  { persistent, familyId = randomUUID(), now = new Date() }: { persistent: boolean; familyId?: string; now?: Date },
 ): Promise<string> {
   const raw = newRawRefreshToken();
   await prisma.refreshToken.create({
-    data: { userId, familyId, tokenHash: hashRefreshToken(raw), expiresAt: refreshExpiresAt(now) },
+    data: { userId, familyId, persistent, tokenHash: hashRefreshToken(raw), expiresAt: refreshExpiresAt(now, persistent) },
   });
   return raw;
+}
+
+/** O refresh deste cookie pertence a um login com "manter login"? Sem cookie ou linha: nao. */
+export async function isPersistentRefresh(raw: string | undefined): Promise<boolean> {
+  if (!raw) return false;
+  const row = await prisma.refreshToken.findUnique({
+    where: { tokenHash: hashRefreshToken(raw) },
+    select: { persistent: true },
+  });
+  return row?.persistent ?? false;
 }
 
 async function hasLiveSuccessor(familyId: string, now: Date): Promise<boolean> {
@@ -63,8 +76,8 @@ async function resolveState(row: FamilyRow | null, now: Date): Promise<RefreshTo
 }
 
 export type RotateResult =
-  /** `raw` e o sucessor, que vai para o cookie. */
-  | { status: "rotated"; userId: string; raw: string }
+  /** `raw` e o sucessor, que vai para o cookie; `persistent` e herdado da familia. */
+  | { status: "rotated"; userId: string; raw: string; persistent: boolean }
   | { status: "invalid" };
 
 /**
@@ -83,6 +96,7 @@ export async function rotateRefreshToken(
       id: true,
       userId: true,
       familyId: true,
+      persistent: true,
       revokedAt: true,
       revokedReason: true,
       expiresAt: true,
@@ -96,7 +110,7 @@ export async function rotateRefreshToken(
   // Rotina (lixo, prazo vencido, linha ja purgada): sem log.
   if (!row || state === "unknown" || state === "expired") return { status: "invalid" };
 
-  const { userId, familyId } = row;
+  const { userId, familyId, persistent } = row;
 
   if (state === "revoked") {
     logSecurityEvent("refresh_token_revoked_use", {
@@ -128,7 +142,7 @@ export async function rotateRefreshToken(
 
   const next = newRawRefreshToken();
   const successor = prisma.refreshToken.create({
-    data: { userId, familyId, tokenHash: hashRefreshToken(next), expiresAt: refreshExpiresAt(now) },
+    data: { userId, familyId, persistent, tokenHash: hashRefreshToken(next), expiresAt: refreshExpiresAt(now, persistent) },
   });
 
   if (state === "active") {
@@ -147,7 +161,7 @@ export async function rotateRefreshToken(
     await successor;
   }
 
-  return { status: "rotated", userId, raw: next };
+  return { status: "rotated", userId, raw: next, persistent };
 }
 
 /** Logout: derruba a familia inteira deste aparelho, inclusive sucessores criados na janela de graca. */

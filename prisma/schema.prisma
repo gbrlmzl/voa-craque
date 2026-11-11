@@ -147,6 +147,9 @@ model RefreshToken {
   familyId      String
   tokenHash     String                    @unique
   expiresAt     DateTime
+  // "Manter login" no login: 30 dias e cookie persistente; sem ele, 7 dias e
+  // cookie de sessao. Herdado por todo sucessor da familia.
+  persistent    Boolean                   @default(true)
   revokedAt     DateTime?
   // So ROTATED pode ser lido como reuso; os outros motivos sao sessao encerrada.
   revokedReason RefreshTokenRevokeReason?

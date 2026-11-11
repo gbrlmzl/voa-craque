@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { REFRESH_COOKIE_NAME } from "@/lib/auth/config";
-import { issueRefreshToken, revokeRefreshFamily } from "@/lib/auth/refresh-tokens";
+import { isPersistentRefresh, issueRefreshToken, revokeRefreshFamily } from "@/lib/auth/refresh-tokens";
 import { buildSessionCookies, expiredSessionCookies, type CookieWrite } from "@/lib/auth/session-cookies";
 
 /**
@@ -13,10 +13,18 @@ async function writeCookies(writes: CookieWrite[]): Promise<void> {
   for (const { name, value, options } of writes) jar.set(name, value, options);
 }
 
-/** Login, cadastro, Google e troca de senha: familia nova de refresh + access novo. */
-export async function establishSession(userId: string): Promise<void> {
-  const refreshToken = await issueRefreshToken(userId);
-  await writeCookies(await buildSessionCookies({ userId, refreshToken }));
+/**
+ * Login, cadastro, Google e troca de senha: familia nova de refresh + access novo.
+ * `persistent` e a escolha "manter login": cookies de 30 dias em vez de cookies de sessao.
+ */
+export async function establishSession(userId: string, { persistent }: { persistent: boolean }): Promise<void> {
+  const refreshToken = await issueRefreshToken(userId, { persistent });
+  await writeCookies(await buildSessionCookies({ userId, refreshToken, persistent }));
+}
+
+/** A sessao deste navegador foi aberta com "manter login"? Para a troca de senha nao mudar a escolha. */
+export async function currentSessionIsPersistent(): Promise<boolean> {
+  return isPersistentRefresh((await cookies()).get(REFRESH_COOKIE_NAME)?.value);
 }
 
 /**

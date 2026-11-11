@@ -1,6 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { RefreshTokenRevokeReason } from "@/generated/prisma/client";
-import { REFRESH_GRACE_S, REFRESH_TOKEN_RETENTION_DAYS, REFRESH_TOKEN_TTL_S } from "@/lib/auth/config";
+import {
+  REFRESH_GRACE_S,
+  REFRESH_TOKEN_RETENTION_DAYS,
+  REFRESH_TOKEN_TTL_PERSISTENT_S,
+  REFRESH_TOKEN_TTL_S,
+} from "@/lib/auth/config";
 
 /**
  * Parte pura do refresh token: nada de Prisma em runtime (o import acima e so de
@@ -15,7 +20,9 @@ export function hashRefreshToken(raw: string): string {
   return createHash("sha256").update(raw).digest("hex");
 }
 
-export const refreshExpiresAt = (now: Date): Date => new Date(now.getTime() + REFRESH_TOKEN_TTL_S * 1000);
+/** `persistent`: login com "manter login" (30 dias) ou sem (7 dias, cookie de sessao). */
+export const refreshExpiresAt = (now: Date, persistent = false): Date =>
+  new Date(now.getTime() + (persistent ? REFRESH_TOKEN_TTL_PERSISTENT_S : REFRESH_TOKEN_TTL_S) * 1000);
 
 export const purgeCutoff = (now: Date): Date =>
   new Date(now.getTime() - REFRESH_TOKEN_RETENTION_DAYS * 24 * 60 * 60 * 1000);
