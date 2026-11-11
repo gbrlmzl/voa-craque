@@ -25,6 +25,9 @@ class FakeResponse {
   async text() {
     return this.payload ?? "";
   }
+  async blob() {
+    return new Blob([this.payload ?? ""]);
+  }
   clone() {
     return new FakeResponse(this.payload, this.status, Object.fromEntries(this.headers as Map<string, string>));
   }
