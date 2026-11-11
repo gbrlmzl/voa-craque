@@ -11,6 +11,9 @@ import type {
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { CurrentUser } from "@/lib/session";
+import { changeMatchState, recordMatchEvent } from "@/services/match";
+import { finishGameDay as finishGameDayService, startGameDay } from "@/services/gameday";
+import { drawTeams } from "@/services/teams";
 
 // Contador, nunca Date.now() sozinho: dois usuarios criados no mesmo milissegundo
 // nao podem colidir em username/e-mail.
@@ -180,4 +183,96 @@ export async function registerPlayers(
     users.push(user);
   }
   return users;
+}
+
+// ------------------------------------------------------------ peladas montadas
+//
+// Estas fabricas usam os servicos reais (sorteio, iniciar, apitar) para chegar ao
+// estado que o teste precisa. Quem testa o proprio servico monta a cena na mao.
+
+
+export type DrawnGameDay = {
+  gameDay: GameDay;
+  admin: User;
+  players: User[];
+};
+
+/** Pelada com times sorteados (TEAMS_SET) e a partida de abertura criada. */
+export async function createTeams(
+  input: GameDayInput & { players?: number; seed?: number } = {},
+): Promise<DrawnGameDay> {
+  const admin = input.createdById
+    ? await prisma.user.findUniqueOrThrow({ where: { id: input.createdById } })
+    : await createAdmin();
+  const gameDay = await createGameDay({ ...input, createdById: admin.id });
+  const players = await registerPlayers(gameDay.id, input.players ?? 12);
+  await drawTeams(gameDay.id, toCurrentUser(admin), input.seed ?? 7);
+  return { gameDay: await prisma.gameDay.findUniqueOrThrow({ where: { id: gameDay.id } }), admin, players };
+}
+
+/** Pelada LIVE com a primeira partida ainda SCHEDULED. */
+export async function startLiveGameDay(
+  input: GameDayInput & { players?: number; seed?: number } = {},
+) {
+  const drawn = await createTeams(input);
+  await startGameDay(drawn.gameDay.id, toCurrentUser(drawn.admin));
+  return { ...drawn, gameDay: await prisma.gameDay.findUniqueOrThrow({ where: { id: drawn.gameDay.id } }) };
+}
+
+/** Partida em andamento (apitada) de uma pelada LIVE. */
+export async function currentMatch(gameDayId: string) {
+  return prisma.match.findFirstOrThrow({
+    where: { gameDayId, status: { not: "FINISHED" } },
+    orderBy: { orderIndex: "asc" },
+    include: { homeTeam: { include: { players: true } }, awayTeam: { include: { players: true } } },
+  });
+}
+
+export async function whistle(matchId: string, admin: User) {
+  await changeMatchState(matchId, "START", toCurrentUser(admin));
+}
+
+/** Marca gols para o mandante (`side` = "home") ou o visitante; ultimo gol pode encerrar a partida. */
+export async function scoreGoals(
+  matchId: string,
+  admin: User,
+  side: "home" | "away",
+  count: number,
+  { assist = true }: { assist?: boolean } = {},
+) {
+  const match = await prisma.match.findUniqueOrThrow({
+    where: { id: matchId },
+    include: { homeTeam: { include: { players: true } }, awayTeam: { include: { players: true } } },
+  });
+  const team = side === "home" ? match.homeTeam : match.awayTeam;
+  const ids: Array<{ eventId: string; assistEventId: string | null }> = [];
+  for (let i = 0; i < count; i++) {
+    const scorer = team.players[i % team.players.length].userId;
+    const assistant = team.players[(i + 1) % team.players.length].userId;
+    ids.push(
+      await recordMatchEvent(
+        matchId,
+        { type: "GOAL", userId: scorer, teamId: team.id, assistUserId: assist ? assistant : null },
+        toCurrentUser(admin),
+      ),
+    );
+  }
+  return ids;
+}
+
+/**
+ * Pelada ENCERRADA: duas partidas decididas por gols (a segunda dura ate o fim
+ * da fila) e MMR aplicado pelo servico de encerramento.
+ */
+export async function finishGameDay(input: GameDayInput & { players?: number; seed?: number } = {}) {
+  const live = await startLiveGameDay(input);
+  for (let round = 0; round < 3; round++) {
+    const match = await currentMatch(live.gameDay.id);
+    await whistle(match.id, live.admin);
+    await scoreGoals(match.id, live.admin, round % 2 === 0 ? "home" : "away", live.gameDay.goalsToWin);
+  }
+  const running = await prisma.match.findFirst({ where: { gameDayId: live.gameDay.id, status: { not: "FINISHED" } } });
+  if (running) await whistle(running.id, live.admin);
+  await finishGameDayService(live.gameDay.id, toCurrentUser(live.admin));
+  return { ...live, gameDay: await prisma.gameDay.findUniqueOrThrow({ where: { id: live.gameDay.id } }) };
 }

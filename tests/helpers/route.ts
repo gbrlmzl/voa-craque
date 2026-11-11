@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { cookieJar } from "./next-env";
 
-type Handler = (req: NextRequest, ctx: { params: Promise<Record<string, string | string[]>> }) => Promise<Response | void>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Handler = (req: NextRequest, ctx: any) => Promise<Response | void>;
 
 export type RouteResult<T = any> = {
   status: number;
