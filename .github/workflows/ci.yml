@@ -77,3 +77,32 @@ jobs:
           name: coverage
           path: coverage/
           if-no-files-found: ignore
+
+  cypress-component:
+    name: cypress-component
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: "postgresql://user:pass@localhost:5432/db?schema=public"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - name: Cypress Component Testing
+        uses: cypress-io/github-action@v7
+        with:
+          install: false
+          component: true
+          browser: chrome
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-component-evidencias
+          path: |
+            cypress/screenshots
+            cypress/videos
+          if-no-files-found: ignore
