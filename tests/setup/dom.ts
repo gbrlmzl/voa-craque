@@ -34,6 +34,13 @@ beforeAll(() => {
   Element.prototype.scrollIntoView = jest.fn();
 });
 
+beforeAll(() => {
+  // O jsdom nao navega; sem isto cada clique em link imprime "Not implemented: navigation".
+  document.addEventListener("click", (event) => {
+    if ((event.target as Element | null)?.closest?.("a")) event.preventDefault();
+  });
+});
+
 beforeEach(() => {
   resetNavigation();
   FakeEventSource.reset();
