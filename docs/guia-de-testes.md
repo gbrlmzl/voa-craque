@@ -114,13 +114,23 @@ Server Actions: `await loginAction({}, formData({ username, password }))`; `redi
   nem `.env`: recebe as variáveis do `docker-compose.e2e.yml` (S3, SMTP e Google vazios; `.dockerignore` também deixa
   `.env.*` fora da imagem). O `AUTH_SECRET` é o mesmo para o container e para as tasks, que assinam a sessão. `cy.cenario("pelada-aberta")` zera e semeia pelas fábricas
   (`cypress/tasks/cenarios.ts`); devolve `{ gameDayId }`.
-- Cenários: `base`, `pelada-aberta`, `pelada-lotada`, `times-definidos`, `ao-vivo`, `encerrada`, `site-privado`,
+- Cenários: `base`, `pelada-aberta`, `pelada-lotada`, `times-definidos`, `ao-vivo`, `encerrada`, `destaques`,
+  `destaques-empate`, `site-privado`,
   `manutencao`. Para um novo, acrescente a função em `cenarios.ts`, o nome no tipo `Cenario` e no `switch`.
 - `cy.entrarComo("jogador01")` grava os cookies emitidos pelas funções reais de `src/lib/auth`, sem passar pelo
   formulário (o `loginLimiter` permite 8 falhas por IP a cada 15 minutos). Só `autenticacao`, `recuperar-senha` e
   `site-publico` usam o formulário.
 - `cy.task("sql", "select ...")` é só leitura. `cy.task("linkRedefinicao", email)` devolve o link da redefinição
   (o E2E não lê e-mail).
+- `destaques` e `destaques-empate` encerram uma pelada com placar roteirizado (3 partidas, 12 jogadores) e devolvem em
+  `dados` o que cada jogador deve ter (jogos, vitórias, derrotas, gols, assistências) e quem é o artilheiro, contados
+  pelo próprio script enquanto registra os lances. É o gabarito dos specs `estatisticas-e-artilheiro`, `story-destaque`
+  e `foto-de-perfil`: compare a tela com `dados`, nunca recalcule a estatística com a regra do app. No primeiro há um
+  único artilheiro (3 gols); no segundo, três jogadores empatam com 2.
+- Story e foto: o cartão do story é um `<canvas>`, então `cypress/support/story.ts` espia `fillText` e `drawImage` da
+  janela do app (`cy.visit(url, { onBeforeLoad: espiarCanvas })`), espera a assinatura do cartão (último texto
+  desenhado) e amostra pixels. A foto de teste (`foto.jpg`) tem R crescendo na horizontal e G na vertical, o que
+  permite provar recorte central, sem esticar, girar nem espelhar. Web Share se simula com `cy.stub` em `navigator`.
 - Todas as tasks recusam rodar se o banco não terminar em `_e2e`.
 - Os limitadores de taxa vivem na memória do servidor. Rodar o mesmo spec muitas vezes contra o **mesmo** servidor
   (por exemplo `recuperar-senha`, que pede link 1 vez por tentativa; o limite é 5 por hora por IP) acaba em

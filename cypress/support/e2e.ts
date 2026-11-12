@@ -21,6 +21,9 @@ Cypress.on("window:before:load", (win) => {
   else win.document.addEventListener("DOMContentLoaded", apply);
 });
 
+/** Retorno de `cy.cenario`: `dados` so vem nos cenarios "destaques" (cypress/tasks/cenarios.ts). */
+export type ResultadoCenario = { cenario: string; gameDayId: string | null; dados: import("../tasks/cenarios").DadosDestaques | null };
+
 type Cookie = { name: string; value: string; options: { httpOnly?: boolean; sameSite?: string; path?: string; secure?: boolean; maxAge?: number } };
 
 let rodada = 0;
@@ -28,7 +31,7 @@ let rodada = 0;
 /** Zera o banco do E2E e semeia o cenario (cypress/tasks/cenarios.ts). */
 Cypress.Commands.add("cenario", (nome: string) => {
   rodada += 1;
-  return cy.task("db:cenario", nome, { timeout: 120_000 }) as unknown as Cypress.Chainable<{ cenario: string; gameDayId: string | null }>;
+  return cy.task("db:cenario", nome, { timeout: 120_000 }) as unknown as Cypress.Chainable<ResultadoCenario>;
 });
 
 /** Entra como `username` sem passar pelo formulario: cookies emitidos pelas funcoes reais de src/lib/auth. */
@@ -66,7 +69,7 @@ declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Cypress {
     interface Chainable {
-      cenario(nome: string): Chainable<{ cenario: string; gameDayId: string | null }>;
+      cenario(nome: string): Chainable<ResultadoCenario>;
       entrarComo(username: string): Chainable<void>;
       sair(): Chainable<void>;
     }

@@ -58,7 +58,7 @@ denominador continua honesto (todo `src/`, menos `page|layout|loading.tsx` e `ge
 | `src/services` | 94,1% | 77,6% | 94,6% | 97,2% | 75 / 60 |
 
 Tamanho da suíte: **Jest** 76 suites e 1135 testes (unit 31/519, component 13/285, integration 32/331);
-**Cypress CT** 10 specs, 47 testes (+1 pulado); **Cypress E2E** 13 specs, 61 testes.
+**Cypress CT** 10 specs, 47 testes (+1 pulado); **Cypress E2E** 16 specs, 76 testes (as 13 do plano mais 3 de story, foto e estatísticas, abaixo).
 
 ## 3. Arquivos abaixo do limite da pasta
 
@@ -96,12 +96,30 @@ Medidos nesta máquina (os jobs do GitHub Actions não puderam ser cronometrados
 | `npm run test:coverage` | ~15 s |
 | Integração com `--maxWorkers=1` / `4` | 33 s / 12 s (mesmo resultado: 331 testes) |
 | `cypress run --component` (10 specs) | ~9 s de execução (mais a compilação do webpack) |
-| `npm run test:e2e` (migrations + `next build` + 13 specs) | 2 min 15 s de execução dos specs; o build soma cerca de 2 minutos |
+| `npm run test:e2e` (imagem do deploy + 13 specs do plano) | 2 min 47 s de execução dos specs; com as 3 adicionais, 16 specs em 3 min 15 s (4 min 23 s no total, build em cache) |
 
 Verificações extras da seção 11.3, todas feitas: `npm test` com o `.env` real desta máquina (`STORAGE_DRIVER=s3`) não
 criou arquivo em `uploads/` (24 antes, 24 depois) e `tests/unit/db-guard.test.ts` prova o zeramento de
 S3/SMTP/Google; integração duas vezes seguidas e com 1 e 4 workers deram o mesmo resultado; cada uma das 13 specs
 E2E passou sozinha (`cypress run --spec`), sem retentativa.
+
+## 5.1. E2E adicionais: story, foto de perfil e estatísticas
+
+Pedidos depois da primeira entrega; 15 testes em 3 specs, todos contra a imagem do deploy:
+
+| Spec | O que prova |
+| --- | --- |
+| `story-destaque.cy.ts` (5) | O artilheiro abre o story e o cartão traz marca, pelada, local, nome, os gols como destaque, o aproveitamento, a grade 2 x 2 com os números certos e o selo ARTILHEIRO (MVP só se a página de estatísticas mostrou); quem não fez gol nem venceu vê "partida jogada", sem aproveitamento e sem selo; baixar gera PNG 1080 x 1920 (lido do cabeçalho) com o nome no arquivo; com Web Share, `navigator.share` recebe o PNG, o título e o texto; quem não jogou, o visitante e a pelada ao vivo ficam sem o botão. |
+| `foto-de-perfil.cy.ts` (3) | A foto enviada (3000 x 2000 JPEG) vira WebP 512 x 512 com `immutable`, menos da metade do tamanho, recortada no centro sem girar nem espelhar (pixels medidos contra o arquivo original); a mesma URL aparece no perfil, no menu da conta, no ranking, na ficha do jogador e na página pública de estatísticas, onde os outros seguem com iniciais; o story desenha a foto de 512 px no quadrado de 400 px (e não as iniciais) com o gradiente certo. |
+| `estatisticas-e-artilheiro.cy.ts` (7) | Jogos, vitórias, aproveitamento, gols e assistências de cada um dos 12 jogadores batem com o placar roteirizado; a lista vem ordenada por gols; só quem fez o máximo (3) leva o selo e, com empate em 2 gols, os três empatados levam e ninguém mais; Artilharia, Assistências e a ficha do ranking (gols, assist., jogos, vitórias e o extrato `3G 0A · 3 jogos`) mostram os mesmos números; o botão e o story de quem empatou levam a chama e o selo, o de quem não empatou não. |
+
+Gabarito: os cenários `destaques` e `destaques-empate` (`cypress/tasks/cenarios.ts`) contam cada gol e resultado enquanto
+os registram; os specs comparam a tela com essa contagem e não com a regra do app. Para garantir que os testes
+detectam erro, a contagem do cenário foi adulterada de propósito (um gol a mais): 7 testes falharam, e a versão
+original voltou a passar. Execução completa (`npm run test:e2e`, headed): 16 specs, 76 testes, 3m15 de specs, sem retentativa.
+
+Não coberto: a regra "artilheiro é relativo à pelada, não ao acumulado" (exigiria uma segunda pelada encerrada no
+cenário); ela segue só na integração e no unitário de `gameday-stats`.
 
 ## 6. Retentativas no E2E
 
