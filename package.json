@@ -8,7 +8,7 @@
     "dev:docker": "docker compose -f docker-compose.dev.yml up --build",
     "build": "prisma generate && next build",
     "start": "next start -H 0.0.0.0 -p 3000",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p cypress/tsconfig.json",
+    "typecheck": "next typegen && tsc --noEmit && tsc --noEmit -p cypress/tsconfig.json",
     "test": "jest",
     "test:unit": "jest --selectProjects unit component",
     "test:integration": "jest --selectProjects integration",
