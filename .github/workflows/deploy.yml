@@ -3,6 +3,11 @@ name: Deploy
 on:
   push:
     branches: [main]
+    # Merge que so altera documentacao nao gera imagem nem deploy.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".vscode/**"
 
 permissions:
   id-token: write

@@ -5,6 +5,13 @@ on:
   # pull request, entao a suite roda nas PRs que miram a main.
   pull_request:
     branches: [main]
+    # PR que so mexe em documentacao nao precisa da suite. Se tocar em qualquer outro
+    # arquivo, o CI roda normalmente. Se o ruleset da main passar a exigir status
+    # checks, remova este filtro: um workflow pulado deixa o check pendente.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".vscode/**"
   # Em push na main (merge da PR) quem roda a suite e o deploy.yml (workflow_call),
   # para nao executar tudo duas vezes; o deploy so segue se todos os jobs passarem.
   # O ruleset nao exige status checks, entao esse gate e a garantia de que um merge
