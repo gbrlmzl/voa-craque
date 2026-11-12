@@ -14,3 +14,10 @@ src/generated
 
 # Certificado de origem da Cloudflare (so existe no servidor de producao)
 /certs
+
+# Cypress
+/cypress/screenshots
+/cypress/videos
+/.e2e-uploads
+/cypress/downloads
+/cypress/e2e-app.log

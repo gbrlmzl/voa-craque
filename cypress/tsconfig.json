@@ -1,0 +1,11 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": false,
+    "baseUrl": "..",
+    "types": ["cypress", "@testing-library/cypress", "node"]
+  },
+  "include": ["**/*.ts", "**/*.tsx", "../cypress.config.ts", "../next-env.d.ts"],
+  "exclude": ["../node_modules"]
+}
