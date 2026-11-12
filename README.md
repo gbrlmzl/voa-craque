@@ -1,8 +1,87 @@
 # Voa Craque
 
-Gestão das peladas de futsal: inscrição com pagamento, sorteio de times equilibrados,
-painel ao vivo operável com o polegar e ranking. Next.js 16 (App Router) + TypeScript +
-PostgreSQL, tudo em um `docker compose`.
+## Índice
+
+- [Sobre o projeto](#sobre-o-projeto)
+- [Dependências](#dependências)
+  - [Infraestrutura](#infraestrutura)
+  - [Dependências de produção](#dependências-de-produção)
+  - [Dependências de desenvolvimento](#dependências-de-desenvolvimento)
+- [Subir](#subir)
+  - [Desenvolvimento](#desenvolvimento)
+  - [Desenvolvimento com Docker (hot-reload)](#desenvolvimento-com-docker-hot-reload)
+  - [Seed de teste (pelada com 19 jogadores)](#seed-de-teste-pelada-com-19-jogadores)
+  - [Seed do piloto (Pelada UFPB)](#seed-do-piloto-pelada-ufpb)
+- [Variáveis de ambiente](#variáveis-de-ambiente)
+  - [Login com Google](#login-com-google)
+- [Autenticação e sessão](#autenticação-e-sessão)
+- [Alterar e recuperar senha](#alterar-e-recuperar-senha)
+- [Papéis](#papéis)
+- [Auditoria](#auditoria)
+- [Suposições assumidas](#suposições-assumidas)
+- [Testes](#testes)
+
+## Sobre o projeto
+
+O **Voa Craque** é uma aplicação web para **auxiliar no gerenciamento de peladas de futsal**.
+Ele tira da planilha e do grupo de WhatsApp o trabalho do organizador e dá ao jogador um
+lugar só para acompanhar tudo:
+
+- **Inscrição com pagamento**: o jogador se inscreve na pelada e anexa o comprovante; o
+  organizador confirma o pagamento.
+- **Sorteio de times equilibrados**: os times saem balanceados por estrelas, altura e peso,
+  com reservas e a possibilidade de sortear de novo.
+- **Painel ao vivo**: o organizador opera a partida (placar, cronômetro, fila de times) pelo
+  celular, com o polegar, e os jogadores acompanham em tempo real.
+- **Ranking e estatísticas**: gols e desempenho dos jogadores calculados a partir das
+  partidas encerradas.
+
+Next.js 16 (App Router) + TypeScript + PostgreSQL, tudo em um `docker compose`.
+
+## Dependências
+
+Versões conforme o `package.json` (as faixas `^` aceitam atualizações compatíveis). O que
+for instalado de fato fica travado no `package-lock.json`.
+
+### Infraestrutura
+
+| Item | Versão | Para que serve |
+| --- | --- | --- |
+| Node.js | 24 (imagem `node:24-bookworm-slim`) | Runtime da aplicação |
+| PostgreSQL | 17 (`postgres:17-alpine`) | Banco de dados |
+| Docker e Docker Compose | — | Sobe o app e o banco; necessário também para os testes E2E |
+| Caddy | 2 (`caddy:2-alpine`) | Proxy reverso com HTTPS em produção |
+
+### Dependências de produção
+
+| Pacote | Versão | Para que serve |
+| --- | --- | --- |
+| `next` | 16.3.5 | Framework web (App Router, Server Actions, route handlers) |
+| `react`, `react-dom` | 19.3.0 | Interface |
+| `@prisma/client`, `@prisma/adapter-pg` | 7.10.0 | ORM e driver do PostgreSQL |
+| `zod` | ^3.25.76 | Validação de formulários e entradas das APIs |
+| `jose` | ^6.2.12 | Assinatura e verificação do JWT da sessão |
+| `bcryptjs` | ^3.0.3 | Hash das senhas |
+| `arctic` | ^3.7.0 | Fluxo OAuth do login com Google |
+| `nodemailer` | ^8.0.11 | Envio de e-mail (recuperação de senha) via SMTP |
+| `sharp` | ^0.35.4 | Redimensiona a foto de perfil para WebP 512×512 |
+| `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` | ^3.x | Armazenamento dos arquivos no S3 e URLs assinadas |
+| `lucide-react` | ^1.45.0 | Ícones |
+| `clsx`, `tailwind-merge` | ^2.1.1, ^3.4.0 | Composição de classes CSS |
+| `dotenv` | ^18.0.1 | Carrega o `.env` na configuração do Prisma |
+
+### Dependências de desenvolvimento
+
+| Pacote | Para que serve |
+| --- | --- |
+| `typescript` (5.9.3), `@types/*` | Tipagem estática |
+| `tailwindcss`, `@tailwindcss/postcss` | Estilização (Tailwind CSS 4) |
+| `prisma` (7.10.0) | CLI: migrations, geração do client |
+| `tsx` | Executa os seeds e scripts em TypeScript |
+| `eslint`, `eslint-config-next`, `typescript-eslint` | Lint |
+| `jest`, `jest-environment-jsdom`, `@types/jest` | Testes unitários, de componente e de integração |
+| `@testing-library/react`, `/dom`, `/jest-dom`, `/user-event` | Utilitários de teste de componentes |
+| `cypress`, `@testing-library/cypress` | Testes de componente no navegador e E2E |
 
 ## Subir
 
