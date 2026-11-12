@@ -28,6 +28,8 @@ export function LoginForm({
 
   // Login recusado: o usuario fica, a senha sai.
   useEffect(() => {
+    // Reage a um resultado novo da Server Action (estado externo ao componente).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (state !== EMPTY && !state.ok) setPassword("");
   }, [state]);
 

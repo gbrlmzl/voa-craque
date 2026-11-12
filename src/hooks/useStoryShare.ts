@@ -15,6 +15,8 @@ export function useStoryShare(data: StoryCardData, displayFamily?: string | null
   useEffect(() => {
     if (typeof navigator === "undefined") return;
     const probe = new File([], "probe.png", { type: "image/png" });
+    // Deteccao de recurso do navegador: so pode rodar depois da hidratacao (no SSR nao ha navigator).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCanShare(typeof navigator.share === "function" && navigator.canShare?.({ files: [probe] }) === true);
   }, []);
 
@@ -22,7 +24,7 @@ export function useStoryShare(data: StoryCardData, displayFamily?: string | null
     if (!open || !canvasRef.current) return;
     let cancelled = false;
     setRendering(true);
-    drawStoryCard(canvasRef.current, data, { displayFamily }).finally(() => {
+    void drawStoryCard(canvasRef.current, data, { displayFamily }).finally(() => {
       if (!cancelled) setRendering(false);
     });
     return () => {

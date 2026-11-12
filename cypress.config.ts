@@ -6,7 +6,6 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 // O webpack que o Next ja traz: o Cypress usa a mesma copia, e nao ha outra no projeto.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { NormalModuleReplacementPlugin } = createRequire(import.meta.url)("next/dist/compiled/webpack/webpack").webpack;
 
 const root = path.dirname(fileURLToPath(import.meta.url));

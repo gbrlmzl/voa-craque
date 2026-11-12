@@ -144,11 +144,32 @@ Server Actions: `await loginAction({}, formData({ username, password }))`; `redi
 `globals.css`; animações ficam desligadas (o Electron sem janela não avança quadros). Use `cy.pressEscape()` para o
 Esc (o evento nasce no `<body>`, como no navegador).
 
+## Lint
+
+`npm run lint` (ESLint 9, flat config em `eslint.config.mjs`, preset do Next + typescript-eslint) roda sem warnings no
+CI; `npm run lint:fix` aplica as correções automáticas. Além do preset, o projeto tem regras próprias:
+
+- **Fronteira cliente/servidor:** componentes e hooks só importam *tipos* de `@/services/*`, `@/lib/prisma`,
+  `@/lib/storage`, `@/lib/session` e demais módulos de servidor (`import type`); o valor arrastaria Prisma e `node:*`
+  para o navegador.
+- **Promises:** `no-floating-promises` e `no-misused-promises` (Server Action sem `await`, `fetch` sem tratamento);
+  para ignorar de propósito, use `void`.
+- **Enums do Prisma:** `switch-exhaustiveness-check` quebra todo `switch` que não trata um valor novo do schema.
+- **Segurança:** `$queryRawUnsafe`/`$executeRawUnsafe` proibidos no código do app, `react/no-danger`, `no-eval`.
+- **Testes:** `.only` esquecido em Jest/Cypress é erro.
+- **Acessibilidade:** o Cypress acha tudo por role/label, então `label-has-associated-control` (com `Input`/`Select`),
+  `anchor-is-valid`, `interactive-supports-focus` e afins estão ligadas.
+
+Exceções são `eslint-disable-next-line <regra>` com o motivo no comentário acima.
+
 ## CI
 
-`.github/workflows/ci.yml` (jobs `static`, `jest`, `cypress-component`, `cypress-e2e`) roda em todo pull request e é
-chamado pelo `deploy.yml`: `build` e `deploy` dependem dos quatro. O `jest` usa Postgres como service container; o
+`.github/workflows/ci.yml` (jobs *Lint (ESLint)*, *Typecheck*, *Testes Jest*, *Testes de componente (Cypress)* e *Testes E2E (Cypress na
+imagem do deploy)*) roda em todo pull request que mira a `main` e é chamado pelo `deploy.yml`: `build` e `deploy`
+dependem dos cinco. O `jest` usa Postgres como service container; o
 `cypress-e2e` constrói a imagem do deploy (amd64, `docker/build-push-action` com cache GHA próprio), sobe
 `docker-compose.e2e.yml` com `--wait`, roda o Cypress e derruba a stack (`if: always()`), anexando o log do app aos
-screenshots e vídeos em caso de falha. O `AUTH_SECRET` é gerado no job e nenhum job tem credencial AWS. Em *Settings → Branches → main*, exija PR e os quatro
-checks (configuração manual).
+screenshots e vídeos em caso de falha. O `AUTH_SECRET` é gerado no job e nenhum job tem credencial AWS. A `main` tem um ruleset (*Settings → Rules*) que exige
+pull request e bloqueia force push, então todo código chega nela por PR. O ruleset ainda não exige status checks: o
+gate real é o `deploy.yml`, que só publica se a suíte passar no merge. Para travar o merge de PR com CI vermelho,
+marque *Require status checks to pass* e escolha os cinco jobs pelo nome.

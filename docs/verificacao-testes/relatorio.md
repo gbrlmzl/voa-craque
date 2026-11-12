@@ -22,7 +22,7 @@ Todas as decisões marcadas com `[x]` no plano eram a opção A; todas foram apl
 
 Outros desvios do plano:
 
-- **CI:** `ci.yml` não escuta `push` na `main`: o `deploy.yml` já o chama (`workflow_call`) e escutar nos dois rodaria a suíte duas vezes.
+- **CI:** `ci.yml` não escuta `push` na `main`: o `deploy.yml` já o chama (`workflow_call`) e escutar nos dois rodaria a suíte duas vezes. Em `pull_request` só escuta PRs para a `main`, e a execução na `main` nunca é cancelada por outro merge.
 - **`GET /api/game-days` com visitante:** o plano esperava "visitante lista quando o site é aberto"; a rota exige usuário (401 sempre) e as páginas públicas leem direto do banco. O teste cobre o comportamento real.
 - **Rotas inexistentes:** `GET`/`DELETE /api/game-days/[id]` e `GET /api/profile` não existem; só o que existe foi testado.
 - **Upload inválido:** a rota devolve 400 (o plano dizia 422).
@@ -128,5 +128,7 @@ execuções isoladas, desde que cada rodada use um servidor novo (ver o aviso da
 
 ## 7. Lembrete: proteção da `main` (8.3, configuração manual)
 
-Em *GitHub → Settings → Branches → main*: exigir pull request e os checks `static`, `jest`, `cypress-component` e
-`cypress-e2e`. O plano não faz isso por API.
+A `main` tem um ruleset com *Require a pull request before merging* e *Block force pushes*. Falta, se quiser travar o
+merge com CI vermelho, ligar *Require status checks to pass* e escolher os cinco jobs do `ci.yml` pelo nome
+(*Lint (ESLint)*, *Typecheck*, *Testes Jest (unitarios, componente e integracao)*, *Testes de componente (Cypress)* e *Testes E2E
+(Cypress na imagem do deploy)*). Sem isso o gate é o `deploy.yml`, que só publica com a suíte verde.

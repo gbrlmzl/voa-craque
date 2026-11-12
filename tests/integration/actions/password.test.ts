@@ -10,10 +10,9 @@ import { issueRefreshToken } from "@/lib/auth/refresh-tokens";
 import { prisma } from "@/lib/prisma";
 import { formData, redirectOf } from "../../helpers/actions";
 import { DEFAULT_PASSWORD, createUser } from "../../helpers/factories";
-import { flushAfter, mailbox } from "../../helpers/next-env";
+import { flushAfter, mailbox, setCookie } from "../../helpers/next-env";
 import { lastResetLink } from "../../helpers/mail";
 import { actAs, asVisitor, cookieWrites } from "../../helpers/session";
-import { setCookie } from "../../helpers/next-env";
 
 const NEW_PASSWORD = "Nova@Senha1";
 

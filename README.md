@@ -288,15 +288,17 @@ npm run test:coverage   # com cobertura e a trava de 70% (verificada em scripts/
 npm run cy:component    # Cypress Component Testing (navegador de verdade)
 npm run test:e2e        # imagem Docker do deploy + Cypress E2E na porta 3100 (precisa de Docker)
 npm run typecheck       # app, testes e Cypress
+npm run lint            # ESLint (sem warnings); npm run lint:fix corrige o que for automatico
 ```
 
 Os testes nunca falam com S3, SMTP, Google nem com o banco de desenvolvimento: o
 `tests/setup/env.ts` zera essas variáveis e o `globalSetup` aborta se o banco não terminar em
-`_test`. O CI (`.github/workflows/ci.yml`) roda tudo em todo pull request; o deploy só sai
-com os quatro jobs verdes.
+`_test`. O CI (`.github/workflows/ci.yml`) roda tudo em todo pull request para a `main`; o deploy só sai
+com os cinco jobs verdes.
 
-Verificação de tipos:
+Verificação de tipos e lint:
 
 ```bash
 npm run typecheck
+npm run lint
 ```

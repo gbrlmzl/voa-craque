@@ -4,6 +4,8 @@ import { ArrowDown, ArrowUp, Minus } from "lucide-react";
 import { Avatar, Stars } from "@/components/Player";
 import { usePlayerModal } from "@/components/providers/PlayerModalProvider";
 import { Card, EmptyState, cn } from "@/components/ui";
+// Usado so no bloco dos pontos da ultima pelada, hoje comentado (92aadd1): volta junto com ele.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { formatMmrDelta } from "@/lib/labels";
 import type { RankingRow } from "@/services/ranking";
 import { CATEGORIES, useRankingTable } from "@/hooks/useRankingTable";

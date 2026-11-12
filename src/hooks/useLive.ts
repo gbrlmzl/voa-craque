@@ -72,5 +72,7 @@ export function useCountdown(match: LiveMatch | null, receivedAt: number): numbe
   if (!match) return 0;
   if (match.status !== "RUNNING") return match.remainingMs;
   void tick;
+  // O cronometro e relogio de parede por definicao: o re-render a cada 250 ms (tick) e o que o atualiza.
+  // eslint-disable-next-line react-hooks/purity
   return Math.max(0, match.remainingMs - (Date.now() - receivedAt));
 }

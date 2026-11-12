@@ -53,14 +53,14 @@ export const OAUTH_STATE_TTL_S = 10 * 60;
  * seguro, a menos que AUTH_URL diga explicitamente http (o compose local roda
  * `next start` em http://localhost:3000).
  */
-function useSecureCookies(): boolean {
+function resolveSecureCookies(): boolean {
   const url = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "";
   if (url.startsWith("https://")) return true;
   if (url.startsWith("http://")) return false;
   return process.env.NODE_ENV === "production";
 }
 
-export const SECURE_COOKIES = useSecureCookies();
+export const SECURE_COOKIES = resolveSecureCookies();
 
 // __Host- exige Secure, Path=/ e nenhum Domain: um subdominio nao consegue
 // plantar o cookie. Em http (dev local) o navegador recusaria o prefixo.

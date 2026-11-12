@@ -28,4 +28,4 @@ async function main() {
   console.log(`[purge-tokens] ${refreshTokens ?? 0} refresh tokens e ${resetTokens ?? 0} links de redefinicao removidos`);
 }
 
-main().finally(() => prisma.$disconnect());
+void main().finally(() => prisma.$disconnect());

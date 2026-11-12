@@ -42,12 +42,3 @@ export default async function ProfilePage() {
     </div>
   );
 }
-
-function SignInMethod({ label, enabled }: { label: string; enabled: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-slate-300">{label}</span>
-      <Badge tone={enabled ? "good" : "neutral"}>{enabled ? "Ativo" : "Não usado"}</Badge>
-    </div>
-  );
-}

@@ -1,21 +1,46 @@
 name: CI
 
 on:
+  # A main tem ruleset (PR obrigatorio, sem push direto): todo codigo chega nela por
+  # pull request, entao a suite roda nas PRs que miram a main.
   pull_request:
-  # Em push na main quem roda a suite e o deploy.yml (workflow_call), para nao
-  # executar tudo duas vezes; o deploy so segue se todos os jobs passarem.
+    branches: [main]
+  # Em push na main (merge da PR) quem roda a suite e o deploy.yml (workflow_call),
+  # para nao executar tudo duas vezes; o deploy so segue se todos os jobs passarem.
+  # O ruleset nao exige status checks, entao esse gate e a garantia de que um merge
+  # com CI vermelho nao vai para producao.
   workflow_call:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Novo push na PR cancela a execucao antiga. Na main (via deploy.yml) nunca cancela:
+  # dois merges seguidos nao podem derrubar a suite de um deploy em andamento.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 jobs:
+  lint:
+    name: Lint (ESLint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # prisma.config.ts exige DATABASE_URL so pra carregar (o generate nao acessa banco).
+      DATABASE_URL: "postgresql://user:pass@localhost:5432/db?schema=public"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # As regras com tipos (no-floating-promises etc.) leem o client gerado do Prisma.
+      - run: npm run db:generate
+      - run: npm run lint
+
   static:
-    name: static
+    name: Typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -32,7 +57,7 @@ jobs:
       - run: npm run typecheck
 
   jest:
-    name: jest
+    name: Testes Jest (unitarios, componente e integracao)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     services:
@@ -79,7 +104,7 @@ jobs:
           if-no-files-found: ignore
 
   cypress-component:
-    name: cypress-component
+    name: Testes de componente (Cypress)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -108,7 +133,7 @@ jobs:
           if-no-files-found: ignore
 
   cypress-e2e:
-    name: cypress-e2e
+    name: Testes E2E (Cypress na imagem do deploy)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
