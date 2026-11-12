@@ -110,46 +110,47 @@ jobs:
   cypress-e2e:
     name: cypress-e2e
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: voacraque
-          POSTGRES_PASSWORD: voacraque
-          POSTGRES_DB: voacraque_e2e
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U voacraque -d voacraque_e2e"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
+    timeout-minutes: 25
     env:
-      # Tem precedencia sobre o .env.e2e (porta do db-test local).
-      DATABASE_URL: "postgresql://voacraque:voacraque@localhost:5432/voacraque_e2e?schema=public"
+      # Visao do host (porta publicada do db do docker-compose.e2e.yml): usada pelo
+      # prisma generate e pelas tasks do Cypress. Dentro do container e db:5432.
+      DATABASE_URL: "postgresql://voacraque:voacraque@localhost:55434/voacraque_e2e?schema=public"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
+      # Segredo efemero, o mesmo para o container e para as tasks (assinam a sessao).
       - name: Gera AUTH_SECRET efemero
         run: echo "AUTH_SECRET=$(openssl rand -base64 48)" >> "$GITHUB_ENV"
       - run: npm ci
       - run: npm run db:generate
-      - run: npm run e2e:db
-      # Build de producao (nao next dev): a hidratacao lenta do dev faz clique "nao pegar".
-      - name: Cypress E2E (build de producao na porta 3100)
+      # Mesma imagem do deploy (Dockerfile da raiz), em amd64 porque o runner e amd64; o
+      # deploy.yml publica a arm64 da t4g. Cache proprio para nao competir com o do deploy.
+      - uses: docker/setup-buildx-action@v3
+      - name: Build da imagem do app (a do deploy)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: voacraque-app:e2e
+          cache-from: type=gha,scope=e2e-amd64
+          cache-to: type=gha,mode=max,scope=e2e-amd64
+      # O entrypoint da imagem roda migrate + seed; o healthcheck so passa com o Next no ar.
+      - name: Sobe a stack (db + app)
+        run: node scripts/with-env.mjs .env.e2e -- docker compose -f docker-compose.e2e.yml up -d --no-build --wait --wait-timeout 240
+      - name: Cypress E2E (imagem de producao na porta 3100)
         uses: cypress-io/github-action@v7
         with:
           install: false
-          build: npm run build:e2e
-          start: npm run start:e2e
-          wait-on: "http://localhost:3100/login"
-          wait-on-timeout: 120
           browser: chrome
           spec: "cypress/e2e/**/*.cy.ts"
+      - name: Log do app
+        if: failure()
+        run: node scripts/with-env.mjs .env.e2e -- docker compose -f docker-compose.e2e.yml logs --no-color > cypress/e2e-app.log || true
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -157,4 +158,8 @@ jobs:
           path: |
             cypress/screenshots
             cypress/videos
+            cypress/e2e-app.log
           if-no-files-found: ignore
+      - name: Derruba a stack
+        if: always()
+        run: node scripts/with-env.mjs .env.e2e -- docker compose -f docker-compose.e2e.yml down -v --remove-orphans

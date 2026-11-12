@@ -14,7 +14,7 @@ Jest (npm test)  ─────────────────────
 
 Cypress ──────────────────────────────── critério de aprovação, não de cobertura
 ├── component    cypress/component/**/*.cy.tsx          navegador real (CSS, foco, canvas, viewport)
-└── e2e          cypress/e2e/**/*.cy.ts                 next build + next start :3100, banco voacraque_e2e
+└── e2e          cypress/e2e/**/*.cy.ts                 imagem Docker do deploy em :3100 + Postgres voacraque_e2e
 ```
 
 ## Rodar
@@ -28,11 +28,18 @@ Cypress ────────────────────────
 | `npm run test:coverage` | `jest --coverage` e a conferência do total (`scripts/check-coverage.mjs`) |
 | `npm run test:ci` | Como o CI: `--ci --coverage --maxWorkers=50%` |
 | `npm run cy:component` | Cypress Component Testing |
-| `npm run test:e2e` | Migrations, `next build`, `next start -p 3100` e `cypress run --e2e` |
-| `npm run cy:open` | Cypress interativo (rode `build:e2e` e `start:e2e` antes para o E2E) |
+| `npm run test:e2e` | Constrói a imagem do deploy, sobe app + banco (`docker-compose.e2e.yml`), roda `cypress run --e2e` e derruba tudo (mostra o log do app se falhar) |
+| `npm run e2e:up` / `e2e:down` / `e2e:logs` | Sobe, derruba (apaga o banco) e lê o log da stack do E2E, para usar com `cy:open` ou `cy:run` |
+| `npm run cy:open` | Cypress interativo (rode `e2e:up` antes para o E2E) |
 
 Um spec isolado: `npx jest tests/unit/mmr` (o padrão vem **antes** de `--selectProjects`, que consome os
-argumentos seguintes), `npx cypress run --e2e --spec cypress/e2e/times.cy.ts`.
+argumentos seguintes), `npm run test:e2e -- --spec cypress/e2e/times.cy.ts` (os argumentos vão para o `cypress run`).
+
+O E2E exige Docker. A imagem é a mesma do deploy (o `Dockerfile` da raiz, em amd64 no runner; o deploy publica a
+arm64): `next build`, entrypoint com `migrate deploy` e seed, `next start`. O primeiro build leva alguns minutos; as
+camadas ficam em cache, mas qualquer mudança em `src/` refaz o `next build`. Para iterar só nos specs, deixe a stack
+no ar (`npm run e2e:up` uma vez, depois `cy:open` ou `cy:run` quantas vezes quiser) e rode `e2e:down` no fim. O banco
+do E2E (`db` do compose) publica a porta 55434 e é independente do `db-test` do Jest (55433); os dois podem estar no ar.
 
 Em máquina Linux com desktop, rode o E2E com `--headed`; o Electron sem janela visível pinta
 nada e o Cypress espera a página para sempre (o suporte já troca `requestAnimationFrame` por timer
@@ -103,7 +110,9 @@ Server Actions: `await loginAction({}, formData({ username, password }))`; `redi
 
 ## E2E: cenários e sessão
 
-- O banco do E2E é `voacraque_e2e` (`.env.e2e`). `cy.cenario("pelada-aberta")` zera e semeia pelas fábricas
+- O banco do E2E é `voacraque_e2e` (`.env.e2e`, visto do host em `localhost:55434`). O container do app não lê `.env.e2e`
+  nem `.env`: recebe as variáveis do `docker-compose.e2e.yml` (S3, SMTP e Google vazios; `.dockerignore` também deixa
+  `.env.*` fora da imagem). O `AUTH_SECRET` é o mesmo para o container e para as tasks, que assinam a sessão. `cy.cenario("pelada-aberta")` zera e semeia pelas fábricas
   (`cypress/tasks/cenarios.ts`); devolve `{ gameDayId }`.
 - Cenários: `base`, `pelada-aberta`, `pelada-lotada`, `times-definidos`, `ao-vivo`, `encerrada`, `site-privado`,
   `manutencao`. Para um novo, acrescente a função em `cenarios.ts`, o nome no tipo `Cenario` e no `switch`.
@@ -115,8 +124,8 @@ Server Actions: `await loginAction({}, formData({ username, password }))`; `redi
 - Todas as tasks recusam rodar se o banco não terminar em `_e2e`.
 - Os limitadores de taxa vivem na memória do servidor. Rodar o mesmo spec muitas vezes contra o **mesmo** servidor
   (por exemplo `recuperar-senha`, que pede link 1 vez por tentativa; o limite é 5 por hora por IP) acaba em
-  "Muitas tentativas" e parece teste quebrado. `npm run test:e2e` sobe um servidor novo a cada execução; ao rodar
-  specs soltos com `cy:run`, reinicie o `start:e2e` de vez em quando.
+  "Muitas tentativas" e parece teste quebrado. `npm run test:e2e` sobe um container novo a cada execução; ao rodar
+  specs soltos com `cy:run`, faça `npm run e2e:down && npm run e2e:up` de vez em quando.
 
 ## Cypress Component Testing
 
@@ -128,6 +137,8 @@ Esc (o evento nasce no `<body>`, como no navegador).
 ## CI
 
 `.github/workflows/ci.yml` (jobs `static`, `jest`, `cypress-component`, `cypress-e2e`) roda em todo pull request e é
-chamado pelo `deploy.yml`: `build` e `deploy` dependem dos quatro. Postgres entra como service container, o
-`AUTH_SECRET` é gerado no job e nenhum job tem credencial AWS. Em *Settings → Branches → main*, exija PR e os quatro
+chamado pelo `deploy.yml`: `build` e `deploy` dependem dos quatro. O `jest` usa Postgres como service container; o
+`cypress-e2e` constrói a imagem do deploy (amd64, `docker/build-push-action` com cache GHA próprio), sobe
+`docker-compose.e2e.yml` com `--wait`, roda o Cypress e derruba a stack (`if: always()`), anexando o log do app aos
+screenshots e vídeos em caso de falha. O `AUTH_SECRET` é gerado no job e nenhum job tem credencial AWS. Em *Settings → Branches → main*, exija PR e os quatro
 checks (configuração manual).

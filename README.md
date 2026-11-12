@@ -286,7 +286,7 @@ npm test                # os três projetos do Jest
 npm run test:unit       # unitário + componente, sem banco
 npm run test:coverage   # com cobertura e a trava de 70% (verificada em scripts/check-coverage.mjs)
 npm run cy:component    # Cypress Component Testing (navegador de verdade)
-npm run test:e2e        # build de produção + Cypress E2E na porta 3100 (banco voacraque_e2e)
+npm run test:e2e        # imagem Docker do deploy + Cypress E2E na porta 3100 (precisa de Docker)
 npm run typecheck       # app, testes e Cypress
 ```
 

@@ -20,3 +20,4 @@ src/generated
 /cypress/videos
 /.e2e-uploads
 /cypress/downloads
+/cypress/e2e-app.log

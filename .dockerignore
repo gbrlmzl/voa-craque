@@ -6,3 +6,8 @@ uploads
 npm-debug.log
 coverage
 src/generated
+.env.*
+.e2e-uploads
+cypress/screenshots
+cypress/videos
+cypress/downloads

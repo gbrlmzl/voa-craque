@@ -17,7 +17,8 @@ ENV AUTH_SECRET=build-time-placeholder
 ENV DATABASE_URL=postgresql://user:pass@localhost:5432/db?schema=public
 RUN npx prisma generate && npx next build
 
-RUN chmod +x docker/entrypoint.sh && mkdir -p /app/uploads
+# O sed tira CRLF de um checkout feito no Windows: com \r o shebang vira "/bin/sh\r" e o container sai com 127.
+RUN sed -i 's/\r$//' docker/entrypoint.sh && chmod +x docker/entrypoint.sh && mkdir -p /app/uploads
 
 EXPOSE 3000
 CMD ["./docker/entrypoint.sh"]
