@@ -24,8 +24,7 @@ import {
   formatStars,
   teamColor,
 } from "../../src/lib/labels";
-import { registrationSchema } from "../../src/lib/validation";
-import { gameDaySchema } from "../../src/lib/validation";
+import { gameDaySchema, registrationSchema } from "../../src/lib/validation";
 
 describe("cn", () => {
   it("junta classes, ignora falsos e resolve conflitos do Tailwind (a ultima vence)", () => {

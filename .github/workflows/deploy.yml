@@ -3,10 +3,21 @@ name: Deploy
 on:
   push:
     branches: [main]
+    # Merge que so altera documentacao nao gera imagem nem deploy.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".vscode/**"
 
 permissions:
   id-token: write
   contents: read
+
+# A main so recebe merge de PR (ruleset). Deploys nunca se cancelam: um merge novo
+# espera o anterior terminar em vez de interromper o envio da imagem ou o SSM.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   AWS_REGION: sa-east-1
@@ -14,12 +25,14 @@ env:
   INSTANCE_ID: i-09475c5f769bf5466
 
 jobs:
-  # Suite inteira (static, jest, cypress-component, cypress-e2e) definida em ci.yml.
+  # Suite inteira (lint, typecheck, jest, cypress component e e2e) definida em ci.yml.
   # O deploy so sai se todos os jobs passarem.
   ci:
+    name: CI
     uses: ./.github/workflows/ci.yml
 
   build:
+    name: Build e publica imagem Docker (ECR)
     needs: ci
     runs-on: ubuntu-latest
     outputs:
@@ -53,6 +66,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
+    name: Deploy na instancia (SSM)
     needs: build
     runs-on: ubuntu-latest
     steps:

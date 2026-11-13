@@ -157,7 +157,7 @@ export function PaymentList({ gameDayId, rows }: { gameDayId: string; rows: Paym
                     setViewing(null);
                     setRejecting(viewing);
                   },
-                  onApprove: () => decide(viewing, "CONFIRMED"),
+                  onApprove: () => void decide(viewing, "CONFIRMED"),
                 }
           }
           onClose={() => setViewing(null)}

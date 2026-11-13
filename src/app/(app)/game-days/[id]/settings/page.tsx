@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Pencil, RotateCcw, Shuffle } from "lucide-react";
+import { ArrowLeft, Pencil, Shuffle } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { canCancel, teamsLocked } from "@/lib/gameday-lifecycle";
 import { pageAdmin } from "@/lib/session";

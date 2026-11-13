@@ -54,6 +54,7 @@ export function DateTimePicker({
     const target = grid?.querySelector<HTMLElement>(`[data-hour="${hourToShow}"]`);
     if (grid && target) grid.scrollTop = target.offsetTop - (grid.clientHeight - target.offsetHeight) / 2;
     // So na abertura: escolher outra hora nao precisa rolar a grade.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [picker.open]);
 
   const { draft, today } = picker;
@@ -184,6 +185,8 @@ export function DateTimePicker({
 
   return (
     <>
+      {/* O botao faz o papel do campo de data: aria-invalid sinaliza o erro de validacao. */}
+      {/* eslint-disable-next-line jsx-a11y/role-supports-aria-props */}
       <button
         type="button"
         id={id}
