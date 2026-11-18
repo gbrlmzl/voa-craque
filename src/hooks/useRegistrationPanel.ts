@@ -34,6 +34,8 @@ export function useRegistrationPanel(gameDayId: string) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [viewingReceipt, setViewingReceipt] = useState(false);
+  // Modal "Alterar forma de pagamento" (reaproveita o comprovante preparado: a tela de inscricao nao existe junto).
+  const [changing, setChanging] = useState(false);
 
   // Espelho para revogar as URLs blob: no desmonte sem depender de closure velha.
   const live = useRef<{ reviewing: PickedReceipt | null; receipt: PickedReceipt | null }>({
@@ -97,6 +99,20 @@ export function useRegistrationPanel(gameDayId: string) {
     return body.url as string;
   }
 
+  /** URL do comprovante preparado: o arquivo sobe uma vez so (null se a sessao caiu: ja foi para o login). */
+  async function resolveReceiptUrl(file: File): Promise<string | null> {
+    if (uploaded?.file === file) return uploaded.url;
+    setUploading(true);
+    try {
+      const url = await uploadReceipt(file);
+      if (url === null) return null;
+      setUploaded({ file, url });
+      return url;
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function subscribe() {
     if (method === "PIX" && !receipt) {
       setMessage("Anexe o comprovante do PIX.");
@@ -109,19 +125,9 @@ export function useRegistrationPanel(gameDayId: string) {
       // Com "No local" nada e enviado, mesmo que haja comprovante preparado (ele fica guardado se voltar para PIX).
       let receiptUrl = "";
       if (method === "PIX" && receipt) {
-        if (uploaded?.file === receipt.file) {
-          receiptUrl = uploaded.url;
-        } else {
-          setUploading(true);
-          try {
-            const url = await uploadReceipt(receipt.file);
-            if (url === null) return;
-            receiptUrl = url;
-          } finally {
-            setUploading(false);
-          }
-          setUploaded({ file: receipt.file, url: receiptUrl });
-        }
+        const url = await resolveReceiptUrl(receipt.file);
+        if (url === null) return;
+        receiptUrl = url;
       }
 
       const response = await fetch(`/api/game-days/${gameDayId}/registrations`, {
@@ -141,6 +147,62 @@ export function useRegistrationPanel(gameDayId: string) {
       setReceipt(null);
       setUploaded(null);
       toast.show({ message: "Inscrição feita. Boa pelada!", tone: "success" });
+      router.refresh();
+    } catch (error) {
+      setMessage((error as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function openChange() {
+    setMessage(null);
+    setChanging(true);
+  }
+
+  /** Fecha o modal de troca e solta o que ficou preparado nele. */
+  function closeChange() {
+    if (reviewing) URL.revokeObjectURL(reviewing.previewUrl);
+    if (receipt) URL.revokeObjectURL(receipt.previewUrl);
+    setReviewing(null);
+    setReceipt(null);
+    setUploaded(null);
+    setViewingPrepared(false);
+    setMessage(null);
+    setChanging(false);
+  }
+
+  /** Troca para `target`. Para PIX sobe o comprovante primeiro; a API confere se ainda pode trocar. */
+  async function changeMethod(target: "PIX" | "ON_SITE") {
+    if (target === "PIX" && !receipt) {
+      setMessage("Anexe o comprovante do PIX.");
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+    try {
+      let receiptUrl = "";
+      if (target === "PIX" && receipt) {
+        const url = await resolveReceiptUrl(receipt.file);
+        if (url === null) return;
+        receiptUrl = url;
+      }
+
+      const response = await fetch(`/api/game-days/${gameDayId}/registrations`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentMethod: target, receiptUrl }),
+      });
+      if (response.status === 401) {
+        goToLogin();
+        return;
+      }
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Não foi possível alterar a forma de pagamento.");
+
+      closeChange();
+      toast.show({ message: "Forma de pagamento alterada.", tone: "success" });
       router.refresh();
     } catch (error) {
       setMessage((error as Error).message);
@@ -191,6 +253,10 @@ export function useRegistrationPanel(gameDayId: string) {
     viewingReceipt,
     setViewingReceipt,
     subscribe,
+    changing,
+    openChange,
+    closeChange,
+    changeMethod,
     cancel,
     copyPixKey,
   };

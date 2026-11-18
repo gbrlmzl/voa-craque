@@ -1,12 +1,14 @@
 "use client";
 
-import { useRef } from "react";
 import Link from "next/link";
-import { Copy, Eye, LogIn, Receipt, X } from "lucide-react";
+import { LogIn, Receipt } from "lucide-react";
 import { Badge, Button, Card, SectionTitle } from "@/components/ui";
 import { PAYMENT_METHOD_LABEL, PAYMENT_STATUS_LABEL } from "@/lib/labels";
+import { checkPaymentMethodChange, otherPaymentMethod } from "@/lib/payment-method";
 import { useLoginRedirect } from "@/hooks/useLoginRedirect";
 import { type Registration, useRegistrationPanel } from "@/hooks/useRegistrationPanel";
+import { ChangePaymentMethodModal } from "@/components/gameday/ChangePaymentMethodModal";
+import { PixReceiptField } from "@/components/gameday/PixReceiptField";
 import { ReceiptModal } from "@/components/gameday/ReceiptModal";
 
 export type { Registration } from "@/hooks/useRegistrationPanel";
@@ -34,7 +36,6 @@ export function RegistrationPanel({
   /** "Inscricoes abertas" desligada em /admin/system; so o visitante ve o aviso (o jogador recebe o erro ao confirmar). */
   registrationsClosed?: boolean;
 }) {
-  const fileInput = useRef<HTMLInputElement>(null);
   const {
     method,
     setMethod,
@@ -52,6 +53,10 @@ export function RegistrationPanel({
     viewingReceipt,
     setViewingReceipt,
     subscribe,
+    changing,
+    openChange,
+    closeChange,
+    changeMethod,
     cancel,
     copyPixKey,
   } = useRegistrationPanel(gameDayId);
@@ -59,7 +64,27 @@ export function RegistrationPanel({
   // Durante o envio e a inscricao nada do comprovante muda.
   const busy = saving || uploading;
 
+  // Irmaos do cartao, como no resto do projeto: o Modal anima com transform.
+  const receiptModals = (
+    <>
+      {reviewing ? (
+        <ReceiptModal
+          url={reviewing.previewUrl}
+          title="Seu comprovante"
+          confirmation={{ onCancel: cancelReview, onConfirm: confirmReview }}
+          onClose={cancelReview}
+        />
+      ) : null}
+      {viewingPrepared && receipt ? (
+        <ReceiptModal url={receipt.previewUrl} title="Seu comprovante" onClose={() => setViewingPrepared(false)} />
+      ) : null}
+    </>
+  );
+
   if (registration) {
+    const change = checkPaymentMethodChange(registration);
+    const target = otherPaymentMethod(registration.paymentMethod);
+
     return (
       <section>
         <SectionTitle>Sua inscrição</SectionTitle>
@@ -89,18 +114,59 @@ export function RegistrationPanel({
             </button>
           ) : null}
 
-          {open ? (
-            <Button variant="secondary" onClick={cancel} disabled={saving}>
-              Cancelar inscrição
+          {/* Desabilitado, nunca escondido: o motivo aparece logo abaixo. */}
+          <div className={open ? "grid grid-cols-2 gap-2" : "grid"}>
+            {/* px-2: com o padding padrao "Alterar pagamento" quebra em duas linhas no celular. */}
+            <Button
+              variant="secondary"
+              className="px-2"
+              onClick={openChange}
+              disabled={saving || !change.ok}
+              aria-describedby={change.ok ? undefined : "change-payment-hint"}
+            >
+              Alterar pagamento
             </Button>
-          ) : (
+            {open ? (
+              <Button variant="secondary" className="px-2" onClick={cancel} disabled={saving}>
+                Cancelar inscrição
+              </Button>
+            ) : null}
+          </div>
+          {change.ok ? null : (
+            <p id="change-payment-hint" className="text-xs text-slate-500">
+              {change.error}
+            </p>
+          )}
+          {open ? null : (
             <p className="text-xs text-slate-500">
               Os times já foram montados. Para sair, fale com o organizador.
             </p>
           )}
 
-          {message ? <p className="text-sm text-rose-300">{message}</p> : null}
+          {message && !changing ? <p className="text-sm text-rose-300">{message}</p> : null}
         </Card>
+
+        {changing ? (
+          <ChangePaymentMethodModal
+            from={registration.paymentMethod}
+            to={target}
+            pixKey={pixKey}
+            receipt={receipt}
+            uploading={uploading}
+            saving={saving}
+            message={message}
+            onPickReceipt={pickReceipt}
+            onViewReceipt={() => setViewingPrepared(true)}
+            onRemoveReceipt={removeReceipt}
+            onCopyPixKey={copyPixKey}
+            onConfirm={() => void changeMethod(target)}
+            // O Esc do modal de baixo tambem dispara com a previa aberta: so a previa fecha.
+            onCancel={() => {
+              if (!reviewing && !viewingPrepared) closeChange();
+            }}
+          />
+        ) : null}
+        {receiptModals}
 
         {viewingReceipt && registration.receiptUrl ? (
           <ReceiptModal
@@ -148,73 +214,15 @@ export function RegistrationPanel({
         </div>
 
         {method === "PIX" ? (
-          <div className="grid gap-3">
-            {pixKey ? (
-              <button
-                type="button"
-                onClick={() => copyPixKey(pixKey)}
-                className="flex items-center justify-between gap-2 rounded-xl bg-night-800 px-3 py-3 text-left"
-              >
-                <span className="min-w-0">
-                  <span className="block text-xs text-slate-500">Chave PIX</span>
-                  <span className="block truncate text-sm text-slate-200">{pixKey}</span>
-                </span>
-                <Copy size={16} className="shrink-0 text-slate-400" />
-              </button>
-            ) : (
-              <p className="text-sm text-slate-400">O organizador não cadastrou chave PIX.</p>
-            )}
-
-            <input
-              ref={fileInput}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                // Zera o valor: depois de um X, o mesmo arquivo pode ser escolhido de novo.
-                event.target.value = "";
-                if (file) pickReceipt(file);
-              }}
-            />
-
-            {receipt ? (
-              <div className="flex h-14 items-center gap-1 rounded-xl bg-night-800 px-3">
-                <Receipt size={18} className="shrink-0 text-pitch-400" aria-hidden />
-                <span className="ml-2 min-w-0 flex-1 truncate text-sm text-slate-200" title={receipt.file.name}>
-                  {receipt.file.name}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setViewingPrepared(true)}
-                  disabled={busy}
-                  aria-label="Ver comprovante"
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-slate-300 transition-colors hover:bg-white/5 disabled:opacity-45"
-                >
-                  <Eye size={18} />
-                </button>
-                <button
-                  type="button"
-                  onClick={removeReceipt}
-                  disabled={busy}
-                  aria-label="Remover comprovante"
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-slate-300 transition-colors hover:bg-white/5 disabled:opacity-45"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-            ) : (
-              <Button
-                type="button"
-                variant="secondary"
-                size="lg"
-                onClick={() => fileInput.current?.click()}
-                disabled={busy}
-              >
-                <Receipt size={16} /> Anexar comprovante
-              </Button>
-            )}
-          </div>
+          <PixReceiptField
+            pixKey={pixKey}
+            receipt={receipt}
+            busy={busy}
+            onPick={pickReceipt}
+            onView={() => setViewingPrepared(true)}
+            onRemove={removeReceipt}
+            onCopyPixKey={copyPixKey}
+          />
         ) : (
           <p className="rounded-xl bg-white/5 px-3 py-2 text-sm text-slate-400">
             Você paga na hora, direto com o organizador. Ele confirma aqui depois.
@@ -236,18 +244,7 @@ export function RegistrationPanel({
         </Button>
       </Card>
 
-      {/* Irmaos do cartao, como no resto do projeto: o Modal anima com transform. */}
-      {reviewing ? (
-        <ReceiptModal
-          url={reviewing.previewUrl}
-          title="Seu comprovante"
-          confirmation={{ onCancel: cancelReview, onConfirm: confirmReview }}
-          onClose={cancelReview}
-        />
-      ) : null}
-      {viewingPrepared && receipt ? (
-        <ReceiptModal url={receipt.previewUrl} title="Seu comprovante" onClose={() => setViewingPrepared(false)} />
-      ) : null}
+      {receiptModals}
     </section>
   );
 }
