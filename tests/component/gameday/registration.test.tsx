@@ -210,6 +210,197 @@ describe("RegistrationPanel: sua inscricao e visitante", () => {
   });
 });
 
+describe("RegistrationPanel: alterar forma de pagamento", () => {
+  const registration = (overrides: Partial<Registration> = {}): Registration => ({
+    id: "r1",
+    paymentMethod: "ON_SITE",
+    paymentStatus: "PENDING",
+    receiptUrl: null,
+    rejectedReason: null,
+    ...overrides,
+  });
+  const PIX_RECEIPT = "/api/files/comprovantes/c.png";
+  const changeButton = () => screen.getByRole("button", { name: "Alterar pagamento" });
+  const changeDialog = () => screen.findByRole("dialog", { name: "Alterar forma de pagamento" });
+
+  it("o botao fica ao lado de 'Cancelar inscricao'", async () => {
+    panel({ registration: registration() });
+    const cancel = await screen.findByRole("button", { name: "Cancelar inscrição" });
+    expect(changeButton().parentElement).toBe(cancel.parentElement);
+    expect(changeButton()).toBeEnabled();
+  });
+
+  it.each([
+    ["pagamento no local confirmado", { paymentStatus: "CONFIRMED" }, "O organizador já confirmou o seu pagamento."],
+    ["PIX confirmado", { paymentMethod: "PIX", paymentStatus: "CONFIRMED", receiptUrl: PIX_RECEIPT }, "O organizador já confirmou o seu pagamento."],
+    [
+      "PIX com comprovante aguardando conferencia",
+      { paymentMethod: "PIX", receiptUrl: PIX_RECEIPT },
+      "Seu comprovante está em análise. Só dá para trocar se o organizador recusá-lo.",
+    ],
+  ] as const)("%s: botao desabilitado, continua na tela e explica o motivo", async (_name, overrides, reason) => {
+    const spy = mockFetch({});
+    panel({ registration: registration(overrides) });
+    expect(await screen.findByRole("button", { name: "Alterar pagamento" })).toBeDisabled();
+    expect(screen.getByText(reason)).toBeInTheDocument();
+    expect(changeButton()).toHaveAccessibleDescription(reason);
+    await userEvent.click(changeButton());
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["no local aguardando", {}],
+    ["no local recusado", { paymentStatus: "REJECTED" }],
+    ["PIX sem comprovante", { paymentMethod: "PIX" }],
+    ["PIX com comprovante recusado", { paymentMethod: "PIX", paymentStatus: "REJECTED", receiptUrl: PIX_RECEIPT, rejectedReason: "Valor errado" }],
+  ] as const)("%s: botao habilitado e sem aviso", async (_name, overrides) => {
+    panel({ registration: registration(overrides) });
+    expect(await screen.findByRole("button", { name: "Alterar pagamento" })).toBeEnabled();
+    expect(screen.queryByText(/já confirmou|em análise/)).toBeNull();
+  });
+
+  it("depois dos times montados o botao continua, sem o cancelar", async () => {
+    panel({ registration: registration(), open: false });
+    expect(await screen.findByRole("button", { name: "Alterar pagamento" })).toBeEnabled();
+    expect(screen.getByText(/Os times já foram montados/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancelar inscrição" })).toBeNull();
+  });
+
+  it("PIX recusado para no local: confirma, avisa e atualiza a tela, sem enviar comprovante", async () => {
+    mockFetch({ "PATCH /api/game-days/g1/registrations": { body: { ok: true } } });
+    panel({ registration: registration({ paymentMethod: "PIX", paymentStatus: "REJECTED", receiptUrl: PIX_RECEIPT }) });
+    await userEvent.click(await screen.findByRole("button", { name: "Alterar pagamento" }));
+    const dialog = await changeDialog();
+    expect(within(dialog).getByText(/Você paga na hora/)).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: /Anexar comprovante/ })).toBeNull();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Alterar" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Forma de pagamento alterada.");
+    expect(fetchCallsTo("PATCH", "/api/game-days/g1/registrations")[0].body).toEqual({ paymentMethod: "ON_SITE", receiptUrl: "" });
+    expect(fetchCallsTo("POST", "/api/uploads")).toHaveLength(0);
+    expect(router.refresh).toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("no local para PIX: pede a chave e o comprovante, sobe o arquivo e troca", async () => {
+    mockFetch({
+      "POST /api/uploads": { body: { url: "/api/files/comprovantes/novo.png" } },
+      "PATCH /api/game-days/g1/registrations": { body: { ok: true } },
+    });
+    panel({ registration: registration() });
+    await userEvent.click(await screen.findByRole("button", { name: "Alterar pagamento" }));
+    const dialog = await changeDialog();
+    expect(within(dialog).getByText("pix@voacraque.app")).toBeInTheDocument();
+
+    // Sem comprovante nao chama a API.
+    await userEvent.click(within(dialog).getByRole("button", { name: "Alterar" }));
+    expect(within(dialog).getByText("Anexe o comprovante do PIX.")).toBeInTheDocument();
+    expect(fetchCallsTo("PATCH", "/api/game-days/g1/registrations")).toHaveLength(0);
+
+    await userEvent.upload(fileInput(), receiptFile());
+    const review = await screen.findByRole("dialog", { name: "Seu comprovante" });
+    await userEvent.click(within(review).getByRole("button", { name: /Confirmar/ }));
+    expect(within(dialog).getByText("pix.png")).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Alterar" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Forma de pagamento alterada.");
+    const [upload] = fetchCallsTo("POST", "/api/uploads");
+    expect((upload.body as FormData).get("tipo")).toBe("comprovante");
+    expect(fetchCallsTo("PATCH", "/api/game-days/g1/registrations")[0].body).toEqual({
+      paymentMethod: "PIX",
+      receiptUrl: "/api/files/comprovantes/novo.png",
+    });
+    expect(router.refresh).toHaveBeenCalled();
+  });
+
+  it("copiar a chave PIX funciona dentro do modal", async () => {
+    Object.assign(navigator, { clipboard: { writeText: jest.fn().mockResolvedValue(undefined) } });
+    panel({ registration: registration() });
+    await userEvent.click(await screen.findByRole("button", { name: "Alterar pagamento" }));
+    await userEvent.click(within(await changeDialog()).getByRole("button", { name: /Chave PIX/ }));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith("pix@voacraque.app");
+  });
+
+  it("erro da API aparece no modal, nao no cartao, e deixa tentar de novo reaproveitando o upload", async () => {
+    let attempts = 0;
+    mockFetch({
+      "POST /api/uploads": { body: { url: "/api/files/comprovantes/novo.png" } },
+      "PATCH /api/game-days/g1/registrations": () =>
+        ++attempts === 1
+          ? { status: 409, body: { error: "O organizador acabou de atualizar o seu pagamento. Atualize a página e tente de novo." } }
+          : { body: { ok: true } },
+    });
+    panel({ registration: registration() });
+    await userEvent.click(await screen.findByRole("button", { name: "Alterar pagamento" }));
+    const dialog = await changeDialog();
+    await userEvent.upload(fileInput(), receiptFile());
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Seu comprovante" })).getByRole("button", { name: /Confirmar/ }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Alterar" }));
+
+    expect(await within(dialog).findByText(/organizador acabou de atualizar/)).toBeInTheDocument();
+    expect(screen.getAllByText(/organizador acabou de atualizar/)).toHaveLength(1);
+    expect(within(dialog).getByRole("button", { name: "Alterar" })).toBeEnabled();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Alterar" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Forma de pagamento alterada.");
+    expect(fetchCallsTo("POST", "/api/uploads")).toHaveLength(1);
+  });
+
+  it("cancelar, X e Esc fecham o modal sem chamar a API e descartam o comprovante escolhido", async () => {
+    const spy = mockFetch({});
+    panel({ registration: registration() });
+    await userEvent.click(await screen.findByRole("button", { name: "Alterar pagamento" }));
+    let dialog = await changeDialog();
+    await userEvent.upload(fileInput(), receiptFile());
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Seu comprovante" })).getByRole("button", { name: /Confirmar/ }));
+    expect(within(dialog).getByText("pix.png")).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    await userEvent.click(changeButton());
+    dialog = await changeDialog();
+    expect(within(dialog).queryByText("pix.png")).toBeNull();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Fechar" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    await userEvent.click(changeButton());
+    await changeDialog();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("Esc com a conferencia do comprovante aberta fecha so a conferencia", async () => {
+    panel({ registration: registration() });
+    await userEvent.click(await screen.findByRole("button", { name: "Alterar pagamento" }));
+    await changeDialog();
+    await userEvent.upload(fileInput(), receiptFile());
+    expect(await screen.findByRole("dialog", { name: "Seu comprovante" })).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Seu comprovante" })).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Alterar forma de pagamento" })).toBeInTheDocument();
+  });
+
+  it("arquivo invalido e barrado dentro do modal", async () => {
+    panel({ registration: registration() });
+    await userEvent.click(await screen.findByRole("button", { name: "Alterar pagamento" }));
+    const dialog = await changeDialog();
+    await userEvent.upload(fileInput(), receiptFile("a.gif", "image/gif"), { applyAccept: false });
+    expect(await within(dialog).findByText("Formato inválido. Envie uma imagem JPEG, PNG ou WebP.")).toBeInTheDocument();
+  });
+
+  it("401 leva ao login com o retorno", async () => {
+    setLocation("/game-days/g1");
+    mockFetch({ "PATCH /api/game-days/g1/registrations": { status: 401, body: {} } });
+    panel({ registration: registration({ paymentMethod: "PIX", paymentStatus: "REJECTED", receiptUrl: PIX_RECEIPT }) });
+    await userEvent.click(await screen.findByRole("button", { name: "Alterar pagamento" }));
+    await userEvent.click(within(await changeDialog()).getByRole("button", { name: "Alterar" }));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?proximo=%2Fgame-days%2Fg1"));
+  });
+});
+
 describe("ReceiptModal", () => {
   it("carrega a imagem, mostra o botao de tela cheia e fecha o tela cheia por Esc sem fechar o modal", async () => {
     const onClose = jest.fn();

@@ -565,6 +565,17 @@ GET /api/files/comprovantes/<uuid>.jpg                              src/app/api/
 `OPEN` (depois dos times montados, 409 "fale com o organizador"), apaga a linha e grava
 `REGISTRATION_CANCELLED` com o `before`, de modo que o histórico sobrevive na auditoria.
 
+**Trocar a forma de pagamento** também é a mesma rota, com `PATCH` e o mesmo corpo do `POST`
+(`{ paymentMethod, receiptUrl }`; ir para PIX exige o comprovante novo). A regra de quando pode
+está em `checkPaymentMethodChange` (`src/lib/payment-method.ts`), a mesma que desabilita o botão
+"Alterar pagamento": nunca depois de o organizador confirmar, e, no PIX com comprovante anexado,
+só depois de ele recusar o comprovante. A escrita é um `updateMany` condicionado ao estado lido
+(método, status e comprovante): se o organizador decidir no meio do caminho, a decisão dele vence
+e a troca dá 409. A inscrição volta a `PENDING` e perde comprovante, motivo de recusa e
+confirmação; grava `REGISTRATION_PAYMENT_METHOD_CHANGED` com `before`/`after` e publica
+`payment-method-changed`. Diferente do cancelamento, não depende dos times: vale até a pelada
+ser encerrada ou cancelada.
+
 ---
 
 ## 7. Parte IV — Quem organiza confirma o pagamento

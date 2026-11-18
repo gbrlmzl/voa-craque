@@ -141,6 +141,10 @@ jobs:
 
   cypress-e2e:
     name: Testes E2E (Cypress na imagem do deploy)
+    # E o job mais caro (builda a imagem Docker e sobe a stack): so comeca se lint e
+    # typecheck passarem, para nao gastar minutos de runner com erro que eles pegam em
+    # 1-2 min. Jest e Cypress de componente seguem em paralelo, sem esperar ninguem.
+    needs: [lint, static]
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
