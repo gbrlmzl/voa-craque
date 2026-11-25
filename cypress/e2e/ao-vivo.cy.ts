@@ -56,6 +56,28 @@ describe("Ao vivo: painel do organizador", () => {
     cy.contains("Lances").should("be.visible");
   });
 
+  it("substituicao de dois jogadores de uma vez: so confirma com dois entrando, e o desfazer volta os dois", () => {
+    cy.findByRole("button", { name: /Iniciar partida/ }).click();
+    cy.findAllByRole("button", { name: /Substituição/ }).first().click();
+    cy.findByRole("dialog", { name: /Substituição do Time/ }).within(() => {
+      // Os 4 primeiros botoes de jogador sao do time (quem sai); os 4 ultimos, da fila (quem entra).
+      cy.findAllByRole("button", { name: /Jogador/ }).eq(0).click();
+      cy.findAllByRole("button", { name: /Jogador/ }).eq(1).click();
+      cy.findByRole("button", { name: "Confirmar substituição" }).should("be.disabled");
+      cy.contains("Escolha mais 2 jogadores para entrar.").should("be.visible");
+
+      cy.findAllByRole("button", { name: /Jogador/ }).eq(-1).click();
+      cy.findByRole("button", { name: "Confirmar substituição" }).should("be.disabled");
+      cy.findAllByRole("button", { name: /Jogador/ }).eq(-2).click();
+      cy.findByRole("button", { name: "Confirmar substituição" }).should("be.enabled").click();
+    });
+    cy.findByRole("status").should("contain.text", "Substituições efetuadas.");
+    cy.contains("Lances").should("be.visible");
+
+    cy.findByRole("button", { name: "Desfazer" }).click();
+    cy.contains("[role=status]", "Substituições desfeitas.").should("be.visible");
+  });
+
   it("encerrar a partida mostra o resultado e leva a proxima; depois encerra a pelada", () => {
     cy.findByRole("button", { name: /Iniciar partida/ }).click();
     cy.findAllByRole("button", { name: /^Gol de / }).first().click();

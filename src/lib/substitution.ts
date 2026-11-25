@@ -33,10 +33,22 @@ export type BenchPlayer = {
   leftTeamId: string | null;
 };
 
-export type SubstitutionInput = {
+/** Um par da troca: quem sai e quem entra no lugar dele. */
+export type SubstitutionSwap = { outUserId: string; inUserId: string };
+
+export type SubstitutionInput = SubstitutionSwap & {
   teamId: string;
-  outUserId: string;
-  inUserId: string;
+  permanent: boolean;
+};
+
+/**
+ * Varias trocas do mesmo time confirmadas de uma vez. O par i e formado por
+ * quem sai i e quem entra i, na ordem da lista. A duracao (so esta partida ou ate
+ * o fim da pelada) vale para todos os pares.
+ */
+export type SubstitutionBatchInput = {
+  teamId: string;
+  swaps: SubstitutionSwap[];
   permanent: boolean;
 };
 
@@ -60,6 +72,10 @@ export type SubstitutionPlan = SubstitutionInput & {
 
 export type SubstitutionResult =
   | { ok: true; plan: SubstitutionPlan }
+  | { ok: false; error: string };
+
+export type SubstitutionBatchResult =
+  | { ok: true; plans: SubstitutionPlan[] }
   | { ok: false; error: string };
 
 export const PERMANENT_BLOCKED_NOT_ROSTER =
@@ -223,6 +239,36 @@ export function evaluateSubstitution(
   };
 }
 
+/**
+ * Confere todos os pares contra o mesmo estado da partida: as trocas valem juntas
+ * ou nao valem. Quem sai nao pode repetir, quem entra tambem nao, e ninguem
+ * entra e sai na mesma troca (quem sai esta em quadra, quem entra esta no banco,
+ * entao evaluateSubstitution ja recusa o cruzamento).
+ */
+export function evaluateSubstitutionBatch(
+  view: SubstitutionView,
+  input: SubstitutionBatchInput,
+): SubstitutionBatchResult {
+  const { teamId, swaps, permanent } = input;
+  const fail = (error: string): SubstitutionBatchResult => ({ ok: false, error });
+
+  if (swaps.length === 0) return fail("Escolha quem sai e quem entra.");
+  if (new Set(swaps.map((swap) => swap.outUserId)).size !== swaps.length) {
+    return fail("O mesmo jogador não pode sair duas vezes.");
+  }
+  if (new Set(swaps.map((swap) => swap.inUserId)).size !== swaps.length) {
+    return fail("O mesmo jogador não pode entrar duas vezes.");
+  }
+
+  const plans: SubstitutionPlan[] = [];
+  for (const swap of swaps) {
+    const result = evaluateSubstitution(view, { teamId, ...swap, permanent });
+    if (!result.ok) return result;
+    plans.push(result.plan);
+  }
+  return { ok: true, plans };
+}
+
 export type LineupChange = {
   /** Quem sai: a linha continua na partida, so deixa de estar em quadra. */
   deactivate: string;
@@ -359,6 +405,11 @@ export function latestSubstitution<T extends SubstitutionSummary>(substitutions:
     if (!latest || isAfter(substitution, latest)) latest = substitution;
   }
   return latest;
+}
+
+/** Da mais recente para a mais antiga, no mesmo desempate de latestSubstitution. */
+export function sortNewestFirst<T extends SubstitutionSummary>(substitutions: T[]): T[] {
+  return [...substitutions].sort((a, b) => (isAfter(a, b) ? -1 : isAfter(b, a) ? 1 : 0));
 }
 
 /**

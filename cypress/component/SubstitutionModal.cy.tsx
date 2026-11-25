@@ -39,7 +39,7 @@ describe("SubstitutionModal (fluxo de varios passos em tela pequena)", () => {
     cy.findByRole("button", { name: /A Ala/ }).click();
     cy.findByRole("button", { name: /Reserva 3/ }).scrollIntoView().click();
     cy.findByRole("button", { name: "Confirmar substituição" }).should("be.enabled").click();
-    cy.get("@confirmar").should("have.been.calledWith", { outUserId: "a2", inUserId: "r3", permanent: false });
+    cy.get("@confirmar").should("have.been.calledWith", { swaps: [{ outUserId: "a2", inUserId: "r3" }], permanent: false });
   });
 
   it("o resumo 'Sai' e 'Entra' mostra as escolhas", () => {
@@ -48,6 +48,42 @@ describe("SubstitutionModal (fluxo de varios passos em tela pequena)", () => {
     cy.findByRole("button", { name: /Reserva 1/ }).scrollIntoView().click();
     cy.contains("p", "Sai").parent().should("contain.text", "A Fixo");
     cy.contains("p", "Entra").parent().should("contain.text", "Reserva 1");
+  });
+
+  it("troca dois de uma vez: so confirma com um entrando para cada um que sai, e tocar de novo desmarca", () => {
+    mountModal();
+    const confirmar = () => cy.findByRole("button", { name: "Confirmar substituição" });
+    cy.findByRole("button", { name: /A Ala/ }).click();
+    cy.findByRole("button", { name: /A Fixo/ }).click();
+    cy.findByRole("button", { name: /Reserva 1/ }).scrollIntoView().click();
+    confirmar().should("be.disabled");
+    cy.contains("Escolha mais 1 jogador para entrar.").should("be.visible");
+
+    cy.findByRole("button", { name: /Reserva 2/ }).scrollIntoView().click();
+    confirmar().should("be.enabled");
+
+    cy.findByRole("button", { name: /Reserva 2/ }).click();
+    cy.findByRole("button", { name: /Reserva 2/ }).should("have.attr", "aria-pressed", "false");
+    confirmar().should("be.disabled");
+
+    cy.findByRole("button", { name: /Reserva 3/ }).scrollIntoView().click();
+    confirmar().should("be.enabled").click();
+    cy.get("@confirmar").should("have.been.calledWith", {
+      swaps: [
+        { outUserId: "a2", inUserId: "r1" },
+        { outUserId: "a3", inUserId: "r3" },
+      ],
+      permanent: false,
+    });
+  });
+
+  it("com tres pares escolhidos o botao de confirmar continua visivel em tela baixa", () => {
+    cy.viewport(360, 520);
+    mountModal();
+    for (const name of [/A Goleiro/, /A Ala/, /A Fixo/]) cy.findByRole("button", { name }).click();
+    for (const name of [/Reserva 1/, /Reserva 2/, /Reserva 3/]) cy.findByRole("button", { name }).scrollIntoView().click();
+    cy.findByRole("button", { name: "Confirmar substituição" }).should("be.visible").and("be.enabled");
+    cy.findByRole("button", { name: "Cancelar" }).should("be.visible");
   });
 
   it("a folha cabe na tela de 390x844 e o contador de jogadores rola por dentro, sem rolar a pagina", () => {
@@ -75,7 +111,7 @@ describe("SubstitutionModal (fluxo de varios passos em tela pequena)", () => {
     cy.findByRole("button", { name: /Reserva 2/ }).scrollIntoView().click();
     cy.findByRole("radio", { name: /Até o fim da pelada/ }).click();
     cy.findByRole("button", { name: "Confirmar substituição" }).click();
-    cy.get("@confirmar").should("have.been.calledWith", { outUserId: "a2", inUserId: "r2", permanent: true });
+    cy.get("@confirmar").should("have.been.calledWith", { swaps: [{ outUserId: "a2", inUserId: "r2" }], permanent: true });
     cy.findByRole("button", { name: "Cancelar" }).click();
     cy.get("@cancelar").should("have.been.calledOnce");
   });

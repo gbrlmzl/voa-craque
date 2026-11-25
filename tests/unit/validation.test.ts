@@ -17,6 +17,7 @@ import {
   resetPasswordSchema,
   roleSchema,
   starsSchema,
+  substitutionIdsSchema,
   substitutionSchema,
   systemSettingsSchema,
 } from "../../src/lib/validation";
@@ -237,6 +238,29 @@ describe("partida", () => {
   it("substitutionSchema: permanent padrao false", () => {
     expect(substitutionSchema.parse({ teamId: "t", outUserId: "a", inUserId: "b" }).permanent).toBe(false);
     expect(substitutionSchema.safeParse({ teamId: "t", outUserId: "a" }).success).toBe(false);
+  });
+  it("substitutionSchema: a troca simples vira um lote de um par", () => {
+    expect(substitutionSchema.parse({ teamId: "t", outUserId: "a", inUserId: "b", permanent: true })).toEqual({
+      teamId: "t",
+      permanent: true,
+      swaps: [{ outUserId: "a", inUserId: "b" }],
+    });
+  });
+  it("substitutionSchema: varios pares, de 1 a 10", () => {
+    const swaps = (count: number) => Array.from({ length: count }, (_, i) => ({ outUserId: `o${i}`, inUserId: `i${i}` }));
+    const parsed = substitutionSchema.parse({ teamId: "t", swaps: swaps(3) });
+    expect(parsed).toEqual({ teamId: "t", permanent: false, swaps: swaps(3) });
+    expect(substitutionSchema.safeParse({ teamId: "t", swaps: swaps(10) }).success).toBe(true);
+    expect(substitutionSchema.safeParse({ teamId: "t", swaps: swaps(11) }).success).toBe(false);
+    expect(substitutionSchema.safeParse({ teamId: "t", swaps: [] }).success).toBe(false);
+    expect(substitutionSchema.safeParse({ teamId: "t", swaps: [{ outUserId: "a" }] }).success).toBe(false);
+  });
+  it("substitutionIdsSchema: ids separados por virgula, de 1 a 10", () => {
+    expect(substitutionIdsSchema.parse("a,b,c")).toEqual(["a", "b", "c"]);
+    expect(substitutionIdsSchema.parse("a,,b,")).toEqual(["a", "b"]);
+    expect(substitutionIdsSchema.safeParse("").success).toBe(false);
+    expect(substitutionIdsSchema.safeParse(",").success).toBe(false);
+    expect(substitutionIdsSchema.safeParse(Array.from({ length: 11 }, (_, i) => `s${i}`).join(",")).success).toBe(false);
   });
 });
 

@@ -159,8 +159,8 @@ describe("LivePanel: substituicao", () => {
   ];
   const routes = {
     ...apiRoutes,
-    "POST /api/matches/m2/substitutions": { body: { substitutionId: "s1" } },
-    "DELETE /api/matches/m2/substitutions/s1": { body: { ok: true } },
+    "POST /api/matches/m2/substitutions": { body: { substitutionIds: ["s1"] } },
+    "DELETE /api/matches/m2/substitutions": { body: { ok: true } },
   };
 
   it("abre o modal do time, confirma, avisa e permite desfazer", async () => {
@@ -176,15 +176,47 @@ describe("LivePanel: substituicao", () => {
     expect(await screen.findByText("Entrou Reserva Um, saiu A Ala")).toBeInTheDocument();
     expect(fetchCallsTo("POST", "/api/matches/m2/substitutions")[0].body).toEqual({
       teamId: "tA",
-      outUserId: "a2",
-      inUserId: "r1",
+      swaps: [{ outUserId: "a2", inUserId: "r1" }],
       permanent: false,
     });
     expect(screen.queryByRole("dialog")).toBeNull();
 
     await userEvent.click(screen.getByRole("button", { name: "Desfazer" }));
     expect(await screen.findByText("Substituição desfeita.")).toBeInTheDocument();
-    expect(fetchCallsTo("DELETE", "/api/matches/m2/substitutions/s1")).toHaveLength(1);
+    expect(fetchCallsTo("DELETE", "/api/matches/m2/substitutions").map((call) => call.url)).toEqual([
+      "/api/matches/m2/substitutions?ids=s1",
+    ]);
+  });
+
+  it("troca dois de uma vez numa so chamada e o desfazer desfaz os dois", async () => {
+    mockFetch({ ...routes, "POST /api/matches/m2/substitutions": { body: { substitutionIds: ["s1", "s2"] } } });
+    panel(withMatch({ bench: benchPlayers }));
+    await userEvent.click((await screen.findAllByRole("button", { name: /Substituição/ }))[0]);
+    const modal = screen.getByRole("dialog", { name: "Substituição do Time A" });
+
+    await userEvent.click(within(modal).getByRole("button", { name: /A Ala/ }));
+    await userEvent.click(within(modal).getByRole("button", { name: /A Fixo/ }));
+    await userEvent.click(within(modal).getByRole("button", { name: /C Ala/ }));
+    await userEvent.click(within(modal).getByRole("button", { name: /Reserva Um/ }));
+    await userEvent.click(within(modal).getByRole("button", { name: "Confirmar substituição" }));
+
+    expect(await screen.findByText("Substituições efetuadas.")).toBeInTheDocument();
+    expect(screen.queryByText(/Entrou|Entraram/)).toBeNull();
+    expect(fetchCallsTo("POST", "/api/matches/m2/substitutions")).toHaveLength(1);
+    expect(fetchCallsTo("POST", "/api/matches/m2/substitutions")[0].body).toEqual({
+      teamId: "tA",
+      swaps: [
+        { outUserId: "a2", inUserId: "c1" },
+        { outUserId: "a3", inUserId: "r1" },
+      ],
+      permanent: false,
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Desfazer" }));
+    expect(await screen.findByText("Substituições desfeitas.")).toBeInTheDocument();
+    expect(fetchCallsTo("DELETE", "/api/matches/m2/substitutions").map((call) => call.url)).toEqual([
+      "/api/matches/m2/substitutions?ids=s1,s2",
+    ]);
   });
 
   it("erro do servidor aparece e o modal continua aberto", async () => {
@@ -314,9 +346,9 @@ describe("SubstitutionModal", () => {
     await screen.findByText("Reservas");
     await pickOut("A Ala");
     await userEvent.click(screen.getByRole("button", { name: /Reserva Um/ }));
-    expect(screen.getByRole("radio", { name: /Só nesta partida/ })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: /Temporária/ })).toHaveAttribute("aria-checked", "true");
     await userEvent.click(screen.getByRole("button", { name: "Confirmar substituição" }));
-    expect(onConfirm).toHaveBeenCalledWith({ outUserId: "a2", inUserId: "r1", permanent: false });
+    expect(onConfirm).toHaveBeenCalledWith({ swaps: [{ outUserId: "a2", inUserId: "r1" }], permanent: false });
   });
 
   it("troca ate o fim da pelada quando permitida", async () => {
@@ -326,7 +358,154 @@ describe("SubstitutionModal", () => {
     await userEvent.click(screen.getByRole("button", { name: /Reserva Um/ }));
     await userEvent.click(screen.getByRole("radio", { name: /Até o fim da pelada/ }));
     await userEvent.click(screen.getByRole("button", { name: "Confirmar substituição" }));
-    expect(onConfirm).toHaveBeenCalledWith({ outUserId: "a2", inUserId: "r1", permanent: true });
+    expect(onConfirm).toHaveBeenCalledWith({ swaps: [{ outUserId: "a2", inUserId: "r1" }], permanent: true });
+  });
+
+  describe("varios jogadores de uma vez", () => {
+    const players = [
+      bench({ userId: "r1", name: "Reserva Um" }),
+      bench({ userId: "r2", name: "Reserva Dois" }),
+      bench({ userId: "r3", name: "Reserva Tres" }),
+    ];
+    const click = (name: string) => userEvent.click(screen.getByRole("button", { name: new RegExp(name) }));
+    const confirm = () => screen.getByRole("button", { name: "Confirmar substituição" });
+    const summary = () => screen.getAllByRole("list").map((list) => within(list).getAllByRole("listitem").map((item) => item.textContent));
+
+    it("os pares seguem a ordem em que cada lado foi escolhido", async () => {
+      const { onConfirm } = render(players);
+      await screen.findByText("Reservas");
+      await click("A Fixo");
+      await click("A Ala");
+      await click("Reserva Dois");
+      await click("Reserva Um");
+      expect(confirm()).toBeEnabled();
+      expect(summary()).toEqual([
+        ["1A Fixo", "2A Ala"],
+        ["1Reserva Dois", "2Reserva Um"],
+      ]);
+
+      await userEvent.click(confirm());
+      expect(onConfirm).toHaveBeenCalledWith({
+        swaps: [
+          { outUserId: "a3", inUserId: "r2" },
+          { outUserId: "a2", inUserId: "r1" },
+        ],
+        permanent: false,
+      });
+    });
+
+    it("tres de uma vez, com o goleiro", async () => {
+      const { onConfirm } = render(players);
+      await screen.findByText("Reservas");
+      for (const name of ["A Goleiro", "A Ala", "A Fixo", "Reserva Um", "Reserva Dois", "Reserva Tres"]) await click(name);
+      await userEvent.click(confirm());
+      expect(onConfirm).toHaveBeenCalledWith({
+        swaps: [
+          { outUserId: "a1", inUserId: "r1" },
+          { outUserId: "a2", inUserId: "r2" },
+          { outUserId: "a3", inUserId: "r3" },
+        ],
+        permanent: false,
+      });
+    });
+
+    it("so confirma com o mesmo numero dos dois lados e avisa o que falta", async () => {
+      render(players);
+      await screen.findByText("Reservas");
+      expect(screen.queryByText(/Escolha mais/)).toBeNull();
+
+      await click("A Ala");
+      expect(confirm()).toBeDisabled();
+      expect(screen.getByText("Escolha mais 1 jogador para entrar.")).toBeInTheDocument();
+      expect(summary()[0]).toEqual(["A Ala"]);
+
+      await click("A Fixo");
+      await click("Reserva Um");
+      expect(confirm()).toBeDisabled();
+      expect(screen.getByText("Escolha mais 1 jogador para entrar.")).toBeInTheDocument();
+      // com dois de um lado, o unico do outro mostra o numero do par
+      expect(summary()).toEqual([["1A Ala", "2A Fixo"], ["1Reserva Um"]]);
+
+      await click("Reserva Dois");
+      expect(confirm()).toBeEnabled();
+      expect(screen.queryByText(/Escolha mais/)).toBeNull();
+
+      await click("Reserva Tres");
+      expect(confirm()).toBeDisabled();
+      expect(screen.getByText("Escolha mais 1 jogador para sair.")).toBeInTheDocument();
+
+      await click("A Goleiro");
+      expect(confirm()).toBeEnabled();
+    });
+
+    it("tocar de novo em quem foi escolhido desmarca, dos dois lados", async () => {
+      const { onConfirm } = render(players);
+      await screen.findByText("Reservas");
+      const row = (name: string) => screen.getByRole("button", { name: new RegExp(name) });
+
+      await click("A Ala");
+      await click("A Fixo");
+      await click("Reserva Um");
+      expect(row("A Ala")).toHaveAttribute("aria-pressed", "true");
+
+      await click("A Ala");
+      expect(row("A Ala")).toHaveAttribute("aria-pressed", "false");
+      expect(summary()[0]).toEqual(["A Fixo"]);
+      expect(confirm()).toBeEnabled();
+
+      await click("Reserva Um");
+      expect(row("Reserva Um")).toHaveAttribute("aria-pressed", "false");
+      expect(confirm()).toBeDisabled();
+
+      await click("Reserva Dois");
+      await userEvent.click(confirm());
+      expect(onConfirm).toHaveBeenCalledWith({ swaps: [{ outUserId: "a3", inUserId: "r2" }], permanent: false });
+    });
+
+    it("a escolha 'ate o fim da pelada' vale para todos e fica indisponivel se um par nao puder", async () => {
+      const { onConfirm } = render([
+        bench({ userId: "r1", name: "Reserva Um" }),
+        bench({ userId: "l1", name: "Saiu Antes", origin: "LEFT_MATCH", leftTeamId: "tA", rosterTeamId: "tA" }),
+      ]);
+      await screen.findByText("Reservas");
+      const permanentOption = () => screen.getByRole("radio", { name: /Até o fim da pelada/ });
+
+      await click("A Ala");
+      await click("Reserva Um");
+      await userEvent.click(permanentOption());
+      expect(permanentOption()).toHaveAttribute("aria-checked", "true");
+
+      // O 2o par volta alguem que ja e do elenco: nenhum dos dois pode ser permanente.
+      await click("A Fixo");
+      await click("Saiu Antes");
+      expect(permanentOption()).toBeDisabled();
+      expect(screen.getByRole("radio", { name: /Temporária/ })).toHaveAttribute("aria-checked", "true");
+      expect(screen.getByText("A Fixo por Saiu Antes: Quem entra já é do elenco fixo deste time.")).toBeInTheDocument();
+
+      await userEvent.click(confirm());
+      expect(onConfirm).toHaveBeenCalledWith({
+        swaps: [
+          { outUserId: "a2", inUserId: "r1" },
+          { outUserId: "a3", inUserId: "l1" },
+        ],
+        permanent: false,
+      });
+    });
+
+    it("com os dois pares permitidos, 'ate o fim da pelada' vale para os dois", async () => {
+      const { onConfirm } = render(players);
+      await screen.findByText("Reservas");
+      for (const name of ["A Ala", "A Fixo", "Reserva Um", "Reserva Dois"]) await click(name);
+      await userEvent.click(screen.getByRole("radio", { name: /Até o fim da pelada/ }));
+      await userEvent.click(confirm());
+      expect(onConfirm).toHaveBeenCalledWith({
+        swaps: [
+          { outUserId: "a2", inUserId: "r1" },
+          { outUserId: "a3", inUserId: "r2" },
+        ],
+        permanent: true,
+      });
+    });
   });
 
   it("cancelar e ocupado", async () => {

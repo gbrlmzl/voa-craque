@@ -85,8 +85,8 @@ describe("deleteScheduledMatch e undoMatchEvent", () => {
     const match = await currentMatch(gameDay.id);
     const reserve = await prisma.gameDayReserve.findFirstOrThrow({ where: { gameDayId: gameDay.id } });
     const out = match.homeTeam.players[0].userId;
-    const { recordSubstitution } = await import("@/services/match");
-    await recordSubstitution(match.id, { teamId: match.homeTeamId, outUserId: out, inUserId: reserve.userId, permanent: true }, toCurrentUser(admin));
+    const { recordSubstitutions } = await import("@/services/match");
+    await recordSubstitutions(match.id, { teamId: match.homeTeamId, swaps: [{ outUserId: out, inUserId: reserve.userId }], permanent: true }, toCurrentUser(admin));
     expect(await prisma.teamPlayer.count({ where: { teamId: match.homeTeamId, userId: reserve.userId } })).toBe(1);
 
     await prisma.$transaction((tx) => deleteScheduledMatch(tx, gameDay.id, match.id));

@@ -164,12 +164,39 @@ export const matchEventSchema = z.object({
 
 // "quem sai e quem entra sao a mesma pessoa" e as demais regras da troca ficam em
 // lib/substitution.ts, para o servidor responder 400 com mensagem clara.
-export const substitutionSchema = z.object({
-  teamId: z.string().min(1),
+// `?ids=a,b,c`: as trocas de um lote, para desfazer todas de uma vez.
+export const substitutionIdsSchema = z
+  .string()
+  .transform((value) => value.split(",").filter(Boolean))
+  .pipe(z.array(z.string().min(1)).min(1).max(10));
+
+const substitutionSwapSchema = z.object({
   outUserId: z.string().min(1),
   inUserId: z.string().min(1),
-  permanent: z.boolean().default(false),
 });
+
+// Varias trocas de uma vez ({ swaps }) ou a troca simples ({ outUserId, inUserId }),
+// que vira um lote de um par. Quem esta com a tela aberta durante um deploy continua
+// conseguindo confirmar.
+export const substitutionSchema = z
+  .union([
+    z.object({
+      teamId: z.string().min(1),
+      swaps: z.array(substitutionSwapSchema).min(1).max(10),
+      permanent: z.boolean().default(false),
+    }),
+    z
+      .object({
+        teamId: z.string().min(1),
+        outUserId: z.string().min(1),
+        inUserId: z.string().min(1),
+        permanent: z.boolean().default(false),
+      })
+      .transform(({ outUserId, inUserId, ...rest }) => ({
+        ...rest,
+        swaps: [{ outUserId, inUserId }],
+      })),
+  ]);
 
 export const systemSettingsSchema = z.object({
   publicAccessEnabled: z.boolean(),
