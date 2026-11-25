@@ -7,15 +7,18 @@ import {
   buildMatchFeed,
   eligibleBench,
   evaluateSubstitution,
+  evaluateSubstitutionBatch,
   groupBench,
   latestSubstitution,
   permanentBlocker,
   planLineupChange,
   planUndo,
+  sortNewestFirst,
   swapRoster,
   type LineupPlayer,
   type SubstitutionInput,
   type SubstitutionPlan,
+  type SubstitutionSwap,
   type SubstitutionSummary,
   type SubstitutionView,
   type TeamRoster,
@@ -294,6 +297,128 @@ describe("entradas invalidas", () => {
   });
 });
 
+describe("varias trocas de uma vez", () => {
+  const view = viewOf(startingLineup());
+  const batch = (swaps: SubstitutionSwap[], permanent = false, current = view) =>
+    evaluateSubstitutionBatch(current, { teamId: "C", swaps, permanent });
+  const errorOf = (result: ReturnType<typeof batch>) => (result.ok ? null : result.error);
+
+  it("um par so da o mesmo plano da troca simples", () => {
+    const single = evaluateSubstitution(view, input());
+    const result = batch([{ outUserId: "bruno", inUserId: "caio" }]);
+    expect(result.ok && single.ok && result.plans).toEqual([single.ok && single.plan]);
+  });
+
+  it("dois pares viram dois planos, na ordem: do time da fila e das reservas", () => {
+    const result = batch([
+      { outUserId: "bruno", inUserId: "caio" },
+      { outUserId: "cleber", inUserId: "edu" },
+    ]);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.plans).toEqual([
+      { teamId: "C", outUserId: "bruno", inUserId: "caio", permanent: false, fromTeamId: "E", reentry: false },
+      { teamId: "C", outUserId: "cleber", inUserId: "edu", permanent: false, fromTeamId: null, reentry: false },
+    ]);
+  });
+
+  it("tres pares, incluindo o goleiro, sao aceitos", () => {
+    const result = batch([
+      { outUserId: "cesar", inUserId: "dida" },
+      { outUserId: "bruno", inUserId: "dani" },
+      { outUserId: "cleber", inUserId: "fabio" },
+    ]);
+    expect(result.ok && result.plans.map((plan) => plan.inUserId)).toEqual(["dida", "dani", "fabio"]);
+  });
+
+  it("sem pares nao ha troca", () => {
+    expect(errorOf(batch([]))).toBe("Escolha quem sai e quem entra.");
+  });
+
+  it("o mesmo jogador nao sai nem entra duas vezes", () => {
+    expect(
+      errorOf(
+        batch([
+          { outUserId: "bruno", inUserId: "caio" },
+          { outUserId: "bruno", inUserId: "edu" },
+        ]),
+      ),
+    ).toBe("O mesmo jogador não pode sair duas vezes.");
+    expect(
+      errorOf(
+        batch([
+          { outUserId: "bruno", inUserId: "caio" },
+          { outUserId: "cleber", inUserId: "caio" },
+        ]),
+      ),
+    ).toBe("O mesmo jogador não pode entrar duas vezes.");
+  });
+
+  it("quem entra num par nao pode sair em outro", () => {
+    expect(
+      errorOf(
+        batch([
+          { outUserId: "bruno", inUserId: "caio" },
+          { outUserId: "caio", inUserId: "edu" },
+        ]),
+      ),
+    ).toBe("Quem sai não está em quadra por este time.");
+  });
+
+  it("um par invalido recusa o lote inteiro, com o motivo dele", () => {
+    expect(
+      errorOf(
+        batch([
+          { outUserId: "bruno", inUserId: "caio" },
+          { outUserId: "cleber", inUserId: "alan" },
+        ]),
+      ),
+    ).toBe("Quem entra já está em quadra.");
+    expect(
+      errorOf(
+        batch([
+          { outUserId: "bruno", inUserId: "fantasma" },
+          { outUserId: "cleber", inUserId: "edu" },
+        ]),
+      ),
+    ).toBe("Este jogador não está disponível para entrar.");
+  });
+
+  it("a duracao vale para todos: um par que nao pode ser permanente barra o lote", () => {
+    const ok = batch(
+      [
+        { outUserId: "bruno", inUserId: "caio" },
+        { outUserId: "cleber", inUserId: "edu" },
+      ],
+      true,
+    );
+    expect(ok.ok && ok.plans.every((plan) => plan.permanent)).toBe(true);
+
+    // Cleber saiu para Caio e agora volta: ja e do elenco de C, entao nao troca o elenco.
+    const after = viewOf(substitute(startingLineup(), { outUserId: "cleber", inUserId: "caio" }).lineup);
+    expect(
+      errorOf(
+        batch(
+          [
+            { outUserId: "bruno", inUserId: "edu" },
+            { outUserId: "cesar", inUserId: "cleber" },
+          ],
+          true,
+          after,
+        ),
+      ),
+    ).toBe(PERMANENT_BLOCKED_IN_ROSTER);
+    const temporary = batch(
+      [
+        { outUserId: "bruno", inUserId: "edu" },
+        { outUserId: "cesar", inUserId: "cleber" },
+      ],
+      false,
+      after,
+    );
+    expect(temporary.ok && temporary.plans.map((plan) => plan.reentry)).toEqual([false, true]);
+  });
+});
+
 describe("troca permanente permitida", () => {
   it("so quando quem sai e do elenco e quem entra nao e", () => {
     const view = viewOf(startingLineup());
@@ -446,6 +571,18 @@ describe("desfazer", () => {
     expect(
       latestSubstitution([sub("a", "x", "y", 5), sub("b", "x", "z", 5)])?.id,
     ).toBe("b");
+  });
+
+  it("ordena da mais recente para a mais antiga sem alterar a lista recebida", () => {
+    const first = sub("s1", "bruno", "caio", 0);
+    const second = sub("s2", "cleber", "eder", 1000);
+    const tieA = sub("a", "x", "y", 5000);
+    const tieB = sub("b", "x", "z", 5000);
+    const list = [first, tieA, second, tieB];
+
+    expect(sortNewestFirst(list).map((item) => item.id)).toEqual(["b", "a", "s2", "s1"]);
+    expect(list.map((item) => item.id)).toEqual(["s1", "a", "s2", "b"]);
+    expect(sortNewestFirst([])).toEqual([]);
   });
 
   it("so a mais recente da partida pode ser desfeita", () => {

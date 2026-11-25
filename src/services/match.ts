@@ -23,11 +23,12 @@ import {
 import {
   averageStrength,
   buildBench,
-  evaluateSubstitution,
+  evaluateSubstitutionBatch,
   planLineupChange,
   planUndo,
+  sortNewestFirst,
   swapRoster,
-  type SubstitutionInput,
+  type SubstitutionBatchInput,
   type SubstitutionPlan,
   type SubstitutionView,
   type TeamRoster,
@@ -763,14 +764,16 @@ async function applyPermanentSwap(
 }
 
 /**
- * Substituicao em quadra. A partida nao pausa: no futsal a troca e volante. O
- * tempo decorrido sai do relogio do servidor no momento da confirmacao.
+ * Substituicao em quadra de um ou varios jogadores do mesmo time. A partida nao
+ * pausa: no futsal a troca e volante. O tempo decorrido sai do relogio do
+ * servidor no momento da confirmacao. Os pares valem juntos: se um falhar,
+ * nenhum e aplicado. Devolve os ids na ordem dos pares.
  */
-export async function recordSubstitution(
+export async function recordSubstitutions(
   matchId: string,
-  input: SubstitutionInput,
+  input: SubstitutionBatchInput,
   actor: CurrentUser,
-): Promise<{ substitutionId: string }> {
+): Promise<{ substitutionIds: string[] }> {
   const initial = await loadMatch(matchId);
 
   return withLock(`clock:${initial.gameDayId}`, async () => {
@@ -788,76 +791,86 @@ export async function recordSubstitution(
       if (match.status === "FINISHED") throw conflict("A partida já foi encerrada.");
       if (match.gameDay.status === "FINISHED") throw conflict("A pelada já foi encerrada.");
 
-      const { view, lineup, teams, reserves } = await loadSubstitutionState(tx, match);
-      const result = evaluateSubstitution(view, input);
+      let state = await loadSubstitutionState(tx, match);
+      const result = evaluateSubstitutionBatch(state.view, input);
       if (!result.ok) throw badRequest(result.error);
-      const { plan } = result;
 
-      const change = planLineupChange(lineup, plan);
-      await tx.matchPlayer.updateMany({
-        where: { matchId, userId: change.deactivate },
-        data: { onCourt: false },
-      });
-      if (change.activate.kind === "reactivate") {
+      const substitutions = [];
+      for (const [index, plan] of result.plans.entries()) {
+        // A troca permanente de um par muda os elencos e a escalacao que o
+        // proximo par le, entao o estado e relido entre um par e outro.
+        if (index > 0) state = await loadSubstitutionState(tx, match);
+        const { lineup, teams, reserves } = state;
+
+        const change = planLineupChange(lineup, plan);
         await tx.matchPlayer.updateMany({
-          where: { matchId, userId: change.activate.userId },
-          data: { onCourt: true },
+          where: { matchId, userId: change.deactivate },
+          data: { onCourt: false },
         });
-      } else {
-        await tx.matchPlayer.create({ data: { matchId, ...change.activate.row } });
+        if (change.activate.kind === "reactivate") {
+          await tx.matchPlayer.updateMany({
+            where: { matchId, userId: change.activate.userId },
+            data: { onCourt: true },
+          });
+        } else {
+          await tx.matchPlayer.create({ data: { matchId, ...change.activate.row } });
+        }
+
+        const rosterBefore = plan.permanent
+          ? await applyPermanentSwap(
+              tx,
+              match.gameDayId,
+              plan,
+              teams,
+              reserves,
+              poolStrength?.get(plan.inUserId) ?? null,
+            )
+          : null;
+
+        substitutions.push(
+          await tx.matchSubstitution.create({
+            data: {
+              matchId,
+              teamId: plan.teamId,
+              outUserId: plan.outUserId,
+              inUserId: plan.inUserId,
+              fromTeamId: plan.fromTeamId,
+              permanent: plan.permanent,
+              elapsedMs: elapsedAt(clockOf(match), now),
+              rosterBefore: rosterBefore ? (rosterBefore as unknown as Prisma.InputJsonValue) : undefined,
+              createdById: actor.id,
+            },
+            include: {
+              team: { select: { name: true } },
+              outUser: NAME_SELECT,
+              inUser: NAME_SELECT,
+            },
+          }),
+        );
       }
+      return { substitutions, gameDayId: match.gameDayId, orderIndex: match.orderIndex };
+    });
 
-      const rosterBefore = plan.permanent
-        ? await applyPermanentSwap(
-            tx,
-            match.gameDayId,
-            plan,
-            teams,
-            reserves,
-            poolStrength?.get(plan.inUserId) ?? null,
-          )
-        : null;
-
-      const substitution = await tx.matchSubstitution.create({
-        data: {
+    for (const substitution of created.substitutions) {
+      await recordAudit(actor, {
+        action: AUDIT_ACTIONS.MATCH_SUBSTITUTION,
+        entity: "MatchSubstitution",
+        entityId: substitution.id,
+        summary: `Partida ${created.orderIndex}: entra ${playerLabel(substitution.inUser)}, sai ${playerLabel(substitution.outUser)} (time ${substitution.team.name})`,
+        after: {
           matchId,
-          teamId: plan.teamId,
-          outUserId: plan.outUserId,
-          inUserId: plan.inUserId,
-          fromTeamId: plan.fromTeamId,
-          permanent: plan.permanent,
-          elapsedMs: elapsedAt(clockOf(match), now),
-          rosterBefore: rosterBefore ? (rosterBefore as unknown as Prisma.InputJsonValue) : undefined,
-          createdById: actor.id,
-        },
-        include: {
-          team: { select: { name: true } },
-          outUser: NAME_SELECT,
-          inUser: NAME_SELECT,
+          teamId: substitution.teamId,
+          outUserId: substitution.outUserId,
+          inUserId: substitution.inUserId,
+          fromTeamId: substitution.fromTeamId,
+          permanent: substitution.permanent,
+          elapsedMs: substitution.elapsedMs,
         },
       });
-      return { substitution, gameDayId: match.gameDayId, orderIndex: match.orderIndex };
-    });
-
-    const { substitution } = created;
-    await recordAudit(actor, {
-      action: AUDIT_ACTIONS.MATCH_SUBSTITUTION,
-      entity: "MatchSubstitution",
-      entityId: substitution.id,
-      summary: `Partida ${created.orderIndex}: entra ${playerLabel(substitution.inUser)}, sai ${playerLabel(substitution.outUser)} (time ${substitution.team.name})`,
-      after: {
-        matchId,
-        teamId: substitution.teamId,
-        outUserId: substitution.outUserId,
-        inUserId: substitution.inUserId,
-        fromTeamId: substitution.fromTeamId,
-        permanent: substitution.permanent,
-        elapsedMs: substitution.elapsedMs,
-      },
-    });
+    }
     publishGameDay(created.gameDayId, "substitution");
 
-    return { substitutionId: substitution.id };
+    return { substitutionIds: created.substitutions.map((substitution) => substitution.id) };
   });
 }
 
@@ -886,80 +899,99 @@ export async function undoSubstitution(
   substitutionId: string,
   actor: CurrentUser,
 ): Promise<void> {
+  await undoSubstitutions(matchId, [substitutionId], actor);
+}
+
+/**
+ * Desfaz as trocas de um lote (o "Desfazer" depois de trocar varios jogadores de
+ * uma vez). Vao da mais recente para a mais antiga, cada uma com a regra da troca
+ * simples: so desfaz a ultima que sobrou e so se quem entrou nao tem lance depois
+ * dela. Se alguma nao puder ser desfeita, nenhuma e.
+ */
+export async function undoSubstitutions(
+  matchId: string,
+  substitutionIds: string[],
+  actor: CurrentUser,
+): Promise<void> {
   const initial = await loadMatch(matchId);
+  const ids = [...new Set(substitutionIds)];
 
   await withLock(`clock:${initial.gameDayId}`, async () => {
     const undone = await prisma.$transaction(async (tx) => {
       const match = await tx.match.findUnique({ where: { id: matchId }, include: { gameDay: true } });
       if (!match) throw notFound("Partida não encontrada.");
 
-      const substitution = await tx.matchSubstitution.findUnique({
-        where: { id: substitutionId },
+      const rows = await tx.matchSubstitution.findMany({
+        where: { id: { in: ids }, matchId },
         include: { team: { select: { name: true } }, outUser: NAME_SELECT, inUser: NAME_SELECT },
       });
-      if (!substitution || substitution.matchId !== matchId) {
+      if (ids.length === 0 || rows.length !== ids.length) {
         throw notFound("Substituição não encontrada.");
       }
       if (match.status === "FINISHED") throw conflict("A partida já foi encerrada.");
       if (match.gameDay.status === "FINISHED") throw conflict("A pelada já foi encerrada.");
 
-      const all = await tx.matchSubstitution.findMany({ where: { matchId } });
-      const lineup = await tx.matchPlayer.findMany({ where: { matchId } });
-      const events = await tx.matchEvent.findMany({
-        where: { matchId, userId: substitution.inUserId },
-        select: { userId: true, createdAt: true },
-      });
-
-      const plan = planUndo({
-        target: summarize(substitution),
-        substitutions: all.map(summarize),
-        lineup,
-        events: events.map((event) => ({ userId: event.userId, createdAt: event.createdAt.getTime() })),
-      });
-      if (plan.kind === "NOT_LATEST") {
-        throw conflict("Só dá para desfazer a última substituição da partida.");
-      }
-      if (plan.kind === "BLOCKED") {
-        throw conflict(`Desfaça antes o lance de ${playerLabel(substitution.inUser)}.`);
-      }
-
-      await tx.matchPlayer.updateMany({
-        where: { matchId, userId: substitution.outUserId },
-        data: { onCourt: true },
-      });
-      if (plan.inFate === "DELETE") {
-        await tx.matchPlayer.deleteMany({ where: { matchId, userId: substitution.inUserId } });
-      } else {
-        await tx.matchPlayer.updateMany({
+      const targets = sortNewestFirst(rows.map((row) => ({ ...summarize(row), row })));
+      for (const { row: substitution } of targets) {
+        const all = await tx.matchSubstitution.findMany({ where: { matchId } });
+        const lineup = await tx.matchPlayer.findMany({ where: { matchId } });
+        const events = await tx.matchEvent.findMany({
           where: { matchId, userId: substitution.inUserId },
-          data: { onCourt: false },
+          select: { userId: true, createdAt: true },
         });
+
+        const plan = planUndo({
+          target: summarize(substitution),
+          substitutions: all.map(summarize),
+          lineup,
+          events: events.map((event) => ({ userId: event.userId, createdAt: event.createdAt.getTime() })),
+        });
+        if (plan.kind === "NOT_LATEST") {
+          throw conflict("Só dá para desfazer a última substituição da partida.");
+        }
+        if (plan.kind === "BLOCKED") {
+          throw conflict(`Desfaça antes o lance de ${playerLabel(substitution.inUser)}.`);
+        }
+
+        await tx.matchPlayer.updateMany({
+          where: { matchId, userId: substitution.outUserId },
+          data: { onCourt: true },
+        });
+        if (plan.inFate === "DELETE") {
+          await tx.matchPlayer.deleteMany({ where: { matchId, userId: substitution.inUserId } });
+        } else {
+          await tx.matchPlayer.updateMany({
+            where: { matchId, userId: substitution.inUserId },
+            data: { onCourt: false },
+          });
+        }
+
+        if (substitution.permanent) {
+          await restoreRoster(tx, match.gameDayId, substitution);
+        }
+        await tx.matchSubstitution.delete({ where: { id: substitution.id } });
       }
 
-      if (substitution.permanent) {
-        await restoreRoster(tx, match.gameDayId, substitution);
-      }
-      await tx.matchSubstitution.delete({ where: { id: substitutionId } });
-
-      return { substitution, gameDayId: match.gameDayId, orderIndex: match.orderIndex };
+      return { substitutions: targets.map(({ row }) => row), gameDayId: match.gameDayId, orderIndex: match.orderIndex };
     });
 
-    const { substitution } = undone;
-    await recordAudit(actor, {
-      action: AUDIT_ACTIONS.MATCH_SUBSTITUTION_UNDONE,
-      entity: "MatchSubstitution",
-      entityId: substitutionId,
-      summary: `Partida ${undone.orderIndex}, desfeito: entrada de ${playerLabel(substitution.inUser)}, saída de ${playerLabel(substitution.outUser)} (time ${substitution.team.name})`,
-      before: {
-        matchId,
-        teamId: substitution.teamId,
-        outUserId: substitution.outUserId,
-        inUserId: substitution.inUserId,
-        fromTeamId: substitution.fromTeamId,
-        permanent: substitution.permanent,
-        elapsedMs: substitution.elapsedMs,
-      },
-    });
+    for (const substitution of undone.substitutions) {
+      await recordAudit(actor, {
+        action: AUDIT_ACTIONS.MATCH_SUBSTITUTION_UNDONE,
+        entity: "MatchSubstitution",
+        entityId: substitution.id,
+        summary: `Partida ${undone.orderIndex}, desfeito: entrada de ${playerLabel(substitution.inUser)}, saída de ${playerLabel(substitution.outUser)} (time ${substitution.team.name})`,
+        before: {
+          matchId,
+          teamId: substitution.teamId,
+          outUserId: substitution.outUserId,
+          inUserId: substitution.inUserId,
+          fromTeamId: substitution.fromTeamId,
+          permanent: substitution.permanent,
+          elapsedMs: substitution.elapsedMs,
+        },
+      });
+    }
     publishGameDay(undone.gameDayId, "substitution-undone");
   });
 }

@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/providers/ToastProvider";
+import type { SubstitutionSwap } from "@/lib/substitution";
 import type { LivePlayer, LiveSnapshot, LiveTeam } from "@/services/live";
 import { useCountdown, useLive } from "@/hooks/useLive";
 
 type Pending = { eventId: string; assistEventId: string | null; matchId: string };
 export type PendingGoal = { team: LiveTeam; player: LivePlayer };
 export type PendingSubstitution = { team: LiveTeam };
-type SubstitutionChoice = { outUserId: string; inUserId: string; permanent: boolean };
+type SubstitutionChoice = { swaps: SubstitutionSwap[]; permanent: boolean };
 
 export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
   const router = useRouter();
@@ -116,11 +117,12 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
     });
   }
 
-  async function undoSubstitution(matchId: string, substitutionId: string) {
+  /** Desfaz o lote inteiro: com varios jogadores trocados de uma vez, ou todos voltam ou nenhum. */
+  async function undoSubstitutions(matchId: string, substitutionIds: string[]) {
     await call(
-      `/api/matches/${matchId}/substitutions/${substitutionId}`,
+      `/api/matches/${matchId}/substitutions?ids=${substitutionIds.map(encodeURIComponent).join(",")}`,
       { method: "DELETE" },
-      "Substituição desfeita.",
+      substitutionIds.length > 1 ? "Substituições desfeitas." : "Substituição desfeita.",
     );
   }
 
@@ -134,8 +136,10 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
     if (!match || !pendingSubstitution) return;
     const matchId = match.id;
     const { team } = pendingSubstitution;
-    const outName = team.players.find((player) => player.userId === choice.outUserId)?.name ?? "?";
-    const inName = match.bench.find((player) => player.userId === choice.inUserId)?.name ?? "?";
+    // Os nomes saem do estado de antes da troca: depois do refresh quem entrou deixa de estar no banco.
+    const [swap] = choice.swaps;
+    const outName = team.players.find((player) => player.userId === swap.outUserId)?.name ?? "?";
+    const inName = match.bench.find((player) => player.userId === swap.inUserId)?.name ?? "?";
 
     // O modal fecha assim que o servidor aceita, antes do refresh do snapshot, para
     // nao piscar com a selecao ja invalida. Em caso de erro ele continua aberto.
@@ -149,14 +153,16 @@ export function useLivePanel(gameDayId: string, initial: LiveSnapshot) {
       undefined,
       () => setSubstitutionOf(null),
     );
-    if (!body?.substitutionId) return;
+    const substitutionIds = Array.isArray(body?.substitutionIds) ? body.substitutionIds.map(String) : [];
+    if (substitutionIds.length === 0) return;
 
     toast.show({
-      message: `Entrou ${inName}, saiu ${outName}`,
+      // Uma troca diz quem entrou e quem saiu; varias, so que foram feitas.
+      message: choice.swaps.length === 1 ? `Entrou ${inName}, saiu ${outName}` : "Substituições efetuadas.",
       tone: "success",
       durationMs: 4000,
       actionLabel: "Desfazer",
-      onAction: () => undoSubstitution(matchId, String(body.substitutionId)),
+      onAction: () => undoSubstitutions(matchId, substitutionIds),
     });
   }
 

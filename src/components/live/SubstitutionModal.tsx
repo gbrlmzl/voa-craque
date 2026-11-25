@@ -1,26 +1,34 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ArrowDown, ArrowUp, Check } from "lucide-react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { Avatar } from "@/components/Player";
 import { Button, Card, cn } from "@/components/ui";
 import { teamColor } from "@/lib/labels";
 import { useTeamName } from "@/components/providers/PreferencesProvider";
 import {
-  evaluateSubstitution,
+  evaluateSubstitutionBatch,
   groupBench,
   permanentBlocker,
+  type SubstitutionSwap,
   type SubstitutionView,
 } from "@/lib/substitution";
 import type { LiveBenchPlayer, LiveMatch, LivePlayer, LiveTeam } from "@/services/live";
 
-export type SubstitutionSelection = { outUserId: string; inUserId: string; permanent: boolean };
+export type SubstitutionSelection = { swaps: SubstitutionSwap[]; permanent: boolean };
+
+const countLabel = (count: number) => `${count} ${count === 1 ? "jogador" : "jogadores"}`;
+const toggle = (ids: string[], id: string) =>
+  ids.includes(id) ? ids.filter((current) => current !== id) : [...ids, id];
 
 /**
  * Placa de substituicao do futebol: quem sai em cima, quem entra embaixo. Nao
- * pausa a partida (a troca no futsal e volante). As regras vem de
- * lib/substitution.ts, as mesmas que o servidor aplica, entao o modal nunca
- * oferece uma troca que seria recusada.
+ * pausa a partida (a troca no futsal e volante). Da para trocar mais de um
+ * jogador de uma vez: quem sai e quem entra formam pares na ordem em que foram
+ * escolhidos (o 1o que sai com o 1o que entra) e so da para confirmar quando
+ * cada um que sai tem alguem entrando. Tocar de novo num escolhido desmarca. As
+ * regras vem de lib/substitution.ts, as mesmas que o servidor aplica, entao o
+ * modal nunca oferece uma troca que seria recusada.
  */
 export function SubstitutionModal({
   team,
@@ -38,16 +46,22 @@ export function SubstitutionModal({
   onCancel: () => void;
 }) {
   const teamName = useTeamName();
-  const [outId, setOutId] = useState<string | null>(null);
-  const [inId, setInId] = useState<string | null>(null);
+  const [outIds, setOutIds] = useState<string[]>([]);
+  const [inIds, setInIds] = useState<string[]>([]);
   const [wantsPermanent, setWantsPermanent] = useState(false);
 
   const groups = groupBench(match.bench, team.id, queue.map((entry) => entry.id));
   const queueNames = new Map(queue.map((entry) => [entry.id, entry.name]));
 
   // A selecao so vale enquanto o jogador continua na lista: a partida muda ao vivo.
-  const outPlayer = team.players.find((player) => player.userId === outId) ?? null;
-  const inPlayer = match.bench.find((player) => player.userId === inId) ?? null;
+  const outPlayers = outIds.flatMap((id) => team.players.find((player) => player.userId === id) ?? []);
+  const inPlayers = inIds.flatMap((id) => match.bench.find((player) => player.userId === id) ?? []);
+  const pairs = outPlayers
+    .slice(0, inPlayers.length)
+    .map((outPlayer, index) => ({ outPlayer, inPlayer: inPlayers[index] }));
+  const missing = outPlayers.length - inPlayers.length;
+  // O numero mostra quem troca com quem; so faz falta com mais de um jogador de algum lado.
+  const numbered = Math.max(outPlayers.length, inPlayers.length) > 1;
 
   const view: SubstitutionView = {
     homeTeamId: match.home.id,
@@ -59,25 +73,33 @@ export function SubstitutionModal({
     rosters: { [match.home.id]: match.home.roster, [match.away.id]: match.away.roster },
   };
 
-  const blocker =
-    outPlayer && inPlayer
-      ? permanentBlocker({
-          teamId: team.id,
-          teamRoster: team.roster,
-          outUserId: outPlayer.userId,
-          inPlayer,
-        })
-      : null;
+  // Uma escolha so para o lote: a troca de elenco so vale se todos os pares puderem.
+  const blocked = pairs
+    .map(({ outPlayer, inPlayer }) => ({
+      outPlayer,
+      inPlayer,
+      reason: permanentBlocker({
+        teamId: team.id,
+        teamRoster: team.roster,
+        outUserId: outPlayer.userId,
+        inPlayer,
+      }),
+    }))
+    .find((pair) => pair.reason);
+  const blocker = blocked
+    ? pairs.length > 1
+      ? `${blocked.outPlayer.name} por ${blocked.inPlayer.name}: ${blocked.reason}`
+      : blocked.reason
+    : null;
   const permanent = wantsPermanent && !blocker;
 
+  const swaps: SubstitutionSwap[] = pairs.map(({ outPlayer, inPlayer }) => ({
+    outUserId: outPlayer.userId,
+    inUserId: inPlayer.userId,
+  }));
   const check =
-    outPlayer && inPlayer
-      ? evaluateSubstitution(view, {
-          teamId: team.id,
-          outUserId: outPlayer.userId,
-          inUserId: inPlayer.userId,
-          permanent,
-        })
+    swaps.length > 0 && missing === 0
+      ? evaluateSubstitutionBatch(view, { teamId: team.id, swaps, permanent })
       : null;
   const canConfirm = !busy && check?.ok === true;
 
@@ -100,22 +122,20 @@ export function SubstitutionModal({
         </div>
 
         <div className="grid shrink-0 grid-cols-2 gap-2">
-          <div className="min-w-0 rounded-xl bg-rose-500/10 p-2 ring-1 ring-rose-500/30">
-            <p className="flex items-center gap-1 text-xs font-medium text-rose-300">
-              <ArrowDown size={14} aria-hidden /> Sai
-            </p>
-            <p className="mt-0.5 truncate text-sm font-semibold text-slate-100">
-              {outPlayer?.name ?? <span className="font-normal text-slate-500">—</span>}
-            </p>
-          </div>
-          <div className="min-w-0 rounded-xl bg-pitch-500/10 p-2 ring-1 ring-pitch-500/30">
-            <p className="flex items-center gap-1 text-xs font-medium text-pitch-300">
-              <ArrowUp size={14} aria-hidden /> Entra
-            </p>
-            <p className="mt-0.5 truncate text-sm font-semibold text-slate-100">
-              {inPlayer?.name ?? <span className="font-normal text-slate-500">—</span>}
-            </p>
-          </div>
+          <SummaryCard
+            tone="out"
+            title="Sai"
+            icon={<ArrowDown size={14} aria-hidden />}
+            players={outPlayers}
+            numbered={numbered}
+          />
+          <SummaryCard
+            tone="in"
+            title="Entra"
+            icon={<ArrowUp size={14} aria-hidden />}
+            players={inPlayers}
+            numbered={numbered}
+          />
         </div>
 
         <div className="-mx-1 grid min-h-0 flex-1 content-start gap-3 overflow-y-auto px-1">
@@ -125,10 +145,10 @@ export function SubstitutionModal({
               <PlayerRow
                 key={player.userId}
                 player={player}
-                selected={player.userId === outId}
+                order={orderOf(outPlayers, player.userId)}
                 tone="out"
                 disabled={busy}
-                onSelect={() => setOutId(player.userId)}
+                onSelect={() => setOutIds((ids) => toggle(ids, player.userId))}
                 detail={player.isKeeper ? "Goleiro" : undefined}
               />
             ))}
@@ -143,10 +163,10 @@ export function SubstitutionModal({
                   <PlayerRow
                     key={player.userId}
                     player={player}
-                    selected={player.userId === inId}
+                    order={orderOf(inPlayers, player.userId)}
                     tone="in"
                     disabled={busy}
-                    onSelect={() => setInId(player.userId)}
+                    onSelect={() => setInIds((ids) => toggle(ids, player.userId))}
                   />
                 ))}
               </BenchGroup>
@@ -166,10 +186,10 @@ export function SubstitutionModal({
                     <PlayerRow
                       key={player.userId}
                       player={player}
-                      selected={player.userId === inId}
+                      order={orderOf(inPlayers, player.userId)}
                       tone="in"
                       disabled={busy}
-                      onSelect={() => setInId(player.userId)}
+                      onSelect={() => setInIds((ids) => toggle(ids, player.userId))}
                     />
                   ))}
                 </BenchGroup>
@@ -182,10 +202,10 @@ export function SubstitutionModal({
                   <PlayerRow
                     key={player.userId}
                     player={player}
-                    selected={player.userId === inId}
+                    order={orderOf(inPlayers, player.userId)}
                     tone="in"
                     disabled={busy}
-                    onSelect={() => setInId(player.userId)}
+                    onSelect={() => setInIds((ids) => toggle(ids, player.userId))}
                   />
                 ))}
               </BenchGroup>
@@ -205,27 +225,32 @@ export function SubstitutionModal({
               checked={!permanent}
               disabled={busy}
               onSelect={() => setWantsPermanent(false)}
-              title="Só nesta partida"
-              hint="Na próxima, tudo volta ao normal"
+              title="Temporária"
+              //hint="Na próxima partida, o time volta a ser o mesmo"
             />
             <ModeOption
               checked={permanent}
               disabled={busy || !!blocker}
               onSelect={() => setWantsPermanent(true)}
               title="Até o fim da pelada"
-              hint="Troca de elenco"
+              //hint="Troca de elenco"
             />
           </div>
           {blocker ? <p className="text-xs text-slate-400">{blocker}</p> : null}
+          {missing !== 0 ? (
+            <p className="text-xs text-slate-400">
+              {missing > 0
+                ? `Escolha mais ${countLabel(missing)} para entrar.`
+                : `Escolha mais ${countLabel(-missing)} para sair.`}
+            </p>
+          ) : null}
           {check && !check.ok ? <p className="text-xs text-rose-300">{check.error}</p> : null}
 
           <Button
             size="lg"
             disabled={!canConfirm}
             onClick={() => {
-              if (outPlayer && inPlayer) {
-                onConfirm({ outUserId: outPlayer.userId, inUserId: inPlayer.userId, permanent });
-              }
+              if (check?.ok) onConfirm({ swaps, permanent });
             }}
           >
             Confirmar substituição
@@ -235,6 +260,71 @@ export function SubstitutionModal({
           </Button>
         </div>
       </Card>
+    </div>
+  );
+}
+
+/** Posicao (a partir de 1) na ordem em que o jogador foi escolhido; null se nao foi. */
+function orderOf(selected: { userId: string }[], userId: string): number | null {
+  const index = selected.findIndex((player) => player.userId === userId);
+  return index < 0 ? null : index + 1;
+}
+
+const TONE = {
+  out: { text: "text-rose-300", badge: "bg-rose-300", row: "bg-rose-500/15 ring-1 ring-rose-500/50" },
+  in: { text: "text-pitch-300", badge: "bg-pitch-300", row: "bg-pitch-500/15 ring-1 ring-pitch-500/50" },
+} as const;
+
+/** Numero do par: o 1 que sai troca com o 1 que entra. */
+function OrderBadge({ tone, order }: { tone: "in" | "out"; order: number }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "grid h-[18px] min-w-[18px] shrink-0 place-items-center rounded-full px-1 text-[11px] leading-none font-bold text-night-900",
+        TONE[tone].badge,
+      )}
+    >
+      {order}
+    </span>
+  );
+}
+
+function SummaryCard({
+  tone,
+  title,
+  icon,
+  players,
+  numbered,
+}: {
+  tone: "in" | "out";
+  title: string;
+  icon: ReactNode;
+  players: { userId: string; name: string }[];
+  numbered: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "min-w-0 rounded-xl p-2 ring-1",
+        tone === "out" ? "bg-rose-500/10 ring-rose-500/30" : "bg-pitch-500/10 ring-pitch-500/30",
+      )}
+    >
+      <p className={cn("flex items-center gap-1 text-xs font-medium", TONE[tone].text)}>
+        {icon} {title}
+      </p>
+      {players.length === 0 ? (
+        <p className="mt-0.5 truncate text-sm font-normal text-slate-500">—</p>
+      ) : (
+        <ol className="mt-0.5 grid gap-0.5">
+          {players.map((player, index) => (
+            <li key={player.userId} className="flex min-w-0 items-center gap-1.5">
+              {numbered ? <OrderBadge tone={tone} order={index + 1} /> : null}
+              <span className="truncate text-sm font-semibold text-slate-100">{player.name}</span>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }
@@ -272,14 +362,15 @@ function BenchGroup({
 
 function PlayerRow({
   player,
-  selected,
+  order,
   tone,
   disabled,
   onSelect,
   detail,
 }: {
   player: Pick<LivePlayer | LiveBenchPlayer, "userId" | "name" | "photoUrl">;
-  selected: boolean;
+  /** Posicao na escolha (1, 2, 3...), ou null quando o jogador nao esta escolhido. */
+  order: number | null;
   tone: "in" | "out";
   disabled: boolean;
   onSelect: () => void;
@@ -288,16 +379,12 @@ function PlayerRow({
   return (
     <button
       type="button"
-      aria-pressed={selected}
+      aria-pressed={order !== null}
       disabled={disabled}
       onClick={onSelect}
       className={cn(
         "touch-target flex w-full items-center gap-2.5 rounded-xl p-2 text-left transition-colors active:scale-[0.99] disabled:opacity-40",
-        selected
-          ? tone === "out"
-            ? "bg-rose-500/15 ring-1 ring-rose-500/50"
-            : "bg-pitch-500/15 ring-1 ring-pitch-500/50"
-          : "bg-night-800/60 hover:bg-night-800",
+        order !== null ? TONE[tone].row : "bg-night-800/60 hover:bg-night-800",
       )}
     >
       <Avatar name={player.name} photoUrl={player.photoUrl} size="sm" />
@@ -305,9 +392,7 @@ function PlayerRow({
         <span className="block truncate text-sm font-medium text-slate-100">{player.name}</span>
         {detail ? <span className="block text-[11px] text-slate-500">{detail}</span> : null}
       </span>
-      {selected ? (
-        <Check size={18} className={tone === "out" ? "text-rose-300" : "text-pitch-300"} aria-hidden />
-      ) : null}
+      {order !== null ? <OrderBadge tone={tone} order={order} /> : null}
     </button>
   );
 }
@@ -323,7 +408,7 @@ function ModeOption({
   disabled: boolean;
   onSelect: () => void;
   title: string;
-  hint: string;
+  hint?: string;
 }) {
   return (
     <button
@@ -339,8 +424,8 @@ function ModeOption({
           : "bg-night-800/60 ring-1 ring-white/10 hover:bg-night-800",
       )}
     >
-      <span className="block text-sm font-semibold text-slate-100">{title}</span>
-      <span className="block text-[11px] leading-tight text-slate-400">{hint}</span>
+      <span className="block text-center text-sm font-semibold text-slate-100">{title}</span>
+      <span className="block text-center text-[11px] leading-tight text-slate-400">{hint}</span>
     </button>
   );
 }
